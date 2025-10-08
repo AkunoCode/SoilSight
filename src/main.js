@@ -12,11 +12,14 @@ import App from './App.vue'
 
 // Composables
 import { createApp } from 'vue'
+import VueApexCharts from 'vue3-apexcharts'
 
 // Styles
 import 'unfonts.css'
 
 const app = createApp(App)
+app.use(VueApexCharts)
+app.component('apexchart', VueApexCharts)
 
 registerPlugins(app)
 

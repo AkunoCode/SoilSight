@@ -1,6 +1,9 @@
 <template>
   <v-app>
     <v-main>
+      <div class="overlay">
+        <PreviewCard title="Tayabas City" class="preview-card" />
+      </div>
       <div id="map"></div>
     </v-main>
   </v-app>
@@ -10,7 +13,6 @@
 import { onMounted } from "vue";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { VCardTitle } from "vuetify/components";
 
 onMounted(async () => {
   // Tayabas City coordinates (center)
@@ -53,5 +55,25 @@ onMounted(async () => {
   width: 100vw;
   position: absolute;
   z-index: 0;
+}
+
+.overlay {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  z-index: 1000;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  /* Allow clicks to pass through to the map */
+}
+
+.preview-card {
+  position: absolute;
+  bottom: 0px;
+  left: 2em;
+  z-index: 1001;
+  pointer-events: auto;
+  /* Re-enable interactions for the preview card */
 }
 </style>
