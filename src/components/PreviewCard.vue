@@ -1,20 +1,80 @@
 <script setup>
 import { tooltip } from "leaflet";
-import { ref } from "vue";
+import { ref, computed, watch } from "vue";
 import VueApexCharts from "vue3-apexcharts";
 
-defineProps({
-    title: { type: String, required: true },
-    subtitle: { type: String, required: false, default: "" }
+const props = defineProps({
+    title: { type: String, required: false, default: "SoilSight Analysis" },
+    subtitle: { type: String, required: false, default: "" },
+    item: { type: Object, required: false, default: null },
+    isOverview: { type: Boolean, required: false, default: true },
+    allFarmsData: { type: Array, required: false, default: () => [] }
 });
 
-const dummyData = {
-    fragments: 648000,
-    fibers: 405000,
-    foams: 324000,
-    films: 162000,
-    pellets: 81000
-};
+// Compute totals from all farms data
+const computeOverviewTotals = computed(() => {
+    if (props.allFarmsData.length === 0) {
+        // Fallback data if no farms data is available
+        return {
+            fragments: 648000,
+            fibers: 405000,
+            foams: 324000,
+            films: 162000,
+            pellets: 81000
+        };
+    }
+
+    // Sum up all the microplastic counts from all farms
+    const totals = props.allFarmsData.reduce((acc, farm) => {
+        acc.fragments += farm.fragment_count || 0;
+        acc.fibers += farm.fiber_count || 0;
+        acc.foams += farm.foam_count || 0;
+        acc.films += farm.film_count || 0;
+        acc.pellets += farm.beads_count || 0;
+        return acc;
+    }, { fragments: 0, fibers: 0, foams: 0, films: 0, pellets: 0 });
+
+    console.log("Computed overview totals from", props.allFarmsData.length, "farms:", totals);
+    return totals;
+});
+
+// Use actual data from the selected item or fall back to computed overview data
+const microplasticData = computed(() => {
+    if (props.item && !props.isOverview) {
+        // Use data from the selected farm site
+        return {
+            fragments: props.item.fragment_count || 0,
+            fibers: props.item.fiber_count || 0,
+            foams: props.item.foam_count || 0,
+            films: props.item.film_count || 0,
+            pellets: props.item.beads_count || 0 // Note: using beads_count for pellets
+        };
+    } else {
+        // Overview mode - use computed totals from all farms
+        return computeOverviewTotals.value;
+    }
+});
+
+// Computed title and subtitle based on mode
+const displayTitle = computed(() => {
+    if (props.item && !props.isOverview) {
+        return props.item.site_name || "Farm Site Analysis";
+    }
+    return props.title;
+});
+
+const displaySubtitle = computed(() => {
+    if (props.item && !props.isOverview) {
+        return `Owner: ${props.item.owner || "Unknown"} | ${props.item.cultivation_practice || "Unknown Practice"}`;
+    } else {
+        // Show total farms count and total area in overview mode
+        const farmCount = props.allFarmsData.length;
+        const totalArea = props.allFarmsData.reduce((sum, farm) => sum + (farm.land_area_ha || 0), 0);
+        return farmCount > 0
+            ? `${farmCount} Farms Analyzed | Total Area: ${totalArea.toFixed(2)} hectares`
+            : props.subtitle;
+    }
+});
 
 const barChartDummySeries = ref([
     {
@@ -47,15 +107,20 @@ const originalBarChartData = [
     }
 ];
 
-const total = Object.values(dummyData).reduce((a, b) => a + b, 0);
+const total = computed(() => Object.values(microplasticData.value).reduce((a, b) => a + b, 0));
 
-const percentages = {
-    fragments: Math.round((dummyData.fragments / total) * 100),
-    fibers: Math.round((dummyData.fibers / total) * 100),
-    foams: Math.round((dummyData.foams / total) * 100),
-    films: Math.round((dummyData.films / total) * 100),
-    pellets: Math.round((dummyData.pellets / total) * 100)
-};
+const percentages = computed(() => {
+    const totalValue = total.value;
+    if (totalValue === 0) return { fragments: 0, fibers: 0, foams: 0, films: 0, pellets: 0 };
+
+    return {
+        fragments: Math.round((microplasticData.value.fragments / totalValue) * 100),
+        fibers: Math.round((microplasticData.value.fibers / totalValue) * 100),
+        foams: Math.round((microplasticData.value.foams / totalValue) * 100),
+        films: Math.round((microplasticData.value.films / totalValue) * 100),
+        pellets: Math.round((microplasticData.value.pellets / totalValue) * 100)
+    };
+});
 
 const colors = {
     fibers: "#19568E",
@@ -77,7 +142,25 @@ const aiSummaryText = `The analysis of microplastic contamination in Tayabas Cit
 
 // Chart options
 const donutChartOptions = ref({
-    chart: { type: "donut", height: 350 },
+    chart: {
+        type: "donut",
+        height: 350,
+        events: {
+            dataPointSelection: function (event, chartContext, config) {
+                // Get the index of the clicked segment
+                const dataPointIndex = config.dataPointIndex;
+
+                // Map index to key
+                const indexToKey = ['fragments', 'fibers', 'foams', 'films', 'pellets'];
+                const clickedKey = indexToKey[dataPointIndex];
+
+                // Only handle clicks if we're showing all categories (not filtered)
+                if (selectedKey.value === null) {
+                    handleLegendClick(clickedKey);
+                }
+            }
+        }
+    },
     labels: ["Fragments", "Fibers", "Foams", "Films", "Pellets"],
     colors: Object.values(colors),
     dataLabels: { enabled: false },
@@ -92,7 +175,7 @@ const donutChartOptions = ref({
                     value: { show: true, fontSize: "22px", fontWeight: "bold" },
                     total: {
                         show: true,
-                        label: "Average number\nof MP found",
+                        label: "Total number\nof MP found",
                         fontSize: "14px",
                         formatter: function (w) {
                             const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
@@ -157,6 +240,9 @@ const barChartOptions = ref({
 });
 
 const donutChart = ref(null);
+
+// Chart key for forcing re-renders when needed
+const chartKey = ref(0);
 
 // Track selected key
 const selectedKey = ref(null);
@@ -233,14 +319,40 @@ const togglePosition = () => {
     }
 };
 
-// Initial series = all data
-const chartSeries = ref([
-    dummyData.fragments,
-    dummyData.fibers,
-    dummyData.foams,
-    dummyData.films,
-    dummyData.pellets
+// Method to programmatically raise the card
+const raiseCard = () => {
+    isAnimating.value = true;
+    cardPosition.value = -8; // Go to max (top) position
+
+    // Reset animation flag after animation completes
+    setTimeout(() => {
+        isAnimating.value = false;
+    }, 400); // Match the CSS transition duration
+};
+
+// Expose methods for parent component access
+defineExpose({
+    raiseCard
+});
+
+// Initial series = all data (computed from microplasticData)
+const chartSeries = computed(() => [
+    microplasticData.value.fragments,
+    microplasticData.value.fibers,
+    microplasticData.value.foams,
+    microplasticData.value.films,
+    microplasticData.value.pellets
 ]);
+
+// Separate reactive series for filtering display
+const displaySeries = ref([]);
+
+// Watch for changes in chartSeries and update displaySeries
+watch(chartSeries, (newSeries) => {
+    if (selectedKey.value === null) {
+        displaySeries.value = newSeries;
+    }
+}, { immediate: true });
 
 const handleLegendClick = (key) => {
     if (!donutChart.value) return;
@@ -257,19 +369,44 @@ const handleLegendClick = (key) => {
     // If clicking same key → reset
     if (selectedKey.value === key) {
         selectedKey.value = null;
-        chartSeries.value = [
-            dummyData.fragments,
-            dummyData.fibers,
-            dummyData.foams,
-            dummyData.films,
-            dummyData.pellets
-        ];
+        displaySeries.value = chartSeries.value;
+
+        // Force chart re-render to clear selection state
+        chartKey.value++;
+
+        // Clear any active selections in the donut chart
+        setTimeout(() => {
+            try {
+                if (donutChart.value && donutChart.value.clearSelections) {
+                    donutChart.value.clearSelections();
+                } else if (donutChart.value && donutChart.value.chart && donutChart.value.chart.clearSelections) {
+                    // Alternative method: access the underlying ApexCharts instance
+                    donutChart.value.chart.clearSelections();
+                }
+            } catch (error) {
+                console.log("Could not clear chart selections:", error);
+            }
+        }, 100);
 
         // Reset donut chart
         donutChartOptions.value = {
             ...donutChartOptions.value,
             labels: Object.values(labelsMap),
             colors: Object.values(colors),
+            chart: {
+                ...donutChartOptions.value.chart,
+                events: {
+                    dataPointSelection: function (event, chartContext, config) {
+                        const dataPointIndex = config.dataPointIndex;
+                        const indexToKey = ['fragments', 'fibers', 'foams', 'films', 'pellets'];
+                        const clickedKey = indexToKey[dataPointIndex];
+
+                        if (selectedKey.value === null) {
+                            handleLegendClick(clickedKey);
+                        }
+                    }
+                }
+            },
             plotOptions: {
                 ...donutChartOptions.value.plotOptions,
                 pie: {
@@ -280,10 +417,18 @@ const handleLegendClick = (key) => {
                             ...donutChartOptions.value.plotOptions.pie.donut.labels,
                             total: {
                                 show: true,
-                                label: "Average number\nof MP found",
+                                label: "Total number\nof MP found",
                                 fontSize: "14px",
                                 formatter: function (w) {
-                                    return w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                                    const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+
+                                    // Format number to millions
+                                    if (total >= 1_000_000) {
+                                        return (total / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+                                    } else if (total >= 1_000) {
+                                        return (total / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
+                                    }
+                                    return total; // if below 1K
                                 }
                             }
                         }
@@ -311,13 +456,20 @@ const handleLegendClick = (key) => {
 
     // Otherwise show only one slice/category
     selectedKey.value = key;
-    chartSeries.value = [dummyData[key]];
+    displaySeries.value = [microplasticData.value[key]];
 
     // Update donut chart
     donutChartOptions.value = {
         ...donutChartOptions.value,
         labels: [labelsMap[key]],
         colors: [colors[key]],
+        chart: {
+            ...donutChartOptions.value.chart,
+            events: {
+                // Disable click events when filtered to prevent confusion
+                dataPointSelection: function () { return; }
+            }
+        },
         plotOptions: {
             ...donutChartOptions.value.plotOptions,
             pie: {
@@ -331,7 +483,7 @@ const handleLegendClick = (key) => {
                             label: labelsMap[key], // change center label
                             fontSize: "14px",
                             formatter: function () {
-                                return dummyData[key];
+                                return microplasticData.value[key];
                             }
                         }
                     }
@@ -369,10 +521,10 @@ const handleLegendClick = (key) => {
         <!-- Card Header -->
         <div class="d-flex flex-column mb-4 card-header">
             <div class="d-flex align-center justify-space-between">
-                <h3 class="title">{{ title }}</h3>
+                <h3 class="title">{{ displayTitle }}</h3>
                 <VIcon color="grey" size="large">mdi-arrow-expand-all</VIcon>
             </div>
-            <p class="subtitle" v-if="subtitle">{{ subtitle }}</p>
+            <p class="subtitle" v-if="displaySubtitle">{{ displaySubtitle }}</p>
         </div>
 
         <!-- Card Content -->
@@ -384,19 +536,20 @@ const handleLegendClick = (key) => {
                         <div class="d-flex flex-column">
                             <div class="d-flex flex-column">
                                 <h4 class="text-h6 font-weight-bold mb-1" style="line-height: 1.2em;">
-                                    Average Microplastic Waste <br />per Morphological Category
+                                    Total Microplastic Waste <br />per Morphological
+                                    Category
                                 </h4>
                                 <p class="subtitle mb-2">Data as of September 22, 2025</p>
                             </div>
-                            <VueApexCharts ref="donutChart" type="donut" :options="donutChartOptions"
-                                :series="chartSeries" height="300" />
+                            <VueApexCharts ref="donutChart" :key="chartKey" type="donut" :options="donutChartOptions"
+                                :series="displaySeries" height="300" />
                         </div>
                     </VCol>
 
                     <!-- Custom Legend -->
                     <VCol cols="5">
                         <div class="d-flex flex-column">
-                            <template v-for="(value, key) in dummyData" :key="key">
+                            <template v-for="(value, key) in microplasticData" :key="key">
                                 <div class="legend-item" :style="{
                                     backgroundColor: colors[key],
                                     opacity: selectedKey === null || selectedKey === key ? 1 : 0.4
@@ -417,8 +570,8 @@ const handleLegendClick = (key) => {
                     </VCol>
                 </VRow>
             </div>
-            <!-- Contamination Comparison by Farm Practices -->
-            <div class="d-flex flex-column mt-4">
+            <!-- Contamination Comparison by Farm Practices - Only show in overview mode -->
+            <div v-if="props.isOverview || !props.item" class="d-flex flex-column mt-4">
                 <div class="d-flex flex-column">
                     <h4 class="text-h6 font-weight-bold mb-1" style="line-height: 1.2em;">
                         Contamination Comparison by Farm Practices
@@ -491,10 +644,6 @@ const handleLegendClick = (key) => {
 .drag-handle:active {
     cursor: grabbing;
     background: rgba(0, 0, 0, 0.12);
-}
-
-.card-header {
-    /* Additional styles if needed */
 }
 
 .card-content {
