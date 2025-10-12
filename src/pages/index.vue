@@ -2,6 +2,33 @@
   <v-app>
     <v-main>
       <div class="overlay">
+        <!-- Top-left breadcrumb navigation -->
+        <div class="breadcrumb-container">
+          <div class="breadcrumb-subtitle">Plastic Contamination Map</div>
+          <div class="breadcrumb-title">
+            <span class="breadcrumb-region breadcrumb-link" @click="gotoRegion">{{ regionName }}</span>
+            <span class="breadcrumb-sep">&nbsp;›&nbsp;</span>
+            <span class="breadcrumb-city breadcrumb-link" @click="gotoCity">{{ cityName }}</span>
+            <template v-if="selectedItem">
+              <span class="breadcrumb-sep">&nbsp;›&nbsp;</span>
+              <span class="breadcrumb-farm breadcrumb-link" @click="gotoFarm">{{ selectedItem.site_name }}</span>
+            </template>
+          </div>
+        </div>
+
+        <!-- Top-right controls: search + category filter -->
+        <div class="top-controls" role="search">
+          <div class="control-surface">
+            <v-select v-model="selectedCategory" :items="categories" dense variant="outlined" clearable
+              placeholder="Select farm category" hide-details style="min-width: 220px;" />
+          </div>
+
+          <div class="control-surface" style="margin-left: 12px;">
+            <v-text-field v-model="searchText" dense clearable placeholder="Search here" variant="outlined"
+              append-inner-icon="mdi-magnify" hide-details style="min-width: 360px;" />
+          </div>
+        </div>
+
         <PreviewCard ref="previewCardRef" :title="selectedItem ? selectedItem.site_name : 'Tayabas City'"
           :subtitle="selectedItem ? `Owner: ${selectedItem.owner} | ${selectedItem.cultivation_practice}` : 'Microplastic Analysis Overview'"
           :item="selectedItem" :isOverview="!selectedItem" :allFarmsData="allFarmsData" class="preview-card" />
@@ -12,7 +39,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import PreviewCard from "@/components/PreviewCard.vue";
@@ -21,6 +48,22 @@ const selectedItem = ref(null);
 const isOverview = ref(true);
 const allFarmsData = ref([]);
 const previewCardRef = ref(null);
+
+// Controls
+const searchText = ref("");
+const selectedCategory = ref(null);
+
+// Breadcrumb labels (can be wired to router or data later)
+const regionName = ref("Quezon Province");
+const cityName = ref("Tayabas City");
+
+// Default center for Tayabas
+const TAYABAS = [13.9649, 121.5923];
+
+// Map + markers refs so we can manipulate them from outside onMounted
+const mapRef = ref(null);
+const markersRef = ref([]);
+let debounceTimer = null;
 
 const setPreviewCardData = (item) => {
   console.log("Preview Card Data:", item);
@@ -39,25 +82,53 @@ const resetToOverview = () => {
   isOverview.value = true;
 };
 
+// Breadcrumb actions
+const gotoRegion = () => {
+  // For now, reset selection and zoom out to region-level view
+  resetToOverview();
+  if (mapRef.value) {
+    mapRef.value.setView(TAYABAS, 11);
+  }
+};
+
+const gotoCity = () => {
+  // Reset selection and center on the city (Tayabas)
+  resetToOverview();
+  if (mapRef.value) {
+    mapRef.value.setView(TAYABAS, 13);
+  }
+};
+
+const gotoFarm = () => {
+  if (!selectedItem.value || !mapRef.value) return;
+  const item = selectedItem.value;
+  if (item.latitude && item.longitude) {
+    mapRef.value.panTo([item.latitude, item.longitude]);
+    mapRef.value.setZoom(16);
+  }
+  // ensure preview card remains open for this farm
+  if (previewCardRef.value && previewCardRef.value.raiseCard) previewCardRef.value.raiseCard();
+};
+
+// Shared helper to map cultivation practice to a marker color
+const getMarkerColor = (practice) => {
+  const practiceStr = practice?.toLowerCase() || '';
+  if (practiceStr.includes('integrated')) {
+    return '#FF9800'; // Orange
+  } else if (practiceStr.includes('organic')) {
+    return '#4CAF50'; // Green
+  } else if (practiceStr.includes('conventional')) {
+    return '#19568E'; // Blue
+  } else {
+    return '#757575'; // Grey
+  }
+};
+
 const createMarker = (item, map) => {
   if (!item.latitude || !item.longitude) {
     console.log("Skipping item - missing coordinates:", item);
     return;
   }
-
-  // Create custom icon based on cultivation practice
-  const getMarkerColor = (practice) => {
-    const practiceStr = practice?.toLowerCase() || '';
-    if (practiceStr.includes('integrated')) {
-      return '#FF9800'; // Orange
-    } else if (practiceStr.includes('organic')) {
-      return '#4CAF50'; // Green
-    } else if (practiceStr.includes('conventional')) {
-      return '#19568E'; // Blue
-    } else {
-      return '#757575'; // Grey
-    }
-  };
 
   const color = getMarkerColor(item.cultivation_practice);
 
@@ -77,6 +148,8 @@ const createMarker = (item, map) => {
   });
 
   const marker = L.marker([item.latitude, item.longitude], { icon: customIcon }).addTo(map);
+  // Attach the source item for later lookup (e.g., breadcrumb -> pan to farm)
+  marker._item = item;
 
   // Enhanced popup content based on actual data structure
   marker.bindPopup(`
@@ -104,6 +177,67 @@ const createMarker = (item, map) => {
   return marker;
 };
 
+// Clear all existing markers from the map
+const clearMarkers = () => {
+  if (!mapRef.value) return;
+  markersRef.value.forEach((m) => {
+    try {
+      mapRef.value.removeLayer(m);
+    } catch (e) {
+      // ignore
+    }
+  });
+  markersRef.value = [];
+};
+
+// Add markers for a list of items (assumes mapRef is set)
+const addMarkers = (items) => {
+  if (!mapRef.value || !Array.isArray(items)) return;
+  clearMarkers();
+  items.forEach((item) => {
+    try {
+      const marker = createMarker(item, mapRef.value);
+      if (marker) markersRef.value.push(marker);
+    } catch (err) {
+      console.error("Error adding marker:", err, item);
+    }
+  });
+};
+
+// Compute categories from data
+const categories = computed(() => {
+  const set = new Set();
+  (allFarmsData.value || []).forEach((i) => {
+    if (i.cultivation_practice) set.add(i.cultivation_practice);
+  });
+  return Array.from(set.values());
+});
+
+// Apply filters based on searchText and selectedCategory
+const applyFilters = () => {
+  const q = (searchText.value || "").toLowerCase().trim();
+  const cat = (selectedCategory.value || "All");
+  const items = Array.isArray(allFarmsData.value) ? allFarmsData.value : [];
+  const filtered = items.filter((item) => {
+    // category filter
+    if (cat && cat !== "All") {
+      if (!item.cultivation_practice || item.cultivation_practice !== cat) return false;
+    }
+    if (!q) return true;
+    const name = (item.site_name || "").toLowerCase();
+    return name.includes(q);
+  });
+  addMarkers(filtered.filter(i => i.latitude && i.longitude));
+};
+
+// Watch controls with a small debounce
+watch([searchText, selectedCategory], () => {
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    applyFilters();
+  }, 180);
+});
+
 onMounted(async () => {
   console.log("Initializing map...");
 
@@ -113,7 +247,9 @@ onMounted(async () => {
   try {
     // Tayabas City coordinates
     const tayabas = [13.9649, 121.5923];
-    const map = L.map("map").setView(tayabas, 13);
+    // Disable default zoom control so we can place it bottom-right
+    const map = L.map("map", { zoomControl: false }).setView(tayabas, 13);
+    mapRef.value = map;
     console.log("Map instance created");
 
     // Shift the map view to the right to accommodate the preview card
@@ -137,6 +273,35 @@ onMounted(async () => {
       console.log("Map clicked - resetting to overview");
       resetToOverview();
     });
+
+    // Add zoom control to bottom right
+    const zoomControl = L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    // Add a legend control directly below the zoom control
+    const legend = L.control({ position: 'bottomright' });
+    legend.onAdd = function () {
+      const div = L.DomUtil.create('div', 'legend-box');
+      // prevent map interactions when interacting with legend
+      L.DomEvent.disableClickPropagation(div);
+
+      // Build legend content — use same keys as getMarkerColor
+      const entries = [
+        { label: 'Integrated', color: getMarkerColor('integrated') },
+        { label: 'Organic', color: getMarkerColor('organic') },
+        { label: 'Conventional', color: getMarkerColor('conventional') },
+        { label: 'Other', color: getMarkerColor('other') },
+      ];
+
+      div.innerHTML = entries.map(e => `
+        <div class="legend-entry">
+          <span class="legend-swatch" style="background:${e.color}"></span>
+          <span class="legend-label">${e.label}</span>
+        </div>
+      `).join('');
+
+      return div;
+    };
+    legend.addTo(map);
 
     // Load and add GeoJSON boundary
     try {
@@ -218,31 +383,8 @@ onMounted(async () => {
         return;
       }
 
-      // Add all markers
-      const markers = [];
-      validItems.forEach((item, index) => {
-        try {
-          console.log(`Creating marker ${index + 1}: ${item.site_name} at [${item.latitude}, ${item.longitude}]`);
-          const marker = createMarker(item, map);
-          if (marker) {
-            markers.push(marker);
-            console.log(`✓ Marker ${index + 1}/${validItems.length} added:`, item.site_name);
-          }
-        } catch (markerError) {
-          console.error(`✗ Error creating marker for item ${index}:`, markerError, item);
-        }
-      });
-
-      console.log(`Successfully added ${markers.length} markers to map`);
-
-      // Create a marker group for easier management
-      if (markers.length > 0) {
-        const markerGroup = L.featureGroup(markers);
-        console.log("Marker group created with bounds:", markerGroup.getBounds());
-
-        // Optionally fit bounds to show all markers (uncomment if needed)
-        // map.fitBounds(markerGroup.getBounds(), { padding: [20, 20] });
-      }
+      // Add markers via the filter-aware helper so UI controls take effect
+      applyFilters();
 
     } catch (dataError) {
       console.error("Error loading marker data:", dataError);
@@ -289,5 +431,123 @@ onMounted(async () => {
   z-index: 1001;
   pointer-events: auto;
   /* re-enable interaction for card */
+}
+
+.top-controls {
+  position: absolute;
+  top: 2rem;
+  right: 1.5rem;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+  /* allow interaction */
+  /* background: rgba(255, 255, 255, 0.85); */
+  /* padding: 6px 10px; */
+  /* border-radius: 8px; */
+  /* box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); */
+}
+
+.control-surface {
+  background: white;
+  border-radius: 8px;
+  /* padding: 4px 6px; */
+  display: inline-flex;
+  align-items: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.193);
+}
+
+.top-controls .v-text-field .v-input__slot,
+.top-controls .v-select .v-input__slot {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Breadcrumb (top-left) */
+.breadcrumb-container {
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  z-index: 1120;
+  pointer-events: auto;
+}
+
+.breadcrumb-subtitle {
+  color: rgb(74, 74, 74);
+  font-weight: 600;
+  /* margin-bottom: 4px; */
+  font-size: 18px;
+  margin: 0;
+}
+
+.breadcrumb-title {
+  margin: 0;
+  color: rgb(0, 0, 0);
+  font-weight: 800;
+  font-size: 32px;
+  letter-spacing: -0.5px;
+  line-height: 1em;
+}
+
+.breadcrumb-sep {
+  color: rgb(106, 106, 106);
+}
+
+.breadcrumb-region,
+.breadcrumb-city {
+  display: inline-block;
+}
+
+.breadcrumb-link {
+  cursor: pointer;
+}
+
+.breadcrumb-link:hover {
+  text-decoration: underline;
+  color: #1e88e5;
+}
+
+/* Legend styles */
+.legend-box {
+  background: white;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-top: 8px;
+  /* offset slightly to appear below zoom controls */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  font-size: 14px;
+  line-height: 1.3;
+  pointer-events: auto;
+  min-width: 180px;
+}
+
+.legend-entry {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.legend-entry:last-child {
+  margin-bottom: 0;
+}
+
+.legend-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 10px;
+  border: 3px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.14);
+}
+
+.legend-label {
+  color: #222;
+  font-weight: 500;
+}
+
+/* Move the bottom-right control group a little away from the right edge */
+.leaflet-bottom.leaflet-right {
+  right: 1.5rem !important;
 }
 </style>

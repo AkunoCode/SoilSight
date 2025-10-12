@@ -282,8 +282,8 @@ const onDrag = (event) => {
 
     let newPosition = cardPosition.value + deltaVh;
 
-    // Constrain between -80vh (min) and -8vh (max) from bottom
-    newPosition = Math.max(-80, Math.min(-8, newPosition));
+    // Constrain between -80vh (min) and -14vh (max) from bottom
+    newPosition = Math.max(-80, Math.min(-14, newPosition));
 
     cardPosition.value = newPosition;
     dragStartY.value = event.clientY;
@@ -308,12 +308,12 @@ const stopDrag = () => {
 };
 
 const togglePosition = () => {
-    // If closer to min position (-80), go to max (-8), otherwise go to min
+    // If closer to min position (-80), go to max (-14), otherwise go to min
     const currentPos = cardPosition.value;
-    const midPoint = (-80 + -8) / 2; // -44
+    const midPoint = (-80 + -14) / 2; // -47
 
     if (currentPos <= midPoint) {
-        cardPosition.value = -8; // Go to max (top)
+        cardPosition.value = -14; // Go to max (top)
     } else {
         cardPosition.value = -80; // Go to min (bottom)
     }
@@ -322,7 +322,7 @@ const togglePosition = () => {
 // Method to programmatically raise the card
 const raiseCard = () => {
     isAnimating.value = true;
-    cardPosition.value = -8; // Go to max (top) position
+    cardPosition.value = -14; // Go to max (top) position
 
     // Reset animation flag after animation completes
     setTimeout(() => {
@@ -655,7 +655,7 @@ const handleLegendClick = (key) => {
     -ms-overflow-style: none;
     /* Internet Explorer and Edge */
     overflow-x: visible;
-    padding-bottom: 5em;
+    padding-bottom: 10em;
 }
 
 .title {
