@@ -2,6 +2,8 @@
 import { tooltip } from "leaflet";
 import { ref, computed, watch } from "vue";
 import VueApexCharts from "vue3-apexcharts";
+// import router
+import { useRouter } from "vue-router";
 
 const props = defineProps({
     title: { type: String, required: false, default: "SoilSight Analysis" },
@@ -10,6 +12,8 @@ const props = defineProps({
     isOverview: { type: Boolean, required: false, default: true },
     allFarmsData: { type: Array, required: false, default: () => [] }
 });
+
+const router = useRouter();
 
 // Compute totals from all farms data
 const computeOverviewTotals = computed(() => {
@@ -335,6 +339,18 @@ defineExpose({
     raiseCard
 });
 
+// Expand insight
+const expandInsight = () => {
+    // When clicked, goes to insight page. If in preview mode, open the "insight/". if in a specific farm, open "insight/[farm_name]" 
+    // Use router
+    if (props.isOverview) {
+        router.push('/insight/');
+    } else if (props.item && props.item.site_name) {
+        const farmName = encodeURIComponent(props.item.site_name);
+        router.push(`/insight/${farmName}`);
+    }
+};
+
 // Initial series = all data (computed from microplasticData)
 const chartSeries = computed(() => [
     microplasticData.value.fragments,
@@ -522,7 +538,7 @@ const handleLegendClick = (key) => {
         <div class="d-flex flex-column mb-4 card-header">
             <div class="d-flex align-center justify-space-between">
                 <h3 class="title">{{ displayTitle }}</h3>
-                <VIcon color="grey" size="large">mdi-arrow-expand-all</VIcon>
+                <VIcon color="grey" size="large" @click="expandInsight">mdi-arrow-expand-all</VIcon>
             </div>
             <p class="subtitle" v-if="displaySubtitle">{{ displaySubtitle }}</p>
         </div>

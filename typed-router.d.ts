@@ -19,6 +19,8 @@ declare module 'vue-router/auto-routes' {
    */
   export interface RouteNamedMap {
     '/': RouteRecordInfo<'/', '/', Record<never, never>, Record<never, never>>,
+    '/insight/': RouteRecordInfo<'/insight/', '/insight', Record<never, never>, Record<never, never>>,
+    '/insight/[farm_name]': RouteRecordInfo<'/insight/[farm_name]', '/insight/:farm_name', { farm_name: ParamValue<true> }, { farm_name: ParamValue<false> }>,
   }
 
   /**
@@ -34,6 +36,14 @@ declare module 'vue-router/auto-routes' {
   export interface _RouteFileInfoMap {
     'src/pages/index.vue': {
       routes: '/'
+      views: never
+    }
+    'src/pages/insight/index.vue': {
+      routes: '/insight/'
+      views: never
+    }
+    'src/pages/insight/[farm_name].vue': {
+      routes: '/insight/[farm_name]'
       views: never
     }
   }
