@@ -3,6 +3,7 @@ import { tooltip } from "leaflet";
 import { ref, computed, watch } from "vue";
 import VueApexCharts from "vue3-apexcharts";
 import MPDonutChart from './graphs/MPDonutChart.vue';
+import MPPracticeBar from './graphs/MPPracticeBar.vue';
 // import router
 import { useRouter } from "vue-router";
 
@@ -596,16 +597,8 @@ const handleLegendClick = (key) => {
             </div>
             <!-- Contamination Comparison by Farm Practices - Only show in overview mode -->
             <div v-if="props.isOverview || !props.item" class="d-flex flex-column mt-4">
-                <div class="d-flex flex-column">
-                    <h4 class="text-h6 font-weight-bold mb-1" style="line-height: 1.2em;">
-                        Contamination Comparison by Farm Practices
-                    </h4>
-                    <p class="subtitle mb-2">Data as of September 22, 2025</p>
-                    <div>
-                        <VueApexCharts type="bar" height="300" :options="barChartOptions"
-                            :series="barChartDummySeries" />
-                    </div>
-                </div>
+                <MPPracticeBar :series="barChartDummySeries" :options="barChartOptions"
+                    title="Contamination Comparison by Farm Practices" subtitle="Data as of September 22, 2025" />
             </div>
             <!-- AI Summary -->
             <div class="d-flex flex-column mt-4">
