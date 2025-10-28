@@ -115,6 +115,8 @@ const originalBarChartData = [
 
 // Handler for selection events emitted by MPDonutChart
 const onDonutSelection = (key) => {
+    // reflect selection locally so custom labels opacity updates
+    selectedKey.value = key;
     const keyToIndex = {
         fragments: 0,
         fibers: 1,
@@ -416,156 +418,14 @@ watch(chartSeries, (newSeries) => {
 }, { immediate: true });
 
 const handleLegendClick = (key) => {
-    if (!donutChart.value) return;
-
-    // Map keys to their index positions for bar chart filtering
-    const keyToIndex = {
-        fragments: 0,
-        fibers: 1,
-        foams: 2,
-        films: 3,
-        pellets: 4
-    };
-
-    // If clicking same key → reset
+    // keep local selectedKey in sync and let the MPDonutChart react via prop
     if (selectedKey.value === key) {
         selectedKey.value = null;
-        displaySeries.value = chartSeries.value;
-
-        // Force chart re-render to clear selection state
-        chartKey.value++;
-
-        // Clear any active selections in the donut chart
-        setTimeout(() => {
-            try {
-                if (donutChart.value && donutChart.value.clearSelections) {
-                    donutChart.value.clearSelections();
-                } else if (donutChart.value && donutChart.value.chart && donutChart.value.chart.clearSelections) {
-                    // Alternative method: access the underlying ApexCharts instance
-                    donutChart.value.chart.clearSelections();
-                }
-            } catch (error) {
-                console.log("Could not clear chart selections:", error);
-            }
-        }, 100);
-
-        // Reset donut chart
-        donutChartOptions.value = {
-            ...donutChartOptions.value,
-            labels: Object.values(labelsMap),
-            colors: Object.values(colors),
-            chart: {
-                ...donutChartOptions.value.chart,
-                events: {
-                    dataPointSelection: function (event, chartContext, config) {
-                        const dataPointIndex = config.dataPointIndex;
-                        const indexToKey = ['fragments', 'fibers', 'foams', 'films', 'pellets'];
-                        const clickedKey = indexToKey[dataPointIndex];
-
-                        if (selectedKey.value === null) {
-                            handleLegendClick(clickedKey);
-                        }
-                    }
-                }
-            },
-            plotOptions: {
-                ...donutChartOptions.value.plotOptions,
-                pie: {
-                    ...donutChartOptions.value.plotOptions.pie,
-                    donut: {
-                        ...donutChartOptions.value.plotOptions.pie.donut,
-                        labels: {
-                            ...donutChartOptions.value.plotOptions.pie.donut.labels,
-                            total: {
-                                show: true,
-                                label: "Total number\nof MP found",
-                                fontSize: "14px",
-                                formatter: function (w) {
-                                    const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
-
-                                    // Format number to millions
-                                    if (total >= 1_000_000) {
-                                        return (total / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-                                    } else if (total >= 1_000) {
-                                        return (total / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
-                                    }
-                                    return total; // if below 1K
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        };
-
-        // Reset bar chart
-        barChartDummySeries.value = [...originalBarChartData];
-        barChartOptions.value = {
-            ...barChartOptions.value,
-            xaxis: {
-                categories: [
-                    "Fragments",
-                    "Fibers",
-                    "Foam",
-                    "Films",
-                    "Pellets"
-                ]
-            }
-        };
-        return;
+        onDonutSelection(null);
+    } else {
+        selectedKey.value = key;
+        onDonutSelection(key);
     }
-
-    // Otherwise show only one slice/category
-    selectedKey.value = key;
-    displaySeries.value = [microplasticData.value[key]];
-
-    // Update donut chart
-    donutChartOptions.value = {
-        ...donutChartOptions.value,
-        labels: [labelsMap[key]],
-        colors: [colors[key]],
-        chart: {
-            ...donutChartOptions.value.chart,
-            events: {
-                // Disable click events when filtered to prevent confusion
-                dataPointSelection: function () { return; }
-            }
-        },
-        plotOptions: {
-            ...donutChartOptions.value.plotOptions,
-            pie: {
-                ...donutChartOptions.value.plotOptions.pie,
-                donut: {
-                    ...donutChartOptions.value.plotOptions.pie.donut,
-                    labels: {
-                        ...donutChartOptions.value.plotOptions.pie.donut.labels,
-                        total: {
-                            show: true,
-                            label: labelsMap[key], // change center label
-                            fontSize: "14px",
-                            formatter: function () {
-                                return microplasticData.value[key];
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    };
-
-    // Update bar chart to show only selected category
-    const selectedIndex = keyToIndex[key];
-    barChartDummySeries.value = originalBarChartData.map(series => ({
-        ...series,
-        data: [series.data[selectedIndex]]
-    }));
-
-    barChartOptions.value = {
-        ...barChartOptions.value,
-        xaxis: {
-            categories: [labelsMap[key]]
-        }
-    };
 };
 </script>
 
@@ -593,7 +453,7 @@ const handleLegendClick = (key) => {
             <div class="d-flex align-center mb-4">
                 <!-- Average Microplastic Waste per Morphological Category -->
                 <MPDonutChart :microplasticData="microplasticData" :labelsMap="labelsMap" :colors="colors"
-                    @selection="onDonutSelection" />
+                    :activeKey="selectedKey" @selection="onDonutSelection" />
             </div>
             <!-- Contamination Comparison by Farm Practices - Only show in overview mode -->
             <div v-if="props.isOverview || !props.item" class="d-flex flex-column mt-4">

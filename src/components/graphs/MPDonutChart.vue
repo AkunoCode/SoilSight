@@ -5,7 +5,9 @@ import VueApexCharts from 'vue3-apexcharts';
 const props = defineProps({
     microplasticData: { type: Object, required: true },
     labelsMap: { type: Object, required: false, default: () => ({ fragments: 'Fragments', fibers: 'Fibers', foams: 'Foams', films: 'Films', pellets: 'Pellets' }) },
-    colors: { type: Object, required: false, default: () => ({ fibers: '#19568E', fragments: '#0B2E4E', films: '#63B3FF', foams: '#4688C7', pellets: '#B9DDFF' }) }
+    colors: { type: Object, required: false, default: () => ({ fibers: '#19568E', fragments: '#0B2E4E', films: '#63B3FF', foams: '#4688C7', pellets: '#B9DDFF' }) },
+    // parent can control selection via this prop; null means no selection
+    activeKey: { type: [String, null], required: false, default: null }
 });
 
 const emit = defineEmits(['selection']);
@@ -78,21 +80,24 @@ const donutChartOptions = ref({
                         show: true,
                         label: 'Total number\nof MP found',
                         fontSize: '14px',
-                        formatter: function (w) {
-                            const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
-                            if (total >= 1_000_000) {
-                                return (total / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-                            } else if (total >= 1_000) {
-                                return (total / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
-                            }
-                            return total;
-                        }
+                        formatter: defaultTotalFormatter
                     }
                 }
             }
         }
     }
 });
+
+// Default total formatter reused when resetting the chart options
+function defaultTotalFormatter(w) {
+    const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+    if (total >= 1_000_000) {
+        return (total / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+    } else if (total >= 1_000) {
+        return (total / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
+    }
+    return total;
+}
 
 const clearSelections = () => {
     selectedKey.value = null;
@@ -107,27 +112,59 @@ const clearSelections = () => {
             // silent
         }
     }, 100);
+    // Reset options (labels, colors, and total formatter) back to defaults
+    donutChartOptions.value = {
+        ...donutChartOptions.value,
+        labels: Object.values(props.labelsMap),
+        colors: Object.values(props.colors),
+        chart: {
+            ...donutChartOptions.value.chart,
+            events: {
+                dataPointSelection: function (event, chartContext, config) {
+                    const dataPointIndex = config.dataPointIndex;
+                    const indexToKey = ['fragments', 'fibers', 'foams', 'films', 'pellets'];
+                    const clickedKey = indexToKey[dataPointIndex];
+                    if (selectedKey.value === null) {
+                        handleLegendClick(clickedKey);
+                    }
+                }
+            }
+        },
+        plotOptions: {
+            ...donutChartOptions.value.plotOptions,
+            pie: {
+                ...donutChartOptions.value.plotOptions.pie,
+                donut: {
+                    ...donutChartOptions.value.plotOptions.pie.donut,
+                    labels: {
+                        ...donutChartOptions.value.plotOptions.pie.donut.labels,
+                        total: {
+                            show: true,
+                            label: 'Total number\nof MP found',
+                            fontSize: '14px',
+                            formatter: defaultTotalFormatter
+                        }
+                    }
+                }
+            }
+        }
+    };
+
     emit('selection', null);
 };
 
-const handleLegendClick = (key) => {
-    // If clicking same key -> reset
-    if (selectedKey.value === key) {
+// Centralized selection applier. `emitEvent` controls whether to notify parent.
+const applySelection = (key, emitEvent = true) => {
+    if (!key) {
         clearSelections();
-        // also restore options
-        donutChartOptions.value = {
-            ...donutChartOptions.value,
-            labels: Object.values(props.labelsMap),
-            colors: Object.values(props.colors),
-            chart: {
-                ...donutChartOptions.value.chart,
-                events: donutChartOptions.value.chart.events
-            }
-        };
         return;
     }
 
-    // Otherwise filter to single category
+    if (selectedKey.value === key) {
+        clearSelections();
+        return;
+    }
+
     selectedKey.value = key;
     displaySeries.value = [props.microplasticData[key] || 0];
 
@@ -163,9 +200,16 @@ const handleLegendClick = (key) => {
         }
     };
 
-    // Emit selection so parent can update other charts
-    emit('selection', key);
+    if (emitEvent) emit('selection', key);
 };
+
+const handleLegendClick = (key) => applySelection(key, true);
+
+// If parent changes activeKey prop, apply it without re-emitting.
+watch(() => props.activeKey, (newKey) => {
+    if (newKey === selectedKey.value) return;
+    applySelection(newKey, false);
+});
 </script>
 
 <template>
