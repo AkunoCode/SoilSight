@@ -2,6 +2,7 @@
 import { tooltip } from "leaflet";
 import { ref, computed, watch } from "vue";
 import VueApexCharts from "vue3-apexcharts";
+import MPDonutChart from './graphs/MPDonutChart.vue';
 // import router
 import { useRouter } from "vue-router";
 
@@ -110,6 +111,49 @@ const originalBarChartData = [
         data: [500, 440, 280, 110, 80]
     }
 ];
+
+// Handler for selection events emitted by MPDonutChart
+const onDonutSelection = (key) => {
+    const keyToIndex = {
+        fragments: 0,
+        fibers: 1,
+        foams: 2,
+        films: 3,
+        pellets: 4
+    };
+
+    // If selection is cleared (null), reset bar chart to original
+    if (!key) {
+        barChartDummySeries.value = [...originalBarChartData];
+        barChartOptions.value = {
+            ...barChartOptions.value,
+            xaxis: {
+                categories: [
+                    "Fragments",
+                    "Fibers",
+                    "Foam",
+                    "Films",
+                    "Pellets"
+                ]
+            }
+        };
+        return;
+    }
+
+    // Otherwise, show only the selected category in the bar chart
+    const selectedIndex = keyToIndex[key];
+    barChartDummySeries.value = originalBarChartData.map(series => ({
+        ...series,
+        data: [series.data[selectedIndex]]
+    }));
+
+    barChartOptions.value = {
+        ...barChartOptions.value,
+        xaxis: {
+            categories: [labelsMap[key]]
+        }
+    };
+};
 
 const total = computed(() => Object.values(microplasticData.value).reduce((a, b) => a + b, 0));
 
@@ -547,44 +591,8 @@ const handleLegendClick = (key) => {
         <div class="card-content">
             <div class="d-flex align-center mb-4">
                 <!-- Average Microplastic Waste per Morphological Category -->
-                <VRow>
-                    <VCol cols="7">
-                        <div class="d-flex flex-column">
-                            <div class="d-flex flex-column">
-                                <h4 class="text-h6 font-weight-bold mb-1" style="line-height: 1.2em;">
-                                    Total Microplastic Waste <br />per Morphological
-                                    Category
-                                </h4>
-                                <p class="subtitle mb-2">Data as of September 22, 2025</p>
-                            </div>
-                            <VueApexCharts ref="donutChart" :key="chartKey" type="donut" :options="donutChartOptions"
-                                :series="displaySeries" height="300" />
-                        </div>
-                    </VCol>
-
-                    <!-- Custom Legend -->
-                    <VCol cols="5">
-                        <div class="d-flex flex-column">
-                            <template v-for="(value, key) in microplasticData" :key="key">
-                                <div class="legend-item" :style="{
-                                    backgroundColor: colors[key],
-                                    opacity: selectedKey === null || selectedKey === key ? 1 : 0.4
-                                }" @click="handleLegendClick(key)">
-                                    <p class="font-weight-bold" style="font-size: 1.5em;">
-                                        {{ percentages[key] }}%
-                                    </p>
-                                    <div class="separator" />
-                                    <div class="d-flex flex-column" style="line-height: 1.2em;">
-                                        <p>{{ key.charAt(0).toUpperCase() + key.slice(1) }}</p>
-                                        <p class="font-weight-bold" style="font-size: 1.2em;">
-                                            {{ value.toLocaleString() }}
-                                        </p>
-                                    </div>
-                                </div>
-                            </template>
-                        </div>
-                    </VCol>
-                </VRow>
+                <MPDonutChart :microplasticData="microplasticData" :labelsMap="labelsMap" :colors="colors"
+                    @selection="onDonutSelection" />
             </div>
             <!-- Contamination Comparison by Farm Practices - Only show in overview mode -->
             <div v-if="props.isOverview || !props.item" class="d-flex flex-column mt-4">
@@ -688,28 +696,6 @@ const handleLegendClick = (key) => {
 
 
 
-.legend-item {
-    display: flex;
-    align-items: center;
-    margin-bottom: 1em;
-    padding: 0.7em 1em;
-    border-radius: 0.5em;
-    color: white;
-    cursor: pointer;
-    transition: opacity 0.3s;
-}
-
-.legend-item p {
-    margin: 0;
-    font-size: 1em;
-}
-
-.separator {
-    width: 2px;
-    height: 2.5em;
-    background-color: #ffffff;
-    margin: 0 1em;
-}
 
 .summary-box {
     background-color: #f9f9f9;

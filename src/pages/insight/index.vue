@@ -3,6 +3,7 @@ import L from 'leaflet'
 import { computed, onMounted, ref, watch } from 'vue'
 import dummy from '@/assets/dummyData.json'
 import 'leaflet/dist/leaflet.css'
+import MPDonutChart from '@/components/graphs/MPDonutChart.vue'
 
 // Simple derived metrics
 const sites = dummy.sites || []
@@ -58,6 +59,31 @@ const labelsMap = {
 }
 
 const selectedKey = ref(null)
+
+// Adapted data & maps for MPDonutChart (it expects a `pellets` key)
+const mpDonutData = computed(() => ({
+  fragments: totalFragments,
+  fibers: totalFibers,
+  foams: totalFoams,
+  films: totalFilms,
+  pellets: totalBeads
+}))
+
+const donutLabelsMap = {
+  fragments: 'Fragments',
+  fibers: 'Fibers',
+  foams: 'Foam',
+  films: 'Films',
+  pellets: 'Beads'
+}
+
+const donutColors = {
+  fragments: mpColors.fragments,
+  fibers: mpColors.fibers,
+  foams: mpColors.foams,
+  films: mpColors.films,
+  pellets: mpColors.beads
+}
 
 // Series shown in the donut (updates when user filters via legend)
 const displaySeries = ref([
@@ -366,33 +392,10 @@ const farmSizeOptions = ref({ chart: { type: 'bar' }, xaxis: { categories: ['Sma
 
       <VCol cols="4">
         <div class="card">
-          <VRow>
-            <VCol cols="7">
-              <h3 style="line-height: 120%;">Total Microplastic Waste per Morphological Category</h3>
-              <p class="subtitle">Data as of {{ currentDate }}</p>
-              <apexchart height="320" :options="compositionOptions" :series="displaySeries" type="donut" class="mt-4" />
-            </VCol>
 
-            <VCol cols="5">
-              <div class="d-flex flex-column">
-                <template v-for="(value, key) in microplasticData" :key="key">
-                  <div class="legend-item" :style="{
-                    backgroundColor: mpColors[key],
-                    opacity: selectedKey === null || selectedKey === key ? 1 : 0.45
-                  }" @click="handleLegendClick(key)">
-                    <p class="font-weight-bold" style="font-size: 1.2em; color: white;">
-                      {{ percentages[key] }}%
-                    </p>
-                    <div class="separator" />
-                    <div class="d-flex flex-column" style="line-height:1.1em; color: white;">
-                      <p style="margin:0;">{{ labelsMap[key] }}</p>
-                      <p class="font-weight-bold" style="font-size: 1em; margin:0;">{{ value.toLocaleString() }}</p>
-                    </div>
-                  </div>
-                </template>
-              </div>
-            </VCol>
-          </VRow>
+          <MPDonutChart :microplasticData="mpDonutData" :labelsMap="donutLabelsMap" :colors="donutColors"
+            @selection="handleLegendClick" />
+
         </div>
       </VCol>
 
