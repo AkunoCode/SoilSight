@@ -13,5 +13,6 @@ declare module 'vue' {
     PreviewCard: typeof import('./src/components/PreviewCard.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SiteDrilldownChart: typeof import('./src/components/graphs/SiteDrilldownChart.vue')['default']
   }
 }

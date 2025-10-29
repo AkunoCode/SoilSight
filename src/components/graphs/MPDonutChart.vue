@@ -52,6 +52,7 @@ const donutChartOptions = ref({
     chart: {
         type: 'donut',
         height: 350,
+        toolbar: { show: false },
         events: {
             dataPointSelection: function (event, chartContext, config) {
                 const dataPointIndex = config.dataPointIndex;

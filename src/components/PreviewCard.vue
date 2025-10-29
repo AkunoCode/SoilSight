@@ -197,6 +197,7 @@ const donutChartOptions = ref({
     chart: {
         type: "donut",
         height: 350,
+        toolbar: { show: false },
         events: {
             dataPointSelection: function (event, chartContext, config) {
                 // Get the index of the clicked segment
