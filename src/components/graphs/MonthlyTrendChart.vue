@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, toRef } from 'vue'
 import { buildMonthlyChartData } from './monthlyTrend.js'
 
 const props = defineProps({
@@ -9,6 +9,9 @@ const props = defineProps({
     height: { type: Number, default: 400 },
     colors: { type: Object, default: () => ({}) }
 })
+
+// expose a reactive ref for template binding
+const height = toRef(props, 'height')
 
 const totals = computed(() => ({
     fragments: props.microplasticData?.fragments || 0,
@@ -45,7 +48,7 @@ watch(totals, (nv) => {
     <div class="card">
         <h3>Total Monthly Microplastic Waste per Morphological Category</h3>
         <p class="subtitle">{{ subtitle }}</p>
-        <apexchart :options="monthlyOptions" :series="monthlySeries" type="line" :height="props.height" />
+        <apexchart :options="monthlyOptions" :series="monthlySeries" type="line" :height="height" />
     </div>
 </template>
 

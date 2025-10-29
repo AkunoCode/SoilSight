@@ -18,6 +18,9 @@ const props = defineProps({
     categoryLabels: { type: Array, default: () => ['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets'] },
     // optional colors mapping for microplastic categories: { fragments: '#...', fibers: '#...' }
     colors: { type: Object, default: () => ({}) },
+    // optional overview colors per category (for overview bars). If provided, will enable
+    // distributed bar coloring so each overview bar uses the corresponding color.
+    overviewColors: { type: Array, default: () => [] },
     // optional chart height in pixels
     height: { type: Number, default: 400 }
 })
@@ -47,6 +50,12 @@ const overviewOptions = ref({
     colors: ['#1976d2'],
     legend: { position: 'top' }
 })
+
+// If caller provided overviewColors, use distributed bars and the provided colors array
+if (props.overviewColors && props.overviewColors.length) {
+    overviewOptions.value.plotOptions = { bar: { horizontal: false, distributed: true } }
+    overviewOptions.value.colors = props.overviewColors
+}
 
 // Drilldown state
 const isDrilldown = ref(false)

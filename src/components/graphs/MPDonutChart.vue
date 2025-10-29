@@ -219,7 +219,7 @@ watch(() => props.activeKey, (newKey) => {
             <div class="d-flex flex-column">
                 <div class="d-flex flex-column">
                     <h4 class="text-h6 font-weight-bold mb-1" style="line-height: 1.2em;">Total Microplastic Waste
-                        <br />per Morphological
+                        per Morphological
                         Category
                     </h4>
                     <p class="subtitle mb-2">Data as of September 22, 2025</p>
