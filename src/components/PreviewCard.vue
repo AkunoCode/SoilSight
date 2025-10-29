@@ -4,6 +4,7 @@ import { ref, computed, watch } from "vue";
 import VueApexCharts from "vue3-apexcharts";
 import MPDonutChart from './graphs/MPDonutChart.vue';
 import MPPracticeBar from './graphs/MPPracticeBar.vue';
+import { getDefaultBarOptions } from './graphs/defaultBarOptions.js';
 // import router
 import { useRouter } from "vue-router";
 
@@ -246,49 +247,13 @@ const donutChartOptions = ref({
     }
 });
 
-const barChartOptions = ref({
-    chart: {
-        type: "bar",
-        height: 300,
-        toolbar: { show: false }
-    },
-    colors: ["#19568E", "#63B3FF", "#0B2E4E"],
-    plotOptions: {
-        bar: {
-            horizontal: false,
-            columnWidth: "55%",
-            distributed: false,
-            dataLabels: { position: "top" }
-        }
-    },
-    dataLabels: {
-        enabled: true
-    },
-    stroke: {
-        show: true,
-        width: 2,
-        colors: ["transparent"]
-    },
-    xaxis: {
-        categories: [
-            "Fragments",
-            "Fibers",
-            "Foam",
-            "Films",
-            "Pellets"
-        ]
-    },
-    yaxis: { title: { text: "Number of MP found (in Thousands)" }, min: 0, max: 700 },
-    legend: { show: true, position: "bottom", horizontalAlign: "left", offsetX: 40 },
-    fill: { opacity: 1 },
-    tooltip: {
-        y: {
-            formatter: function (val) {
-                return val + " thousands";
-            }
-        }
-    }
-});
+const barChartOptions = ref(getDefaultBarOptions([
+    "Fragments",
+    "Fibers",
+    "Foam",
+    "Films",
+    "Pellets"
+]));
 
 const donutChart = ref(null);
 

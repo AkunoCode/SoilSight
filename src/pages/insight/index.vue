@@ -3,6 +3,8 @@ import L from 'leaflet'
 import { computed, onMounted, ref, watch } from 'vue'
 import dummy from '@/assets/dummyData.json'
 import 'leaflet/dist/leaflet.css'
+import MPPracticeBar from '@/components/graphs/MPPracticeBar.vue'
+import { getDefaultBarOptions } from '@/components/graphs/defaultBarOptions.js'
 import MPDonutChart from '@/components/graphs/MPDonutChart.vue'
 
 // Simple derived metrics
@@ -15,9 +17,9 @@ const totalFragments = sites.reduce((s, r) => s + (r.fragment_count || 0), 0)
 const totalFibers = sites.reduce((s, r) => s + (r.fiber_count || 0), 0)
 const totalFoams = sites.reduce((s, r) => s + (r.foam_count || 0), 0)
 const totalFilms = sites.reduce((s, r) => s + (r.film_count || 0), 0)
-const totalBeads = sites.reduce((s, r) => s + (r.beads_count || 0), 0)
+const totalPellets = sites.reduce((s, r) => s + (r.beads_count || 0), 0)
 
-const compositionSeries = ref([totalFragments, totalFibers, totalFoams, totalFilms, totalBeads])
+const compositionSeries = ref([totalFragments, totalFibers, totalFoams, totalFilms, totalPellets])
 
 // Richer composition data and interactive legend (reuse PreviewCard style)
 const microplasticData = computed(() => ({
@@ -25,20 +27,20 @@ const microplasticData = computed(() => ({
   fibers: totalFibers,
   foams: totalFoams,
   films: totalFilms,
-  beads: totalBeads
+  pellets: totalPellets
 }))
 
 const totalMP = computed(() => Object.values(microplasticData.value).reduce((a, b) => a + b, 0))
 
 const percentages = computed(() => {
   const t = totalMP.value
-  if (t === 0) return { fragments: 0, fibers: 0, foams: 0, films: 0, beads: 0 }
+  if (t === 0) return { fragments: 0, fibers: 0, foams: 0, films: 0, pellets: 0 }
   return {
     fragments: Math.round((microplasticData.value.fragments / t) * 100),
     fibers: Math.round((microplasticData.value.fibers / t) * 100),
     foams: Math.round((microplasticData.value.foams / t) * 100),
     films: Math.round((microplasticData.value.films / t) * 100),
-    beads: Math.round((microplasticData.value.beads / t) * 100)
+    pellets: Math.round((microplasticData.value.pellets / t) * 100)
   }
 })
 
@@ -47,7 +49,7 @@ const mpColors = {
   fibers: '#19568E',
   films: '#63B3FF',
   foams: '#4688C7',
-  beads: '#B9DDFF'
+  pellets: '#B9DDFF'
 }
 
 const labelsMap = {
@@ -55,26 +57,17 @@ const labelsMap = {
   fibers: 'Fibers',
   foams: 'Foam',
   films: 'Films',
-  beads: 'Beads'
+  pellets: 'Pellets'
 }
 
 const selectedKey = ref(null)
-
-// Adapted data & maps for MPDonutChart (it expects a `pellets` key)
-const mpDonutData = computed(() => ({
-  fragments: totalFragments,
-  fibers: totalFibers,
-  foams: totalFoams,
-  films: totalFilms,
-  pellets: totalBeads
-}))
 
 const donutLabelsMap = {
   fragments: 'Fragments',
   fibers: 'Fibers',
   foams: 'Foam',
   films: 'Films',
-  pellets: 'Beads'
+  pellets: 'Pellets'
 }
 
 const donutColors = {
@@ -82,7 +75,7 @@ const donutColors = {
   fibers: mpColors.fibers,
   foams: mpColors.foams,
   films: mpColors.films,
-  pellets: mpColors.beads
+  pellets: mpColors.pellets
 }
 
 // Series shown in the donut (updates when user filters via legend)
@@ -91,12 +84,12 @@ const displaySeries = ref([
   microplasticData.value.fibers,
   microplasticData.value.foams,
   microplasticData.value.films,
-  microplasticData.value.beads
+  microplasticData.value.pellets
 ])
 
 watch(microplasticData, (nv) => {
   if (selectedKey.value === null) {
-    displaySeries.value = [nv.fragments, nv.fibers, nv.foams, nv.films, nv.beads]
+    displaySeries.value = [nv.fragments, nv.fibers, nv.foams, nv.films, nv.pellets]
   } else {
     // keep filtered series consistent with the currently selected key
     displaySeries.value = [nv[selectedKey.value]]
@@ -142,7 +135,7 @@ const handleLegendClick = (key) => {
       microplasticData.value.fibers,
       microplasticData.value.foams,
       microplasticData.value.films,
-      microplasticData.value.beads
+      microplasticData.value.pellets
     ]
     compositionOptions.value.labels = Object.values(labelsMap)
     compositionOptions.value.colors = Object.values(mpColors)
@@ -161,14 +154,14 @@ const fragmentsBySite = sites.map(s => s.fragment_count || 0)
 const fibersBySite = sites.map(s => s.fiber_count || 0)
 const filmsBySite = sites.map(s => s.film_count || 0)
 const foamsBySite = sites.map(s => s.foam_count || 0)
-const beadsBySite = sites.map(s => s.beads_count || 0)
+const pelletsBySite = sites.map(s => s.beads_count || 0)
 
 const bySiteSeries = ref([
   { name: 'Fragments', data: fragmentsBySite },
   { name: 'Fibers', data: fibersBySite },
   { name: 'Foam', data: foamsBySite },
   { name: 'Films', data: filmsBySite },
-  { name: 'Beads', data: beadsBySite },
+  { name: 'Pellets', data: pelletsBySite },
 ])
 const bySiteOptions = ref({
   chart: { type: 'bar', stacked: true },
@@ -199,14 +192,43 @@ const numOrganic = computed(() => sites.filter(s => (s.cultivation_practice || '
 const numConventional = computed(() => sites.filter(s => (s.cultivation_practice || '').toLowerCase().includes('conventional')).length)
 const numIntegrated = computed(() => sites.filter(s => (s.cultivation_practice || '').toLowerCase().includes('integrated')).length)
 
-// Contamination by farm practice (sum counts per practice)
-const practices = ['Conventional', 'Fully Organic', 'Integrated']
-const contaminationByPracticeSeries = ref([
-  { name: 'Fragments', data: practices.map(p => sites.filter(s => (s.cultivation_practice || '').toLowerCase().includes(p.toLowerCase())).reduce((a, b) => a + (b.fragment_count || 0), 0)) },
-  { name: 'Fibers', data: practices.map(p => sites.filter(s => (s.cultivation_practice || '').toLowerCase().includes(p.toLowerCase())).reduce((a, b) => a + (b.fiber_count || 0), 0)) },
-  { name: 'Films', data: practices.map(p => sites.filter(s => (s.cultivation_practice || '').toLowerCase().includes(p.toLowerCase())).reduce((a, b) => a + (b.film_count || 0), 0)) },
-])
-const contaminationByPracticeOptions = ref({ chart: { type: 'bar' }, xaxis: { categories: practices }, plotOptions: { bar: { horizontal: false } }, legend: { position: 'top' } })
+// Contamination by farm practice (sum counts per practice) - include all 5 categories
+
+// Build series grouped BY practice (series = practices), with categories as the x-axis
+const categoriesForPracticeChart = ['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']
+
+// Use display names that match PreviewCard (so legend text matches)
+const practiceKeys = ['conventional', 'fully organic', 'integrated']
+const practiceNames = ['Conventional Practice', 'Organic Practice', 'Integrated Practice']
+
+const fragmentsByPractice = practiceKeys.map(k => sites.filter(s => (s.cultivation_practice || '').toLowerCase().includes(k)).reduce((a, b) => a + (b.fragment_count || 0), 0))
+const fibersByPractice = practiceKeys.map(k => sites.filter(s => (s.cultivation_practice || '').toLowerCase().includes(k)).reduce((a, b) => a + (b.fiber_count || 0), 0))
+const filmsByPractice = practiceKeys.map(k => sites.filter(s => (s.cultivation_practice || '').toLowerCase().includes(k)).reduce((a, b) => a + (b.film_count || 0), 0))
+const foamsByPractice = practiceKeys.map(k => sites.filter(s => (s.cultivation_practice || '').toLowerCase().includes(k)).reduce((a, b) => a + (b.foam_count || 0), 0))
+const pelletsByPractice = practiceKeys.map(k => sites.filter(s => (s.cultivation_practice || '').toLowerCase().includes(k)).reduce((a, b) => a + (b.beads_count || 0), 0))
+
+const contaminationByPracticeSeries = ref(practiceNames.map((name, idx) => ({
+  name,
+  data: [
+    fragmentsByPractice[idx] || 0,
+    fibersByPractice[idx] || 0,
+    foamsByPractice[idx] || 0,
+    filmsByPractice[idx] || 0,
+    pelletsByPractice[idx] || 0
+  ]
+})))
+
+// compute a comfortable y-axis max from the data (per-category values across practices)
+const allVals = contaminationByPracticeSeries.value.flatMap(s => s.data)
+const maxVal = allVals.length ? Math.max(...allVals) : 700
+
+// Use the same base options as PreviewCard so visuals match exactly
+const contaminationByPracticeOptions = ref(getDefaultBarOptions(categoriesForPracticeChart, {
+  chart: { type: 'bar' },
+  plotOptions: { bar: { horizontal: false } },
+  legend: { position: 'bottom' },
+  yaxis: { title: { text: 'Number of MP found (in Thousands)' }, min: 0, max: Math.ceil(maxVal * 1.15) }
+}))
 
 // Monthly trend (mock): distribute totals across months proportionally (simple smoothing)
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -393,8 +415,8 @@ const farmSizeOptions = ref({ chart: { type: 'bar' }, xaxis: { categories: ['Sma
       <VCol cols="4">
         <div class="card">
 
-          <MPDonutChart :microplasticData="mpDonutData" :labelsMap="donutLabelsMap" :colors="donutColors"
-            @selection="handleLegendClick" />
+          <MPDonutChart :microplasticData="microplasticData" :labelsMap="donutLabelsMap" :colors="donutColors"
+            :activeKey="selectedKey" @selection="handleLegendClick" />
 
         </div>
       </VCol>
@@ -410,9 +432,8 @@ const farmSizeOptions = ref({ chart: { type: 'bar' }, xaxis: { categories: ['Sma
     <VRow class="mt-2">
       <VCol cols="6">
         <div class="card">
-          <h3>Contamination Comparison by Farm Practices</h3>
-          <apexchart height="260" :options="contaminationByPracticeOptions" :series="contaminationByPracticeSeries"
-            type="bar" />
+          <MPPracticeBar :series="contaminationByPracticeSeries" :options="contaminationByPracticeOptions"
+            title="Contamination Comparison by Farm Practices" subtitle="Data as of September 22, 2025" height="260" />
         </div>
       </VCol>
       <VCol cols="6">
