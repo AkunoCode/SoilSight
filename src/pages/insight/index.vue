@@ -268,6 +268,23 @@ const byTextureSeries = ref([
 ])
 const byTextureOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, xaxis: { categories: textures }, plotOptions: { bar: { horizontal: false } } })
 
+// Prepare data for drilldown chart by soil texture: totals per texture and per-category breakdown
+const textureTotals = textures.map(t => sites.filter(s => (s.soil_type || '') === t).reduce((acc, s) => {
+  return acc + ((s.fragment_count || 0) + (s.fiber_count || 0) + (s.film_count || 0) + (s.foam_count || 0) + (s.beads_count || 0))
+}, 0))
+
+const textureDrilldown = textures.map(t => {
+  const vals = sites.filter(s => (s.soil_type || '') === t).reduce((acc, s) => {
+    acc[0] += (s.fragment_count || 0)
+    acc[1] += (s.fiber_count || 0)
+    acc[2] += (s.foam_count || 0)
+    acc[3] += (s.film_count || 0)
+    acc[4] += (s.beads_count || 0)
+    return acc
+  }, [0, 0, 0, 0, 0])
+  return vals
+})
+
 // Color counts & size ranges are not in dummy data; create simple derived mock distributions based on total counts
 const colors = ['Gray', 'Blue', 'White', 'Transparent']
 const colorSeries = ref([
@@ -276,12 +293,56 @@ const colorSeries = ref([
 ])
 const colorOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, xaxis: { categories: colors }, plotOptions: { bar: { horizontal: false } }, legend: { position: 'top' } })
 
+// Build drilldown-friendly data for colors: ensure all 5 MP categories are present per color bucket
+const colorSeriesMap = {}
+for (const s of colorSeries.value) {
+  colorSeriesMap[s.name.toLowerCase()] = s.data.slice()
+}
+const fragmentsColorBase = colorSeriesMap['fragments'] || colorSeries.value[0].data
+const fibersColorBase = colorSeriesMap['fibers'] || (colorSeries.value[1] ? colorSeries.value[1].data : fragmentsColorBase)
+
+function scaledBucket(baseArr, scale) {
+  return baseArr.map(v => Math.round(v * scale))
+}
+
+const colorDrilldown = colors.map((_, idx) => {
+  // build per-category values for this color index
+  const fragVal = (colorSeriesMap['fragments'] && colorSeriesMap['fragments'][idx]) || Math.round(fragmentsColorBase[idx] * (totalFragments / Math.max(1, fragmentsColorBase.reduce((a, b) => a + b, 0))))
+  const fiberVal = (colorSeriesMap['fibers'] && colorSeriesMap['fibers'][idx]) || Math.round(fibersColorBase[idx] * (totalFibers / Math.max(1, fibersColorBase.reduce((a, b) => a + b, 0))))
+  // for categories without explicit distribution, scale fragments proportions
+  const foamVal = Math.round((fragVal) * (totalFoams / Math.max(1, totalFragments || 1)))
+  const filmVal = Math.round((fragVal) * (totalFilms / Math.max(1, totalFragments || 1)))
+  const pelletVal = Math.round((fragVal) * (totalPellets / Math.max(1, totalFragments || 1)))
+  return [fragVal, fiberVal, foamVal, filmVal, pelletVal]
+})
+
+const colorTotals = colorDrilldown.map(arr => arr.reduce((a, b) => a + b, 0))
+
 const sizeRanges = ['1-20 µm', '20-100 µm', '100-500 µm', '500 µm-1 mm', '1-5 mm']
 const sizeSeries = ref([
   { name: 'Fragments', data: [20, 40, 60, 30, 15].map(v => Math.round(v * (totalFragments / 200))) },
   { name: 'Fibers', data: [15, 30, 50, 20, 10].map(v => Math.round(v * (totalFibers / 150))) },
 ])
 const sizeOptions = ref({ chart: { type: 'bar', stacked: true, toolbar: { show: false } }, xaxis: { categories: sizeRanges }, plotOptions: { bar: { horizontal: false } } })
+
+// Build drilldown-friendly data for size ranges: totals per range and per-category breakdown
+const sizeSeriesMap = {}
+for (const s of sizeSeries.value) {
+  sizeSeriesMap[s.name.toLowerCase()] = s.data.slice()
+}
+const fragmentsSizeBase = sizeSeriesMap['fragments'] || sizeSeries.value[0].data
+const fibersSizeBase = sizeSeriesMap['fibers'] || (sizeSeries.value[1] ? sizeSeries.value[1].data : fragmentsSizeBase)
+
+const sizeDrilldown = sizeRanges.map((_, idx) => {
+  const fragVal = (sizeSeriesMap['fragments'] && sizeSeriesMap['fragments'][idx]) || Math.round(fragmentsSizeBase[idx] * (totalFragments / Math.max(1, fragmentsSizeBase.reduce((a, b) => a + b, 0))))
+  const fiberVal = (sizeSeriesMap['fibers'] && sizeSeriesMap['fibers'][idx]) || Math.round(fibersSizeBase[idx] * (totalFibers / Math.max(1, fibersSizeBase.reduce((a, b) => a + b, 0))))
+  const foamVal = Math.round(fragVal * (totalFoams / Math.max(1, totalFragments || 1)))
+  const filmVal = Math.round(fragVal * (totalFilms / Math.max(1, totalFragments || 1)))
+  const pelletVal = Math.round(fragVal * (totalPellets / Math.max(1, totalFragments || 1)))
+  return [fragVal, fiberVal, foamVal, filmVal, pelletVal]
+})
+
+const sizeTotals = sizeDrilldown.map(arr => arr.reduce((a, b) => a + b, 0))
 
 const aiSummaryText = 'Based on the data, farms practicing organic cultivation tend to have lower microplastic contamination levels compared to conventional farms. Implementing integrated pest management and reducing plastic mulch usage could further mitigate contamination risks.';
 
@@ -412,7 +473,7 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
         </div>
         <div class="card" style="height: 58%;">
           <h3>Size Distribution of Sampled Farms</h3>
-          <apexchart :options="farmSizeOptions" :series="farmSizeSeries" type="bar" />
+          <apexchart :options="farmSizeOptions" :series="farmSizeSeries" type="bar" :height="150" />
         </div>
       </VCol>
 
@@ -427,7 +488,7 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
         <div class="card">
           <SiteDrilldownChart :categories="siteCategories" :totals="siteTotals" :drilldown="siteDrilldown"
             title="Microplastic Count by Farm Site"
-            :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors" />
+            :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors" :height="330" />
         </div>
       </VCol>
     </VRow>
@@ -455,8 +516,9 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
       </VCol>
       <VCol cols="5">
         <div class="card">
-          <h3>Microplastic Count by Soil Texture</h3>
-          <apexchart height="260" :options="byTextureOptions" :series="byTextureSeries" type="bar" />
+          <SiteDrilldownChart :categories="textures" :totals="textureTotals" :drilldown="textureDrilldown"
+            title="Microplastic Count by Soil Texture"
+            :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors" />
         </div>
       </VCol>
     </VRow>
@@ -464,13 +526,15 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
     <VRow class="mt-2">
       <VCol cols="6" class="d-flex flex-column justify-space-between">
         <div class="card bottom-card">
-          <h3>Microplastic Count by Color</h3>
-          <apexchart height="220" :options="colorOptions" :series="colorSeries" type="bar" />
+          <SiteDrilldownChart :categories="colors" :totals="colorTotals" :drilldown="colorDrilldown"
+            title="Microplastic Count by Color" :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']"
+            :colors="mpColors" :height="250" />
         </div>
 
         <div class="card bottom-card">
-          <h3>Microplastic Count by Size Range</h3>
-          <apexchart height="260" :options="sizeOptions" :series="sizeSeries" type="bar" />
+          <SiteDrilldownChart :categories="sizeRanges" :totals="sizeTotals" :drilldown="sizeDrilldown"
+            title="Microplastic Count by Size Range"
+            :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors" :height="250" />
         </div>
 
         <div class="card bottom-card">

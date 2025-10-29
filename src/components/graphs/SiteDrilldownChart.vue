@@ -18,6 +18,7 @@ const props = defineProps({
     categoryLabels: { type: Array, default: () => ['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets'] },
     // optional colors mapping for microplastic categories: { fragments: '#...', fibers: '#...' }
     colors: { type: Object, default: () => ({}) },
+    // optional chart height in pixels
     height: { type: Number, default: 400 }
 })
 
@@ -30,7 +31,7 @@ const siteCategoryLabels = computed(() => props.categoryLabels)
 // Overview series (totals)
 const overviewSeries = ref([{ name: 'Total MP', data: totalBySite.value }])
 const overviewOptions = ref({
-    chart: { type: 'bar', stacked: true, toolbar: { show: false } },
+    chart: { type: 'bar', stacked: true, toolbar: { show: false }, height: props.height },
     // include label settings so long category names are visible (rotate slightly and avoid hiding overlapping labels)
     xaxis: {
         categories: siteNames.value,
@@ -77,7 +78,7 @@ function handleSiteClick(idx) {
 
     drilldownSeries.value = [{ name: currentSiteName.value, data: siteData }]
     drilldownOptions.value = {
-        chart: { type: 'bar', toolbar: { show: false } },
+        chart: { type: 'bar', toolbar: { show: false }, height: props.height },
         xaxis: { categories: siteCategoryLabels.value },
         // Use distributed bars so ApexCharts applies the provided colors array to each data point
         plotOptions: { bar: { horizontal: false, distributed: true } },
@@ -149,6 +150,6 @@ watch([() => props.categories, () => props.totals], () => {
             </h3>
             <p class="subtitle">Data as of September 2022</p>
         </div>
-        <apexchart :options="displayedOptions" :series="displayedSeries" type="bar" :height="height" />
+        <apexchart :options="displayedOptions" :series="displayedSeries" type="bar" :height="props.height" />
     </div>
 </template>
