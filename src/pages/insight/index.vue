@@ -7,6 +7,7 @@ import MPPracticeBar from '@/components/graphs/MPPracticeBar.vue'
 import { getDefaultBarOptions } from '@/components/graphs/defaultBarOptions.js'
 import MPDonutChart from '@/components/graphs/MPDonutChart.vue'
 import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
+import MonthlyTrendChart from '@/components/graphs/MonthlyTrendChart.vue'
 
 // Simple derived metrics
 const sites = dummy.sites || []
@@ -212,20 +213,7 @@ const contaminationByPracticeOptions = ref(getDefaultBarOptions(categoriesForPra
   yaxis: { title: { text: 'Number of MP found (in Thousands)' }, min: 0, max: Math.ceil(maxVal * 1.15) }
 }))
 
-// Monthly trend (mock): distribute totals across months proportionally (simple smoothing)
-const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-function distributeAcrossMonths(value) {
-  // simple triangular weighting to create a seasonality-like shape
-  const weights = [0.6, 0.7, 0.9, 1, 1.1, 1.2, 1.2, 1.1, 1, 0.9, 0.8, 0.7]
-  const totalW = weights.reduce((a, b) => a + b, 0)
-  return weights.map(w => Math.round(value * w / totalW))
-}
-
-const monthlySeries = ref([
-  { name: 'Fragments', data: distributeAcrossMonths(totalFragments) },
-  { name: 'Fibers', data: distributeAcrossMonths(totalFibers) },
-])
-const monthlyOptions = ref({ chart: { type: 'line', zoom: { enabled: false }, toolbar: { show: false } }, xaxis: { categories: months }, stroke: { curve: 'smooth' } })
+// Monthly trend: moved into MonthlyTrendChart component
 
 // Microplastic count by soil texture (aggregate)
 const textures = Array.from(new Set(sites.map(s => s.soil_type || 'Unknown')))
@@ -401,14 +389,12 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
       <VCol cols="6">
         <div class="card">
           <MPPracticeBar :series="contaminationByPracticeSeries" :options="contaminationByPracticeOptions"
-            title="Contamination Comparison by Farm Practices" subtitle="Data as of September 22, 2025" height="260" />
+            title="Contamination Comparison by Farm Practices" subtitle="Data as of September 22, 2025" />
         </div>
       </VCol>
       <VCol cols="6">
-        <div class="card">
-          <h3>Average Monthly Microplastic Waste</h3>
-          <apexchart height="260" :options="monthlyOptions" :series="monthlySeries" type="line" />
-        </div>
+        <MonthlyTrendChart :microplasticData="microplasticData" :colors="mpColors"
+          subtitle="Data as of September 22, 2025" />
       </VCol>
     </VRow>
 

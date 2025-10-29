@@ -8,6 +8,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    MonthlyTrendChart: typeof import('./src/components/graphs/MonthlyTrendChart.vue')['default']
     MPDonutChart: typeof import('./src/components/graphs/MPDonutChart.vue')['default']
     MPPracticeBar: typeof import('./src/components/graphs/MPPracticeBar.vue')['default']
     PreviewCard: typeof import('./src/components/PreviewCard.vue')['default']
