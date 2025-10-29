@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css'
 import MPPracticeBar from '@/components/graphs/MPPracticeBar.vue'
 import { getDefaultBarOptions } from '@/components/graphs/defaultBarOptions.js'
 import MPDonutChart from '@/components/graphs/MPDonutChart.vue'
+import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
 
 // Simple derived metrics
 const sites = dummy.sites || []
@@ -97,7 +98,7 @@ watch(microplasticData, (nv) => {
 })
 
 const compositionOptions = ref({
-  chart: { type: 'donut', height: 260 },
+  chart: { type: 'donut', height: 260, toolbar: { show: false } },
   labels: Object.values(labelsMap),
   colors: Object.values(mpColors),
   legend: { show: false },
@@ -148,26 +149,7 @@ const handleLegendClick = (key) => {
   compositionOptions.value.colors = [mpColors[key]]
 }
 
-// Bar: microplastic counts by site (stacked)
-const siteNames = sites.map(s => s.site_name)
-const fragmentsBySite = sites.map(s => s.fragment_count || 0)
-const fibersBySite = sites.map(s => s.fiber_count || 0)
-const filmsBySite = sites.map(s => s.film_count || 0)
-const foamsBySite = sites.map(s => s.foam_count || 0)
-const pelletsBySite = sites.map(s => s.beads_count || 0)
-
-const bySiteSeries = ref([
-  { name: 'Fragments', data: fragmentsBySite },
-  { name: 'Fibers', data: fibersBySite },
-  { name: 'Foam', data: foamsBySite },
-  { name: 'Films', data: filmsBySite },
-  { name: 'Pellets', data: pelletsBySite },
-])
-const bySiteOptions = ref({
-  chart: { type: 'bar', stacked: true },
-  xaxis: { categories: siteNames },
-  legend: { position: 'top' },
-})
+// Site drilldown chart extracted into a module component: SiteDrilldownChart
 
 // Column: microplastic counts by input type (aggregate mock categories)
 // Use plastic_activity frequency as proxy
@@ -175,7 +157,7 @@ const inputTypes = ['Plastic mulching', 'Fertilizer sacks', 'Greenhouse plastic 
 const inputCounts = inputTypes.map(type => sites.reduce((acc, s) => acc + (s.plastic_activity?.includes(type) ? 1 : 0), 0))
 
 const inputSeries = ref([{ name: 'Sites with input', data: inputCounts }])
-const inputOptions = ref({ chart: { type: 'bar' }, xaxis: { categories: inputTypes }, plotOptions: { bar: { horizontal: false } } })
+const inputOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, xaxis: { categories: inputTypes }, plotOptions: { bar: { horizontal: false } } })
 
 // Small helper list for sample farms (name + contamination level based on total counts)
 function contaminationLevel(site) {
@@ -243,7 +225,7 @@ const monthlySeries = ref([
   { name: 'Fragments', data: distributeAcrossMonths(totalFragments) },
   { name: 'Fibers', data: distributeAcrossMonths(totalFibers) },
 ])
-const monthlyOptions = ref({ chart: { type: 'line', zoom: { enabled: false } }, xaxis: { categories: months }, stroke: { curve: 'smooth' } })
+const monthlyOptions = ref({ chart: { type: 'line', zoom: { enabled: false }, toolbar: { show: false } }, xaxis: { categories: months }, stroke: { curve: 'smooth' } })
 
 // Microplastic count by soil texture (aggregate)
 const textures = Array.from(new Set(sites.map(s => s.soil_type || 'Unknown')))
@@ -251,7 +233,7 @@ const byTextureSeries = ref([
   { name: 'Fragments', data: textures.map(t => sites.filter(s => (s.soil_type || '') === t).reduce((a, b) => a + (b.fragment_count || 0), 0)) },
   { name: 'Fibers', data: textures.map(t => sites.filter(s => (s.soil_type || '') === t).reduce((a, b) => a + (b.fiber_count || 0), 0)) },
 ])
-const byTextureOptions = ref({ chart: { type: 'bar' }, xaxis: { categories: textures }, plotOptions: { bar: { horizontal: false } } })
+const byTextureOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, xaxis: { categories: textures }, plotOptions: { bar: { horizontal: false } } })
 
 // Color counts & size ranges are not in dummy data; create simple derived mock distributions based on total counts
 const colors = ['Gray', 'Blue', 'White', 'Transparent']
@@ -259,14 +241,14 @@ const colorSeries = ref([
   { name: 'Fragments', data: [Math.round(totalFragments * 0.35), Math.round(totalFragments * 0.3), Math.round(totalFragments * 0.2), Math.round(totalFragments * 0.15)] },
   { name: 'Fibers', data: [Math.round(totalFibers * 0.4), Math.round(totalFibers * 0.25), Math.round(totalFibers * 0.25), Math.round(totalFibers * 0.1)] },
 ])
-const colorOptions = ref({ chart: { type: 'bar' }, xaxis: { categories: colors }, plotOptions: { bar: { horizontal: false } }, legend: { position: 'top' } })
+const colorOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, xaxis: { categories: colors }, plotOptions: { bar: { horizontal: false } }, legend: { position: 'top' } })
 
 const sizeRanges = ['1-20 µm', '20-100 µm', '100-500 µm', '500 µm-1 mm', '1-5 mm']
 const sizeSeries = ref([
   { name: 'Fragments', data: [20, 40, 60, 30, 15].map(v => Math.round(v * (totalFragments / 200))) },
   { name: 'Fibers', data: [15, 30, 50, 20, 10].map(v => Math.round(v * (totalFibers / 150))) },
 ])
-const sizeOptions = ref({ chart: { type: 'bar', stacked: true }, xaxis: { categories: sizeRanges }, plotOptions: { bar: { horizontal: false } } })
+const sizeOptions = ref({ chart: { type: 'bar', stacked: true, toolbar: { show: false } }, xaxis: { categories: sizeRanges }, plotOptions: { bar: { horizontal: false } } })
 
 const aiSummaryText = 'Based on the data, farms practicing organic cultivation tend to have lower microplastic contamination levels compared to conventional farms. Implementing integrated pest management and reducing plastic mulch usage could further mitigate contamination risks.';
 
@@ -341,7 +323,7 @@ const farmSizeCounts = {
   large: sites.filter(s => typeof s.land_area_ha === 'number' && s.land_area_ha > 3).length,
 }
 const farmSizeSeries = ref([{ name: 'Farms', data: [farmSizeCounts.small, farmSizeCounts.medium, farmSizeCounts.large] }])
-const farmSizeOptions = ref({ chart: { type: 'bar' }, xaxis: { categories: ['Small (<1ha)', 'Medium (1-3ha)', 'Large (>3ha)'] }, plotOptions: { bar: { horizontal: false, columnWidth: '60%' } }, legend: { show: false } })
+const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, xaxis: { categories: ['Small (<1ha)', 'Medium (1-3ha)', 'Large (>3ha)'] }, plotOptions: { bar: { horizontal: false, columnWidth: '80%' } }, legend: { show: false } })
 
 </script>
 
@@ -384,7 +366,7 @@ const farmSizeOptions = ref({ chart: { type: 'bar' }, xaxis: { categories: ['Sma
       </div>
     </div>
     <VRow class="mt-2">
-      <VCol cols="4" class="d-flex flex-column justify-space-between">
+      <VCol cols="3" class="d-flex flex-column justify-space-between">
         <div class="card crops-card" style="height: 38%;">
           <h3>Most Common Crops Grown</h3>
           <ul class="crop-list">
@@ -397,34 +379,20 @@ const farmSizeOptions = ref({ chart: { type: 'bar' }, xaxis: { categories: ['Sma
         </div>
         <div class="card" style="height: 58%;">
           <h3>Size Distribution of Sampled Farms</h3>
-          <apexchart height="170" :options="farmSizeOptions" :series="farmSizeSeries" type="bar" />
-          <div style="display:flex; justify-content:space-around; margin-top:8px; font-size:13px;">
-            <div><strong>{{ farmSizeSeries[0].data[0] }}</strong>
-              <div style="opacity:.7">Small &lt;1ha</div>
-            </div>
-            <div><strong>{{ farmSizeSeries[0].data[1] }}</strong>
-              <div style="opacity:.7">Medium 1–3ha</div>
-            </div>
-            <div><strong>{{ farmSizeSeries[0].data[2] }}</strong>
-              <div style="opacity:.7">Large &gt;3ha</div>
-            </div>
-          </div>
+          <apexchart :options="farmSizeOptions" :series="farmSizeSeries" type="bar" />
         </div>
       </VCol>
 
       <VCol cols="4">
         <div class="card">
-
           <MPDonutChart :microplasticData="microplasticData" :labelsMap="donutLabelsMap" :colors="donutColors"
             :activeKey="selectedKey" @selection="handleLegendClick" />
-
         </div>
       </VCol>
 
-      <VCol cols="4">
+      <VCol cols="5">
         <div class="card">
-          <h3>Counts by Site (stacked)</h3>
-          <apexchart height="300" :options="bySiteOptions" :series="bySiteSeries" type="bar" />
+          <SiteDrilldownChart :sites="sites" />
         </div>
       </VCol>
     </VRow>

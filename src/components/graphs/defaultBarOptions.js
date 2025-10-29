@@ -5,7 +5,7 @@ export function getDefaultBarOptions(categories = [], overrides = {}) {
         plotOptions: {
             bar: {
                 horizontal: false,
-                columnWidth: '55%',
+                columnWidth: '85%',
                 distributed: false,
                 dataLabels: { position: 'top' }
             }
