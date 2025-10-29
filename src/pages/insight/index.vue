@@ -152,13 +152,32 @@ const handleLegendClick = (key) => {
 
 // Site drilldown chart extracted into a module component: SiteDrilldownChart
 
-// Column: microplastic counts by input type (aggregate mock categories)
-// Use plastic_activity frequency as proxy
+// Column: microplastic counts by input type (aggregate)
+// For each input type, compute total microplastic counts across sites that report using that input.
 const inputTypes = ['Plastic mulching', 'Fertilizer sacks', 'Greenhouse plastic sheets/tunnels', 'Seedling trays (plastic)', 'Compost with visible plastics']
-const inputCounts = inputTypes.map(type => sites.reduce((acc, s) => acc + (s.plastic_activity?.includes(type) ? 1 : 0), 0))
 
-const inputSeries = ref([{ name: 'Sites with input', data: inputCounts }])
-const inputOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, xaxis: { categories: inputTypes }, plotOptions: { bar: { horizontal: false } } })
+// Totals per input: sum total MP for sites that include the input
+const inputTotals = inputTypes.map(type => sites.reduce((acc, s) => {
+  if (!s.plastic_activity || !s.plastic_activity.includes(type)) return acc
+  const siteTotal = (s.fragment_count || 0) + (s.fiber_count || 0) + (s.film_count || 0) + (s.foam_count || 0) + (s.beads_count || 0)
+  return acc + siteTotal
+}, 0))
+
+// Drilldown details: per input type, provide an array of counts per microplastic category
+const inputDrilldown = inputTypes.map(type => {
+  const sums = sites.reduce((acc, s) => {
+    if (!s.plastic_activity || !s.plastic_activity.includes(type)) return acc
+    acc[0] += (s.fragment_count || 0)
+    acc[1] += (s.fiber_count || 0)
+    acc[2] += (s.foam_count || 0)
+    acc[3] += (s.film_count || 0)
+    acc[4] += (s.beads_count || 0)
+    return acc
+  }, [0, 0, 0, 0, 0])
+  return sums
+})
+
+// We'll pass these to the drilldown chart component
 
 // Small helper list for sample farms (name + contamination level based on total counts)
 function contaminationLevel(site) {
@@ -169,7 +188,33 @@ function contaminationLevel(site) {
   return 'ZERO'
 }
 
-const sampledSites = sites.map(s => ({ id: s.id, site_name: s.site_name, address: s.address, level: contaminationLevel(s) }))
+// Normalize site display names: omit the word "farm" (case-insensitive) and tidy spacing
+function sanitizeSiteName(name) {
+  if (!name) return ''
+  // remove the standalone word 'farm' (case-insensitive), and common separators
+  let s = String(name).replace(/\b[Ff]arm\b/g, '')
+  // remove multiple spaces and stray punctuation at ends
+  s = s.replace(/[\-–—_/]+/g, ' ')
+  s = s.replace(/\s{2,}/g, ' ').trim()
+  // remove trailing commas or dashes
+  s = s.replace(/^[,\s]+|[,\s]+$/g, '')
+  return s
+}
+
+const sampledSites = sites.map(s => ({ id: s.id, site_name: sanitizeSiteName(s.site_name), address: s.address, level: contaminationLevel(s) }))
+
+// Prepare site-based drilldown data (to keep the original site drilldown behavior)
+const siteCategories = sites.map(s => sanitizeSiteName(s.site_name || ''))
+const siteTotals = sites.map(s => (
+  (s.fragment_count || 0) + (s.fiber_count || 0) + (s.film_count || 0) + (s.foam_count || 0) + (s.beads_count || 0)
+))
+const siteDrilldown = sites.map(s => [
+  s.fragment_count || 0,
+  s.fiber_count || 0,
+  s.foam_count || 0,
+  s.film_count || 0,
+  s.beads_count || 0
+])
 
 const numOrganic = computed(() => sites.filter(s => (s.cultivation_practice || '').toLowerCase().includes('organic')).length)
 const numConventional = computed(() => sites.filter(s => (s.cultivation_practice || '').toLowerCase().includes('conventional')).length)
@@ -380,7 +425,8 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
 
       <VCol cols="5">
         <div class="card">
-          <SiteDrilldownChart :sites="sites" />
+          <SiteDrilldownChart :categories="siteCategories" :totals="siteTotals" :drilldown="siteDrilldown"
+            title="Microplastic Count by Farm Site" :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors" />
         </div>
       </VCol>
     </VRow>
@@ -401,8 +447,9 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
     <VRow class="mt-2">
       <VCol cols="7">
         <div class="card">
-          <h3>Plastic-related Inputs (site counts)</h3>
-          <apexchart height="240" :options="inputOptions" :series="inputSeries" type="bar" />
+          <SiteDrilldownChart :categories="inputTypes" :totals="inputTotals" :drilldown="inputDrilldown"
+            title="Microplastic Counts by Plastic-Related Farm Inputs"
+            :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors" />
         </div>
       </VCol>
       <VCol cols="5">
