@@ -7,6 +7,7 @@ const props = defineProps({
     options: { type: Object, required: true },
     title: { type: String, required: false, default: '' },
     subtitle: { type: String, required: false, default: '' },
+    height: { type: Number, default: 400 }
 })
 
 const seriesRef = toRef(props, 'series')
@@ -45,7 +46,7 @@ const mergedOptions = computed(() => {
         <h4 class="text-h6 font-weight-bold mb-1" style="line-height: 1.2em;" v-if="title">{{ title }}</h4>
         <p class="subtitle mb-2" v-if="subtitle">{{ subtitle }}</p>
         <div>
-            <VueApexCharts type="bar" :options="mergedOptions" :series="seriesRef" />
+            <VueApexCharts type="bar" :options="mergedOptions" :series="seriesRef" :height="height" />
         </div>
     </div>
 </template>

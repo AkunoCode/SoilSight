@@ -252,7 +252,7 @@ const maxVal = allVals.length ? Math.max(...allVals) : 700
 
 // Use the same base options as PreviewCard so visuals match exactly
 const contaminationByPracticeOptions = ref(getDefaultBarOptions(categoriesForPracticeChart, {
-  chart: { type: 'bar' },
+  chart: { type: 'bar', height: 20 },
   plotOptions: { bar: { horizontal: false } },
   legend: { position: 'bottom' },
   yaxis: { title: { text: 'Number of MP found (in Thousands)' }, min: 0, max: Math.ceil(maxVal * 1.15) }
@@ -426,7 +426,8 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
       <VCol cols="5">
         <div class="card">
           <SiteDrilldownChart :categories="siteCategories" :totals="siteTotals" :drilldown="siteDrilldown"
-            title="Microplastic Count by Farm Site" :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors" />
+            title="Microplastic Count by Farm Site"
+            :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors" />
         </div>
       </VCol>
     </VRow>

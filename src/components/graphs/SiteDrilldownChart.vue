@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { VIcon } from 'vuetify/components'
+import { he } from 'vuetify/locale'
 
 
 const props = defineProps({
@@ -16,7 +17,8 @@ const props = defineProps({
     // labels for the microplastic categories shown in drilldown
     categoryLabels: { type: Array, default: () => ['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets'] },
     // optional colors mapping for microplastic categories: { fragments: '#...', fibers: '#...' }
-    colors: { type: Object, default: () => ({}) }
+    colors: { type: Object, default: () => ({}) },
+    height: { type: Number, default: 400 }
 })
 
 // Prepare names and totals
@@ -147,6 +149,6 @@ watch([() => props.categories, () => props.totals], () => {
             </h3>
             <p class="subtitle">Data as of September 2022</p>
         </div>
-        <apexchart :options="displayedOptions" :series="displayedSeries" type="bar" />
+        <apexchart :options="displayedOptions" :series="displayedSeries" type="bar" :height="height" />
     </div>
 </template>
