@@ -5,6 +5,7 @@ import VueApexCharts from "vue3-apexcharts";
 import MPDonutChart from './graphs/MPDonutChart.vue';
 import MPPracticeBar from './graphs/MPPracticeBar.vue';
 import { getDefaultBarOptions } from './graphs/defaultBarOptions.js';
+import SampledFarms from './SampledFarms.vue';
 // import router
 import { useRouter } from "vue-router";
 
@@ -440,6 +441,12 @@ const handleLegendClick = (key) => {
                         <p>{{ aiSummaryText }}</p>
                     </div>
                 </div>
+            </div>
+            <div v-if="props.isOverview">
+                <h4 class="text-h6 font-weight-bold mt-6 mb-2" style="line-height: 1.2em;">
+                    Sampled Farms
+                </h4>
+                <SampledFarms :sampledSites="allFarmsData" :showMap="false" />
             </div>
         </div>
     </div>

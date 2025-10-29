@@ -1,13 +1,13 @@
 <script setup>
-import L from 'leaflet'
 import { computed, onMounted, ref, watch } from 'vue'
 import dummy from '@/assets/dummyData.json'
-import 'leaflet/dist/leaflet.css'
+
 import MPPracticeBar from '@/components/graphs/MPPracticeBar.vue'
 import { getDefaultBarOptions } from '@/components/graphs/defaultBarOptions.js'
 import MPDonutChart from '@/components/graphs/MPDonutChart.vue'
 import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
 import MonthlyTrendChart from '@/components/graphs/MonthlyTrendChart.vue'
+import SampledFarms from '@/components/SampledFarms.vue'
 
 // Simple derived metrics
 const sites = dummy.sites || []
@@ -117,9 +117,7 @@ const compositionOptions = ref({
             label: 'Total number of MP found',
             fontSize: '14px',
             formatter: function (w) {
-              const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0)
-              if (total >= 1_000_000) return (total / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
-              if (total >= 1_000) return (total / 1_000).toFixed(1).replace(/\.0$/, '') + 'K'
+              const total = Object.values(microplasticData.value).reduce((a, b) => a + b, 0)
               return total
             }
           }
@@ -128,7 +126,6 @@ const compositionOptions = ref({
     }
   }
 })
-
 const handleLegendClick = (key) => {
   if (selectedKey.value === key) {
     selectedKey.value = null
@@ -552,14 +549,9 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
       <VCol cols="6">
         <div class="card list-card map-card">
           <h3>Sampled Farms</h3>
-          <ul>
-            <li v-for="s in sampledSites" :key="s.id">
-              <div class="farm-name">{{ s.site_name }}</div>
-              <div class="farm-addr">{{ s.address }}</div>
-              <div class="farm-level" :data-level="s.level">{{ s.level }}</div>
-            </li>
-          </ul>
-          <div id="map" ref="mapRef" style="height:320px; border-radius:8px; overflow:hidden;" />
+          <!-- list moved to SampledFarms component to make it reusable -->
+          <!-- pass full `sites` (contains latitude/longitude) so the map can render markers -->
+          <SampledFarms :sampledSites="sites" />
         </div>
       </VCol>
     </VRow>
