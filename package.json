@@ -10,6 +10,7 @@
     "lint": "eslint . --fix"
   },
   "dependencies": {
+    "@directus/sdk": "^20.1.1",
     "@fontsource/roboto": "5.2.7",
     "@mdi/font": "7.4.47",
     "apexcharts": "^5.3.5",
