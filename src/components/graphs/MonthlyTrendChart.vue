@@ -4,27 +4,15 @@ import { buildMonthlyChartData } from './monthlyTrend.js'
 
 const props = defineProps({
     microplasticData: { type: Object, required: true },
-    // optional human-readable date string to display in subtitle
     date: { type: String, default: '' },
     subtitle: { type: String, default: '' },
-    // optional height in pixels for the chart (makes the component adjustable)
     height: { type: Number, default: 400 },
     colors: { type: Object, default: () => ({}) }
 })
 
-// expose a reactive ref for template binding
 const height = toRef(props, 'height')
 
-// default date used when parent doesn't supply `date` prop
-const defaultDate = computed(() => {
-    try {
-        const now = new Date()
-        const options = { year: 'numeric', month: 'long', day: 'numeric' }
-        return now.toLocaleDateString(undefined, options)
-    } catch (e) {
-        return ''
-    }
-})
+const defaultDate = computed(() => new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }))
 
 const totals = computed(() => ({
     fragments: props.microplasticData?.fragments || 0,
@@ -35,24 +23,29 @@ const totals = computed(() => ({
 }))
 
 const { series: baseSeries, options: baseOptions } = buildMonthlyChartData(totals.value)
-// apply requested height (default 220) to the chart options so the chart renders shorter
 baseOptions.chart = Object.assign({}, baseOptions.chart || {}, { height: props.height })
 const monthlySeries = ref(baseSeries)
 const monthlyOptions = ref(baseOptions)
 
-// apply colors mapping (if provided) to options.colors for ApexCharts
-if (props.colors && Object.keys(props.colors).length) {
-    monthlyOptions.value.colors = Object.values(props.colors)
-}
+// chart instance ref so updates can be applied via API
+const chartRef = ref(null)
+
+if (props.colors && Object.keys(props.colors).length) monthlyOptions.value.colors = Object.values(props.colors)
 
 watch(totals, (nv) => {
     const { series, options } = buildMonthlyChartData(nv)
     monthlySeries.value = series
-    // respect the height prop when rebuilding options
     options.chart = Object.assign({}, options.chart || {}, { height: props.height })
     monthlyOptions.value = options
-    if (props.colors && Object.keys(props.colors).length) {
-        monthlyOptions.value.colors = Object.values(props.colors)
+    if (props.colors && Object.keys(props.colors).length) monthlyOptions.value.colors = Object.values(props.colors)
+
+    if (chartRef.value && typeof chartRef.value.updateOptions === 'function') {
+        try {
+            chartRef.value.updateOptions(monthlyOptions.value, false, true)
+            if (typeof chartRef.value.updateSeries === 'function') chartRef.value.updateSeries(monthlySeries.value)
+        } catch (e) {
+            console.warn('MonthlyTrendChart: chart update failed', e)
+        }
     }
 })
 </script>
@@ -63,7 +56,7 @@ watch(totals, (nv) => {
             <h3>Total Monthly Microplastic Waste per Morphological Category</h3>
             <p class="subtitle">{{ subtitle || (props.date || defaultDate) }}</p>
         </div>
-        <apexchart :options="monthlyOptions" :series="monthlySeries" type="line" :height="height" />
+        <apexchart ref="chartRef" :options="monthlyOptions" :series="monthlySeries" type="line" :height="height" />
     </div>
 </template>
 
