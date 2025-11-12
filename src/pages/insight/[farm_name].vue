@@ -4,12 +4,16 @@ import { useRoute } from 'vue-router'
 import PreviewCard from '../../components/PreviewCard.vue'
 import SampledFarms from '../../components/SampledFarms.vue'
 import LeafletMap from '../../components/LeafletMap.vue'
-import dummyData from '../../assets/dummyData.json'
 import MPDonutChart from '@/components/graphs/MPDonutChart.vue'
+
+// Directus
+import directus from '@/composables/useDirectus'
+import { readItems } from '@directus/sdk'
 
 // reactive state
 const route = useRoute()
-const sites = (dummyData && dummyData.sites) || []
+// sites will be populated from Directus if needed
+const sites = []
 const farmParam = computed(() => route.params.farm_name || '')
 const farm = ref(null)
 
@@ -38,6 +42,18 @@ const cultivationDefinitions = {
     "Fully Organic": "An agricultural practice that avoids the use of synthetic chemicals and fertilizers, relying instead on natural processes and materials to maintain soil fertility and control pests.",
     "Integrated": "A sustainable approach to managing pests that combines biological, cultural, mechanical, and chemical methods to minimize environmental impact while effectively controlling pest populations.",
     "Conventional": "A traditional farming method that typically involves the use of synthetic chemicals, fertilizers, and pesticides to maximize crop yields.",
+}
+
+// Return a definition based on whether the practice string contains keywords.
+function getCultivationDefinition(practice) {
+    if (!practice) return ''
+    // if an exact key exists, return it
+    if (cultivationDefinitions[practice]) return cultivationDefinitions[practice]
+    const p = String(practice).toLowerCase()
+    if (p.includes('organic')) return cultivationDefinitions['Fully Organic'] || ''
+    if (p.includes('integrated')) return cultivationDefinitions['Integrated'] || ''
+    if (p.includes('conventional')) return cultivationDefinitions['Conventional'] || ''
+    return ''
 }
 
 // helper to normalize / slugify names for matching
@@ -81,8 +97,16 @@ function farmHasActivity(activity) {
 import { computed as _computed } from 'vue'
 import MonthlyTrendChart from '@/components/graphs/MonthlyTrendChart.vue'
 import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
+// handle water_source which may be a string or an array
 const waterIcon = _computed(() => {
-    const ws = (farm.value?.water_source || '').toLowerCase()
+    const raw = farm.value?.water_source
+    let ws = ''
+    if (Array.isArray(raw)) {
+        ws = raw.join(' ').toLowerCase()
+    } else {
+        ws = (raw || '').toLowerCase()
+    }
+
     if (!ws) return 'mdi-water'
     if (/rain/.test(ws)) return 'mdi-weather-rainy'
     if (/well|groundwater|deep well/.test(ws)) return 'mdi-water-pump'
@@ -90,6 +114,31 @@ const waterIcon = _computed(() => {
     if (/irrigation|canal/.test(ws)) return 'mdi-waves'
     return 'mdi-water'
 })
+
+// helper to show array fields (water_source, soil_type) consistently in the template
+function formatArrayField(val) {
+    if (val == null) return ''
+    if (Array.isArray(val)) return val.join(', ')
+    return String(val)
+}
+
+// Title-case helpers for display consistency (strings or arrays)
+function titleCaseString(s) {
+    if (s == null) return ''
+    const str = String(s).toLowerCase()
+    // Capitalize each word; keep simple rules (words separated by spaces or hyphens)
+    return str.split(/(\s|\-)/).map(part => {
+        // keep separators unchanged
+        if (/^\s|\-$/g.test(part)) return part
+        return part.charAt(0).toUpperCase() + part.slice(1)
+    }).join('')
+}
+
+function titleCase(val) {
+    if (val == null) return ''
+    if (Array.isArray(val)) return val.map(v => titleCaseString(v)).join(', ')
+    return titleCaseString(val)
+}
 
 function findFarmByParam(param) {
     if (!param) return null
@@ -111,16 +160,85 @@ function updateFarm() {
     farm.value = findFarmByParam(farmParam.value) || null
 }
 
-watch(farmParam, () => updateFarm(), { immediate: true })
+// Try to fetch the farm from Directus by name; if that fails, leave farm null.
+async function fetchFarmFromDirectus(param) {
+    if (!param) return null
+    const decoded = decodeURIComponent(String(param))
 
-onMounted(() => {
-    // initial set (redundant because of watch immediate, but safe)
-    updateFarm()
-})
+    try {
+        // First attempt: query Directus for an exact site_name match (fast if indexed)
+        const resp = await directus.request(readItems('sites', { filter: { site_name: { _eq: decoded } }, limit: 1 }))
+        const items = Array.isArray(resp) ? resp : (resp?.data || [])
+        if (items && items.length > 0) {
+            // keep local cache of sites for other comparisons
+            sites.splice(0, sites.length, ...items)
+            return items[0]
+        }
+
+        // Second attempt: fetch all sites from Directus and match by slug locally
+        const allResp = await directus.request(readItems('sites'))
+        const allItems = Array.isArray(allResp) ? allResp : (allResp?.data || [])
+        if (Array.isArray(allItems) && allItems.length > 0) {
+            sites.splice(0, sites.length, ...allItems)
+            // try matching using the same local logic
+            const key = slugify(decoded)
+            let found = allItems.find(s => slugify(s.site_name) === key)
+            if (found) return found
+            found = allItems.find(s => (s.site_name || '').toLowerCase() === decoded.toLowerCase())
+            if (found) return found
+            found = allItems.find(s => (s.site_name || '').toLowerCase().includes(decoded.toLowerCase()))
+            if (found) return found
+        }
+    } catch (err) {
+        console.error('Directus lookup failed for farm:', err)
+    }
+
+    return null
+}
+
+
 
 const printReport = () => {
     window.print()
 }
+
+// Latest soil sample date for this farm (from Directus soilsamples collection)
+const latestSampleDate = ref(null)
+
+function formatDateISO(dateStr) {
+    if (!dateStr) return ''
+    try {
+        const d = new Date(dateStr)
+        if (isNaN(d.getTime())) return ''
+        return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+    } catch (e) {
+        return ''
+    }
+}
+
+async function fetchLatestSampleDateForFarm(farmId) {
+    latestSampleDate.value = null
+    if (!farmId) return null
+    try {
+        // Try to fetch the most recent sample for this site
+        const resp = await directus.request(readItems('soilsamples', { filter: { site: { _eq: farmId } }, sort: ['-date_collected'], limit: 1 }))
+        const items = Array.isArray(resp) ? resp : (resp?.data || [])
+        const sample = (items && items[0]) || null
+        console.log('Fetched latest soilsample for farm', farmId, sample)
+        latestSampleDate.value = sample?.date_collected || null
+    } catch (err) {
+        console.error('Error fetching latest soilsample for farm', farmId, err)
+        latestSampleDate.value = null
+    }
+    return latestSampleDate.value
+}
+
+// computed display date: prefer latestSampleDate, fallback to current formattedDate
+const displaySampleDate = computed(() => {
+    const d = latestSampleDate.value
+    const formatted = formatDateISO(d)
+    return formatted || formattedDate.value
+})
 
 // build microplastic data shape expected by MPDonutChart from farm counts
 const microplasticData = computed(() => {
@@ -224,6 +342,26 @@ const sizeComparison = computed(() => {
     })
     return { categories: sizeRanges, totals, drilldown }
 })
+
+watch(farmParam, async () => {
+    // fetch the farm record from Directus whenever the route param changes
+    farm.value = await fetchFarmFromDirectus(farmParam.value)
+    console.log('Loaded farm data:', farm.value)
+}, { immediate: true })
+
+// When the farm object is set, fetch the latest soil sample date
+watch(farm, async (newFarm) => {
+    if (newFarm?.id) {
+        await fetchLatestSampleDateForFarm(newFarm.id)
+        console.log('Latest sample date:', latestSampleDate.value)
+    } else {
+        latestSampleDate.value = null
+    }
+}, { immediate: true })
+
+onMounted(() => {
+    // nothing else to do here; watch will fetch immediately
+})
 </script>
 
 <template>
@@ -261,8 +399,9 @@ const sizeComparison = computed(() => {
                 <VRow>
                     <VCol cols="8">
                         <div class="card">
-                            <h3 class="text-h5 font-weight-bold mb-4">{{ farm?.cultivation_practice }} Farming</h3>
-                            <p>{{ cultivationDefinitions[farm?.cultivation_practice] }}</p>
+                            <h3 class="text-h5 font-weight-bold mb-4">{{ titleCase(farm?.cultivation_practice) }}
+                                Farming</h3>
+                            <p>{{ getCultivationDefinition(farm?.cultivation_practice) }}</p>
                         </div>
                     </VCol>
                     <VCol cols="4">
@@ -270,7 +409,7 @@ const sizeComparison = computed(() => {
                             <h3 class="text-h5 font-weight-bold mb-4">Crops Grown</h3>
                             <div class="crops-list">
                                 <ul>
-                                    <li v-for="(crop, index) in farm?.crops" :key="index">{{ crop }}</li>
+                                    <li v-for="(crop, index) in farm?.crops" :key="index">{{ titleCase(crop) }}</li>
                                 </ul>
                             </div>
                         </div>
@@ -290,9 +429,7 @@ const sizeComparison = computed(() => {
                             <div class="icon-container bg-blue">
                                 <VIcon color="white" size="x-large">{{ waterIcon }}</VIcon>
                             </div>
-                            <p class="text-h5 font-weight-bold text-center">
-                                {{
-                                    farm?.water_source }}
+                            <p class="text-h5 font-weight-bold text-center">{{ titleCase(farm?.water_source) }}
                             </p>
                         </div>
                     </VCol>
@@ -302,7 +439,7 @@ const sizeComparison = computed(() => {
                             <div class="icon-container bg-brown">
                                 <VIcon color="white" size="x-large">mdi-image-filter-hdr</VIcon>
                             </div>
-                            <p class="text-h5 font-weight-bold text-center">{{ farm?.soil_type }}</p>
+                            <p class="text-h5 font-weight-bold text-center">{{ titleCase(farm?.soil_type) }}</p>
                         </div>
                     </VCol>
                 </VRow>
@@ -335,7 +472,7 @@ const sizeComparison = computed(() => {
                             :totals="anonymizedComparison.totals" :drilldown="anonymizedComparison.drilldown"
                             :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors"
                             :height="320" :overview-colors="overviewColors"
-                            :title="farm?.cultivation_practice ? `Contamination Comparison to Other ${farm.cultivation_practice} Farms` : 'Contamination Comparison to Other Farms'" />
+                            :title="farm?.cultivation_practice ? `Contamination Comparison to Other ${titleCase(farm?.cultivation_practice)} Farms` : 'Contamination Comparison to Other Farms'" />
                     </div>
                     <div class="card">
                         <div class="d-flex align-center mb-1">
@@ -344,7 +481,7 @@ const sizeComparison = computed(() => {
                             </h4>
                             <VIcon size="small" color="primary" class="ml-2">mdi-creation</VIcon>
                         </div>
-                        <p class="subtitle">Data as of {{ formattedDate }}</p>
+                        <p class="subtitle">Data as of {{ displaySampleDate }}</p>
                         <div class="summary-box">
                             <p class="preserve-newlines">{{ aiSummaryText }}</p>
                         </div>
