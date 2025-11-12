@@ -19,8 +19,13 @@ const props = defineProps({
     // optional colors mapping for microplastic categories: { fragments: '#...', fibers: '#...' }
     colors: { type: Object, default: () => ({}) },
     // optional overview colors per category (for overview bars). If provided, will enable
-    // distributed bar coloring so each overview bar uses the corresponding color.
+    // optional overview colors per category (for overview bars). If provided, will enable
+    // distributed bar coloring so each overview bar uses the corresponding color — only
+    // applied when `useOverviewColors` is true (opt-in) to avoid changing the default
+    // bar color unexpectedly.
     overviewColors: { type: Array, default: () => [] },
+    // opt-in flag: only apply `overviewColors` (distributed coloring) when true.
+    useOverviewColors: { type: Boolean, default: false },
     // optional chart height in pixels
     height: { type: Number, default: 400 }
     ,
@@ -65,8 +70,9 @@ const overviewOptions = ref({
     legend: { position: 'top' }
 })
 
-// If caller provided overviewColors, use distributed bars and the provided colors array
-if (props.overviewColors && props.overviewColors.length) {
+// If caller provided overviewColors AND explicitly opted in, use distributed bars and the
+// provided colors array. Default behavior preserves the single default bar color.
+if (props.useOverviewColors && props.overviewColors && props.overviewColors.length) {
     overviewOptions.value.plotOptions = { bar: { horizontal: false, distributed: true } }
     overviewOptions.value.colors = props.overviewColors
 }
@@ -100,11 +106,15 @@ function handleSiteClick(idx) {
     const siteData = siteCategoryLabels.value.map((_, i) => details[i] || 0)
 
     drilldownSeries.value = [{ name: currentSiteName.value, data: siteData }]
+    // Only enable distributed coloring in drilldown when the caller provided a colors mapping.
+    const drillPlotOpts = (props.colors && Object.keys(props.colors).length)
+        ? { bar: { horizontal: false, distributed: true } }
+        : { bar: { horizontal: false } }
+
     drilldownOptions.value = {
         chart: { type: 'bar', toolbar: { show: false }, height: props.height },
         xaxis: { categories: siteCategoryLabels.value },
-        // Use distributed bars so ApexCharts applies the provided colors array to each data point
-        plotOptions: { bar: { horizontal: false, distributed: true } },
+        plotOptions: drillPlotOpts,
         legend: { show: false }
     }
 

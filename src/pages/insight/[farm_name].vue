@@ -300,7 +300,10 @@ const overviewColors = computed(() => {
 })
 
 // Build per-farm synthetic distributions for color and size ranges so we can reuse SiteDrilldownChart
-const colorBuckets = ['Gray', 'Blue', 'White', 'Transparent']
+// Color comparison: prefer fetching real microplastics records for this farm
+// Include additional buckets discovered in the data (e.g., Black, Green)
+const colorBuckets = ['Gray', 'Blue', 'White', 'Transparent', 'Black', 'Green']
+// fallback ratios used when no microplastics records are available
 const colorBucketRatios = [0.35, 0.3, 0.2, 0.15]
 
 const farmTotalMP = computed(() => {
@@ -308,9 +311,112 @@ const farmTotalMP = computed(() => {
     return (d.fragments || 0) + (d.fibers || 0) + (d.foams || 0) + (d.films || 0) + (d.pellets || 0)
 })
 
+// store fetched color comparison when available
+const colorComparisonFetched = ref(null)
+
+// Helper: normalize color text into one of the defined buckets (case-insensitive)
+function normalizeColorToBucket(raw) {
+    if (!raw) return null
+    const s = String(raw).toLowerCase()
+    if (s.includes('gray') || s.includes('grey') || s.includes('charcoal')) return 'Gray'
+    if (s.includes('blue')) return 'Blue'
+    if (s.includes('white')) return 'White'
+    if (s.includes('clear') || s.includes('transparent')) return 'Transparent'
+    if (s.includes('black')) return 'Black'
+    if (s.includes('green') || s.includes('olive') || s.includes('lime')) return 'Green'
+    return null
+}
+
+// Helper: map morphology/category field from microplastic record to index order
+function morphologyIndex(morph) {
+    const m = (morph || '').toString().toLowerCase()
+    if (m.includes('fragment')) return 0
+    if (m.includes('fiber') || m.includes('fibre')) return 1
+    if (m.includes('foam')) return 2
+    if (m.includes('film')) return 3
+    if (m.includes('pellet') || m.includes('bead')) return 4
+    return -1
+}
+
+async function fetchColorComparisonForFarm(farmId) {
+    colorComparisonFetched.value = null
+    if (!farmId) return null
+    try {
+        // Query microplastics where the sample_source (soilsample) references this site id
+        // Using nested filter: sample_source.site = farmId
+        const resp = await directus.request(readItems('microplastics', { filter: { sample_source: { site: { _eq: farmId } } }, limit: -1 }))
+        const items = Array.isArray(resp) ? resp : (resp?.data || [])
+        if (!items || items.length === 0) return null
+
+        // Client-side dynamic bucketing: group by normalized color string
+        const normalizeRaw = s => (s || '').toString().trim()
+        const normKey = s => (s || '').toString().trim().toLowerCase().replace(/[^a-z0-9#\s]/g, '') || 'unknown'
+
+        const counts = new Map()
+        for (const it of items) {
+            const rawColor = it.color || it.color_bucket || it.colour || ''
+            const norm = normKey(rawColor)
+            if (!counts.has(norm)) counts.set(norm, { count: 0, raws: new Map(), drilldown: [0, 0, 0, 0, 0] })
+            const obj = counts.get(norm)
+            obj.count++
+            obj.raws.set(normalizeRaw(rawColor), (obj.raws.get(normalizeRaw(rawColor)) || 0) + 1)
+
+            const morph = it.morphology || it.mp_category || it.type
+            const idx = morphologyIndex(morph)
+            if (idx >= 0) obj.drilldown[idx] = (obj.drilldown[idx] || 0) + 1
+        }
+
+        // Convert map -> array and sort by count desc
+        const arr = Array.from(counts.entries()).map(([norm, v]) => {
+            const topRaw = Array.from(v.raws.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || norm
+            const display = /^#/.test(String(topRaw).trim()) ? topRaw.trim() : topRaw.split(/\s+/).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')
+            return { norm, display, count: v.count, drilldown: v.drilldown }
+        }).sort((a, b) => b.count - a.count)
+
+        const topN = 6
+        const explicit = arr.slice(0, topN)
+        const other = arr.slice(topN)
+
+        const categories = explicit.map(x => x.display)
+        const totals = explicit.map(x => x.count)
+        const drilldown = explicit.map(x => x.drilldown)
+
+        if (other.length > 0) {
+            const otherTotals = other.reduce((acc, it) => acc + it.count, 0)
+            const otherDrill = other.reduce((acc, it) => acc.map((v, i) => v + (it.drilldown[i] || 0)), [0, 0, 0, 0, 0])
+            categories.push('Other')
+            totals.push(otherTotals)
+            drilldown.push(otherDrill)
+        }
+
+        // assign colors for categories: prefer known mapping, fall back to deterministic HSL
+        const known = {
+            gray: '#9e9e9e', grey: '#9e9e9e', blue: '#1976d2', white: '#ffffff', transparent: '#cfd8dc',
+            black: '#000000', green: '#2E7D32'
+        }
+        const colorsArr = categories.map(label => {
+            const key = (label || '').toString().toLowerCase()
+            if (known[key]) return known[key]
+            if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(label)) return label
+            // deterministic hash -> hue
+            let h = 0
+            for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) % 360
+            return `hsl(${h},60%,45%)`
+        })
+
+        colorComparisonFetched.value = { categories, totals, drilldown, overviewColors: colorsArr }
+        return colorComparisonFetched.value
+    } catch (err) {
+        console.error('Error fetching microplastics for color comparison', err)
+        colorComparisonFetched.value = null
+        return null
+    }
+}
+
 const colorComparison = computed(() => {
+    if (colorComparisonFetched.value) return colorComparisonFetched.value
+    // fallback synthetic distribution when no per-record data
     const totals = colorBucketRatios.map(r => Math.round((farmTotalMP.value || 0) * r))
-    // drilldown: for each color bucket, split into MP categories proportional to farm's MP category counts
     const mp = microplasticData.value
     const mpTotal = farmTotalMP.value || 0
     const drilldown = totals.map(t => {
@@ -322,7 +428,16 @@ const colorComparison = computed(() => {
         const pellets = Math.max(0, t - (fragments + fibers + foams + films))
         return [fragments, fibers, foams, films, pellets]
     })
-    return { categories: colorBuckets, totals, drilldown }
+    // generate overview colors for fallback buckets
+    const known = { gray: '#9e9e9e', blue: '#1976d2', white: '#ffffff', transparent: '#cfd8dc', black: '#000000', green: '#2E7D32' }
+    const overviewColors = colorBuckets.map(label => {
+        const key = (label || '').toString().toLowerCase()
+        if (known[key]) return known[key]
+        let h = 0
+        for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) % 360
+        return `hsl(${h},60%,45%)`
+    })
+    return { categories: colorBuckets, totals, drilldown, overviewColors }
 })
 
 const sizeRanges = ['1-20 µm', '20-100 µm', '100-500 µm', '500 µm-1 mm', '1-5 mm']
@@ -353,9 +468,12 @@ watch(farmParam, async () => {
 watch(farm, async (newFarm) => {
     if (newFarm?.id) {
         await fetchLatestSampleDateForFarm(newFarm.id)
+        // also attempt to fetch per-record microplastics color data for this farm
+        await fetchColorComparisonForFarm(newFarm.id)
         console.log('Latest sample date:', latestSampleDate.value)
     } else {
         latestSampleDate.value = null
+        colorComparisonFetched.value = null
     }
 }, { immediate: true })
 
@@ -471,7 +589,7 @@ onMounted(() => {
                         <SiteDrilldownChart :categories="anonymizedComparison.categories"
                             :totals="anonymizedComparison.totals" :drilldown="anonymizedComparison.drilldown"
                             :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors"
-                            :height="320" :overview-colors="overviewColors" :date="displaySampleDate"
+                            :height="320" :date="displaySampleDate"
                             :title="farm?.cultivation_practice ? `Contamination Comparison to Other ${titleCase(farm?.cultivation_practice)} Farms` : 'Contamination Comparison to Other Farms'" />
                     </div>
                     <div class="card">
