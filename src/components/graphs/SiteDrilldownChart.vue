@@ -15,14 +15,12 @@ const props = defineProps({
     date: { type: String, default: '' }
 })
 
-// Derived reactive values
 const siteNames = computed(() => props.categories || [])
 const totalBySite = computed(() => props.totals || [])
 const siteCategoryLabels = computed(() => props.categoryLabels)
 
 const defaultDate = computed(() => new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }))
 
-// Overview (summary) series and options
 const overviewSeries = ref([{ name: 'Total MP', data: totalBySite.value }])
 const overviewOptions = ref({
     chart: { type: 'bar', stacked: true, toolbar: { show: false }, height: props.height },
@@ -32,6 +30,7 @@ const overviewOptions = ref({
         labels: { rotate: -12, rotateAlways: false, hideOverlappingLabels: false, trim: false, style: { fontSize: '12px' } }
     },
     colors: ['#1976d2'],
+    plotOptions: { bar: { horizontal: false } },
     legend: { position: 'top' }
 })
 
@@ -40,7 +39,6 @@ if (props.useOverviewColors && props.overviewColors.length) {
     overviewOptions.value.colors = props.overviewColors
 }
 
-// Drilldown state
 const isDrilldown = ref(false)
 const currentSiteIndex = ref(null)
 const currentSiteName = ref('')
@@ -51,8 +49,8 @@ const drilldownOptions = ref({})
 const displayedSeries = computed(() => (isDrilldown.value ? drilldownSeries.value : overviewSeries.value))
 const displayedOptions = computed(() => (isDrilldown.value ? drilldownOptions.value : overviewOptions.value))
 
-// Reference to the apexchart component so we can call its API (updateOptions/updateSeries)
 const chartRef = ref(null)
+const chartKey = ref(0)
 
 function handleSiteClick(idx) {
     if (idx == null || idx < 0 || idx >= siteNames.value.length) return
@@ -60,7 +58,6 @@ function handleSiteClick(idx) {
     currentSiteIndex.value = idx
     currentSiteName.value = name
 
-    // resolve drilldown data (array or object keyed by name)
     let details = []
     if (Array.isArray(props.drilldown)) details = props.drilldown[idx] || []
     else if (props.drilldown && typeof props.drilldown === 'object') details = props.drilldown[name] || props.drilldown[idx] || []
@@ -78,9 +75,9 @@ function handleSiteClick(idx) {
         legend: { show: false }
     }
 
-    // map provided colors to category labels when available
     if (props.colors && Object.keys(props.colors).length) {
         const keys = Object.keys(props.colors || {})
+        const safeColor = (c) => (c && typeof c === 'string') ? c : '#9e9e9e'
         const colorsArr = siteCategoryLabels.value.map(label => {
             const lower = (label || '').toLowerCase()
             const candidates = [lower, lower + 's']
@@ -88,57 +85,60 @@ function handleSiteClick(idx) {
             candidates.push(label)
             for (const c of candidates) {
                 const matchKey = keys.find(k => k.toLowerCase() === (c || '').toLowerCase())
-                if (matchKey) return props.colors[matchKey]
+                if (matchKey) return safeColor(props.colors[matchKey])
             }
             return '#9e9e9e'
         })
         drilldownOptions.value.colors = colorsArr
     }
 
-    isDrilldown.value = true
-    // update chart instance immediately so labels and series reflect drilldown
     if (chartRef.value && typeof chartRef.value.updateOptions === 'function') {
         try {
-            chartRef.value.updateOptions({ xaxis: drilldownOptions.value.xaxis, plotOptions: drilldownOptions.value.plotOptions, legend: drilldownOptions.value.legend }, false, true)
+            chartRef.value.updateOptions({ xaxis: drilldownOptions.value.xaxis, plotOptions: drilldownOptions.value.plotOptions, legend: drilldownOptions.value.legend }, true, true)
             if (typeof chartRef.value.updateSeries === 'function') chartRef.value.updateSeries(drilldownSeries.value)
+            isDrilldown.value = true
         } catch (e) {
             console.warn('ApexChart update failed', e)
+            isDrilldown.value = true
+            chartKey.value += 1
         }
+    } else {
+        isDrilldown.value = true
     }
 }
 
 function resetSiteDrilldown() {
-    isDrilldown.value = false
-    currentSiteIndex.value = null
-    currentSiteName.value = ''
-    // restore overview options and series on chart instance
     if (chartRef.value && typeof chartRef.value.updateOptions === 'function') {
         try {
-            chartRef.value.updateOptions({ xaxis: overviewOptions.value.xaxis, plotOptions: overviewOptions.value.plotOptions, legend: overviewOptions.value.legend }, false, true)
+            chartRef.value.updateOptions({ xaxis: overviewOptions.value.xaxis, plotOptions: overviewOptions.value.plotOptions, legend: overviewOptions.value.legend }, true, true)
             if (typeof chartRef.value.updateSeries === 'function') chartRef.value.updateSeries(overviewSeries.value)
         } catch (e) {
             console.warn('ApexChart update failed', e)
+            chartKey.value += 1
         }
     }
+    isDrilldown.value = false
+    currentSiteIndex.value = null
+    currentSiteName.value = ''
 }
 
-// Attach click handler for overview bars so drilldown works
 overviewOptions.value.chart.events = {
     dataPointSelection(_, __, config) {
         if (!isDrilldown.value) handleSiteClick(config.dataPointIndex)
     }
 }
 
-// Keep overview data in sync and force chart recreation when categories/totals change
 watch([() => props.categories, () => props.totals], () => {
     overviewSeries.value = [{ name: 'Total MP', data: totalBySite.value }]
     overviewOptions.value.xaxis = { categories: Array.isArray(siteNames.value) ? siteNames.value.slice() : siteNames.value, type: 'category' }
+    if (!overviewOptions.value.plotOptions) overviewOptions.value.plotOptions = { bar: { horizontal: false } }
     if (chartRef.value && typeof chartRef.value.updateOptions === 'function') {
         try {
-            chartRef.value.updateOptions({ xaxis: overviewOptions.value.xaxis }, false, true)
+            chartRef.value.updateOptions({ xaxis: overviewOptions.value.xaxis, plotOptions: overviewOptions.value.plotOptions, colors: overviewOptions.value.colors, legend: overviewOptions.value.legend }, true, true)
             if (typeof chartRef.value.updateSeries === 'function') chartRef.value.updateSeries(overviewSeries.value)
         } catch (e) {
             console.warn('ApexChart update failed', e)
+            chartKey.value += 1
         }
     }
 })
@@ -154,8 +154,7 @@ watch([() => props.categories, () => props.totals], () => {
             </h3>
             <p class="subtitle">{{ props.date || defaultDate }}</p>
         </div>
-        <apexchart ref="chartRef" :options="displayedOptions" :series="displayedSeries" type="bar"
-            :height="props.height" />
+        <apexchart :key="chartKey" ref="chartRef" :options="displayedOptions" :series="displayedSeries" type="bar" :height="props.height" />
     </div>
 </template>
 
