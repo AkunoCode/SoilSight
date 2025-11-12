@@ -1,88 +1,92 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import PreviewCard from '../../components/PreviewCard.vue'
-import SampledFarms from '../../components/SampledFarms.vue'
 import LeafletMap from '../../components/LeafletMap.vue'
 import MPDonutChart from '@/components/graphs/MPDonutChart.vue'
+import MonthlyTrendChart from '@/components/graphs/MonthlyTrendChart.vue'
+import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
 
-// Directus
+// Directus helper
 import directus from '@/composables/useDirectus'
 import { readItems } from '@directus/sdk'
 
-// reactive state
+// Routing / params
 const route = useRoute()
-// sites will be populated from Directus if needed
-const sites = []
 const farmParam = computed(() => route.params.farm_name || '')
-const farm = ref(null)
 
+// Local cache of sites (kept as a simple array for lookups)
+const sites = []
+const comparisonSites = ref(null)
+
+// Primary reactive state
+const farm = ref(null)
+const latestSampleDate = ref(null)
+const colorComparisonFetched = ref(null)
+
+// UI / static content
 const aiSummaryText = `Soil analysis from Green Valley’s high-value crop farms indicates that fragments are the dominant form of microplastics, followed by films. This pattern is likely linked to the widespread use of plastic mulching, as the color and texture of the detected films correspond to mulching sheets and seedling trays commonly used in the area. The farms’ clay loam soil structure may also contribute to microplastic retention, while irrigation water is a possible additional source of contamination.
 
 These findings suggest heightened risks of soil degradation, reduced microbial activity, and potential transfer of microplastics into the food chain through crop uptake. Over time, this could undermine both soil health and agricultural productivity.
 
-It is recommended that farmers adopt more sustainable practices such as reducing reliance on single-use plastics, improving waste collection and disposal, and exploring biodegradable alternatives for mulching and seedling propagation. Regular monitoring of both soil and irrigation water quality is also advised to mitigate long-term risks.
-`
+It is recommended that farmers adopt more sustainable practices such as reducing reliance on single-use plastics, improving waste collection and disposal, and exploring biodegradable alternatives for mulching and seedling propagation. Regular monitoring of both soil and irrigation water quality is also advised to mitigate long-term risks.`
 
 const formattedDate = computed(() => {
     const now = new Date()
-    const options = { year: 'numeric', month: 'long', day: 'numeric' }
-    return now.toLocaleDateString(undefined, options)
+    return now.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+})
+
+const displaySampleDate = computed(() => {
+    const d = latestSampleDate.value
+    if (!d) return formattedDate.value
+    try {
+        const dt = new Date(d)
+        if (isNaN(dt.getTime())) return formattedDate.value
+        return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+    } catch {
+        return formattedDate.value
+    }
 })
 
 const plasticActivityList = [
-    "Plastic Fertilizer Sacks",
-    "Plastic Mulching",
-    "Seedling Trays (plastic)",
-    "Compost with visible plastics",
-    "Greenhouse plastic sheets/tunnels"
+    'Plastic Fertilizer Sacks',
+    'Plastic Mulching',
+    'Seedling Trays (plastic)',
+    'Compost with visible plastics',
+    'Greenhouse plastic sheets/tunnels'
 ]
 
 const cultivationDefinitions = {
-    "Fully Organic": "An agricultural practice that avoids the use of synthetic chemicals and fertilizers, relying instead on natural processes and materials to maintain soil fertility and control pests.",
-    "Integrated": "A sustainable approach to managing pests that combines biological, cultural, mechanical, and chemical methods to minimize environmental impact while effectively controlling pest populations.",
-    "Conventional": "A traditional farming method that typically involves the use of synthetic chemicals, fertilizers, and pesticides to maximize crop yields.",
+    'Fully Organic': 'An agricultural practice that avoids the use of synthetic chemicals and fertilizers, relying instead on natural processes and materials to maintain soil fertility and control pests.',
+    'Integrated': 'A sustainable approach to managing pests that combines biological, cultural, mechanical, and chemical methods to minimize environmental impact while effectively controlling pest populations.',
+    'Conventional': 'A traditional farming method that typically involves the use of synthetic chemicals, fertilizers, and pesticides to maximize crop yields.'
 }
 
-// Return a definition based on whether the practice string contains keywords.
 function getCultivationDefinition(practice) {
     if (!practice) return ''
-    // if an exact key exists, return it
     if (cultivationDefinitions[practice]) return cultivationDefinitions[practice]
     const p = String(practice).toLowerCase()
-    if (p.includes('organic')) return cultivationDefinitions['Fully Organic'] || ''
-    if (p.includes('integrated')) return cultivationDefinitions['Integrated'] || ''
-    if (p.includes('conventional')) return cultivationDefinitions['Conventional'] || ''
+    if (p.includes('organic')) return cultivationDefinitions['Fully Organic']
+    if (p.includes('integrated')) return cultivationDefinitions['Integrated']
+    if (p.includes('conventional')) return cultivationDefinitions['Conventional']
     return ''
 }
 
-// helper to normalize / slugify names for matching
 function slugify(str) {
     if (!str) return ''
-    return String(str)
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9\-]/g, '')
+    return String(str).trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '')
 }
 
-// normalize activity names for reliable matching
 function normalizeActivityName(s) {
     if (!s) return ''
     return String(s)
         .toLowerCase()
-        // remove parentheses and their contents
         .replace(/\([^)]*\)/g, '')
-        // remove punctuation except spaces
         .replace(/[^a-z0-9\s]/g, '')
-        // remove the word "plastic" as it's often present or absent in different sources
         .replace(/\bplastic\b/g, '')
-        // collapse whitespace
         .replace(/\s+/g, ' ')
         .trim()
 }
 
-// computed set of normalized activities for the current farm
 const farmNormalizedActivities = computed(() => {
     const items = farm.value?.plastic_activity || []
     return new Set(items.map(normalizeActivityName).filter(Boolean))
@@ -93,20 +97,9 @@ function farmHasActivity(activity) {
     return farmNormalizedActivities.value.has(normalizeActivityName(activity))
 }
 
-// determine an appropriate icon name for the farm's water source
-import { computed as _computed } from 'vue'
-import MonthlyTrendChart from '@/components/graphs/MonthlyTrendChart.vue'
-import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
-// handle water_source which may be a string or an array
-const waterIcon = _computed(() => {
+const waterIcon = computed(() => {
     const raw = farm.value?.water_source
-    let ws = ''
-    if (Array.isArray(raw)) {
-        ws = raw.join(' ').toLowerCase()
-    } else {
-        ws = (raw || '').toLowerCase()
-    }
-
+    const ws = Array.isArray(raw) ? raw.join(' ').toLowerCase() : (raw || '').toLowerCase()
     if (!ws) return 'mdi-water'
     if (/rain/.test(ws)) return 'mdi-weather-rainy'
     if (/well|groundwater|deep well/.test(ws)) return 'mdi-water-pump'
@@ -115,20 +108,10 @@ const waterIcon = _computed(() => {
     return 'mdi-water'
 })
 
-// helper to show array fields (water_source, soil_type) consistently in the template
-function formatArrayField(val) {
-    if (val == null) return ''
-    if (Array.isArray(val)) return val.join(', ')
-    return String(val)
-}
-
-// Title-case helpers for display consistency (strings or arrays)
 function titleCaseString(s) {
     if (s == null) return ''
     const str = String(s).toLowerCase()
-    // Capitalize each word; keep simple rules (words separated by spaces or hyphens)
     return str.split(/(\s|\-)/).map(part => {
-        // keep separators unchanged
         if (/^\s|\-$/g.test(part)) return part
         return part.charAt(0).toUpperCase() + part.slice(1)
     }).join('')
@@ -136,52 +119,47 @@ function titleCaseString(s) {
 
 function titleCase(val) {
     if (val == null) return ''
-    if (Array.isArray(val)) return val.map(v => titleCaseString(v)).join(', ')
-    return titleCaseString(val)
+    return Array.isArray(val) ? val.map(v => titleCaseString(v)).join(', ') : titleCaseString(val)
 }
 
 function findFarmByParam(param) {
     if (!param) return null
     const decoded = decodeURIComponent(String(param))
     const key = slugify(decoded)
-    // try exact slug match first
     let found = sites.find(s => slugify(s.site_name) === key)
     if (found) return found
-    // try case-insensitive name match
     found = sites.find(s => (s.site_name || '').toLowerCase() === decoded.toLowerCase())
     if (found) return found
-    // try contains
     found = sites.find(s => (s.site_name || '').toLowerCase().includes(decoded.toLowerCase()))
     return found || null
 }
 
-// initialize
-function updateFarm() {
-    farm.value = findFarmByParam(farmParam.value) || null
+async function fetchSitesByPractice(practice) {
+    if (!practice) return null
+    try {
+        const resp = await directus.request(readItems('sites', { filter: { cultivation_practice: { _contains: practice } }, limit: -1 }))
+        const items = Array.isArray(resp) ? resp : (resp?.data || [])
+        return items || []
+    } catch (err) {
+        console.error('Error fetching sites by practice from Directus', err)
+        return null
+    }
 }
 
-// Try to fetch the farm from Directus by name; if that fails, leave farm null.
 async function fetchFarmFromDirectus(param) {
     if (!param) return null
     const decoded = decodeURIComponent(String(param))
-
     try {
-        // First attempt: query Directus for an exact site_name match (fast if indexed)
         const resp = await directus.request(readItems('sites', { filter: { site_name: { _eq: decoded } }, limit: 1 }))
         const items = Array.isArray(resp) ? resp : (resp?.data || [])
         if (items && items.length > 0) {
-            // keep local cache of sites for other comparisons
             sites.splice(0, sites.length, ...items)
             return items[0]
         }
-
-        // Second attempt: fetch all sites from Directus and match by slug locally
         const allResp = await directus.request(readItems('sites'))
         const allItems = Array.isArray(allResp) ? allResp : (allResp?.data || [])
         if (Array.isArray(allItems) && allItems.length > 0) {
             sites.splice(0, sites.length, ...allItems)
-            // try matching using the same local logic
-            const key = slugify(decoded)
             let found = allItems.find(s => slugify(s.site_name) === key)
             if (found) return found
             found = allItems.find(s => (s.site_name || '').toLowerCase() === decoded.toLowerCase())
@@ -192,55 +170,9 @@ async function fetchFarmFromDirectus(param) {
     } catch (err) {
         console.error('Directus lookup failed for farm:', err)
     }
-
     return null
 }
 
-
-
-const printReport = () => {
-    window.print()
-}
-
-// Latest soil sample date for this farm (from Directus soilsamples collection)
-const latestSampleDate = ref(null)
-
-function formatDateISO(dateStr) {
-    if (!dateStr) return ''
-    try {
-        const d = new Date(dateStr)
-        if (isNaN(d.getTime())) return ''
-        return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
-    } catch (e) {
-        return ''
-    }
-}
-
-async function fetchLatestSampleDateForFarm(farmId) {
-    latestSampleDate.value = null
-    if (!farmId) return null
-    try {
-        // Try to fetch the most recent sample for this site
-        const resp = await directus.request(readItems('soilsamples', { filter: { site: { _eq: farmId } }, sort: ['-date_collected'], limit: 1 }))
-        const items = Array.isArray(resp) ? resp : (resp?.data || [])
-        const sample = (items && items[0]) || null
-        console.log('Fetched latest soilsample for farm', farmId, sample)
-        latestSampleDate.value = sample?.date_collected || null
-    } catch (err) {
-        console.error('Error fetching latest soilsample for farm', farmId, err)
-        latestSampleDate.value = null
-    }
-    return latestSampleDate.value
-}
-
-// computed display date: prefer latestSampleDate, fallback to current formattedDate
-const displaySampleDate = computed(() => {
-    const d = latestSampleDate.value
-    const formatted = formatDateISO(d)
-    return formatted || formattedDate.value
-})
-
-// build microplastic data shape expected by MPDonutChart from farm counts
 const microplasticData = computed(() => {
     const f = farm.value || {}
     return {
@@ -252,7 +184,6 @@ const microplasticData = computed(() => {
     }
 })
 
-// Prepare anonymized site comparison data (compare current farm to other organic farms)
 const mpColors = {
     fragments: '#0B2E4E',
     fibers: '#19568E',
@@ -261,9 +192,28 @@ const mpColors = {
     pellets: '#B9DDFF'
 }
 
-const organicSites = computed(() => {
-    const arr = (sites || []).filter(s => (s.cultivation_practice || '').toLowerCase().includes('organic'))
-    // ensure current farm is included (avoid duplicates)
+// Prefer comparing the current site to other sites with the same cultivation practice.
+// If the current farm has no recorded practice or no matches are found, fall back to
+// using all sites so the comparison still renders.
+const sitesOfSamePractice = computed(() => {
+    if (comparisonSites.value && Array.isArray(comparisonSites.value) && comparisonSites.value.length > 0) {
+        const arr = comparisonSites.value.slice()
+        const fid = farm.value?.id
+        if (fid && !arr.find(s => s.id === fid)) {
+            const ffull = sites.find(s => s.id === fid)
+            if (ffull) arr.unshift(ffull)
+        }
+        return arr
+    }
+
+    const practiceRaw = farm.value?.cultivation_practice
+    const practice = practiceRaw ? String(practiceRaw).toLowerCase().trim() : ''
+    let arr = []
+    if (practice) {
+        arr = (sites || []).filter(s => (s.cultivation_practice || '').toString().toLowerCase().includes(practice))
+    }
+    if (!arr || arr.length === 0) arr = sites || []
+
     const fid = farm.value?.id
     if (fid && !arr.find(s => s.id === fid)) {
         const ffull = sites.find(s => s.id === fid)
@@ -273,7 +223,7 @@ const organicSites = computed(() => {
 })
 
 const anonymizedComparison = computed(() => {
-    const list = organicSites.value || []
+    const list = sitesOfSamePractice.value || []
     const categories = []
     const totals = []
     const drilldown = []
@@ -283,27 +233,17 @@ const anonymizedComparison = computed(() => {
         totals.push(total)
         drilldown.push([s.fragment_count || 0, s.fiber_count || 0, s.foam_count || 0, s.film_count || 0, s.beads_count || 0])
         if (s.id === farm.value?.id) {
-            categories.push(s.site_name || 'This Farm')
+            categories.push(s.site_name || 'This Site')
         } else {
             const letter = String.fromCharCode(65 + (anonIdx % 26))
-            categories.push(`Farm ${letter}`)
+            categories.push(`Site ${letter}`)
             anonIdx++
         }
     }
     return { categories, totals, drilldown }
 })
 
-// Overview colors: highlight the current farm, gray out others
-const overviewColors = computed(() => {
-    const cats = anonymizedComparison.value.categories || []
-    return cats.map(name => (name === (farm.value?.site_name || '') ? '#1976d2' : '#bdbdbd'))
-})
-
-// Build per-farm synthetic distributions for color and size ranges so we can reuse SiteDrilldownChart
-// Color comparison: prefer fetching real microplastics records for this farm
-// Include additional buckets discovered in the data (e.g., Black, Green)
 const colorBuckets = ['Gray', 'Blue', 'White', 'Transparent', 'Black', 'Green']
-// fallback ratios used when no microplastics records are available
 const colorBucketRatios = [0.35, 0.3, 0.2, 0.15]
 
 const farmTotalMP = computed(() => {
@@ -311,23 +251,6 @@ const farmTotalMP = computed(() => {
     return (d.fragments || 0) + (d.fibers || 0) + (d.foams || 0) + (d.films || 0) + (d.pellets || 0)
 })
 
-// store fetched color comparison when available
-const colorComparisonFetched = ref(null)
-
-// Helper: normalize color text into one of the defined buckets (case-insensitive)
-function normalizeColorToBucket(raw) {
-    if (!raw) return null
-    const s = String(raw).toLowerCase()
-    if (s.includes('gray') || s.includes('grey') || s.includes('charcoal')) return 'Gray'
-    if (s.includes('blue')) return 'Blue'
-    if (s.includes('white')) return 'White'
-    if (s.includes('clear') || s.includes('transparent')) return 'Transparent'
-    if (s.includes('black')) return 'Black'
-    if (s.includes('green') || s.includes('olive') || s.includes('lime')) return 'Green'
-    return null
-}
-
-// Helper: map morphology/category field from microplastic record to index order
 function morphologyIndex(morph) {
     const m = (morph || '').toString().toLowerCase()
     if (m.includes('fragment')) return 0
@@ -342,13 +265,10 @@ async function fetchColorComparisonForFarm(farmId) {
     colorComparisonFetched.value = null
     if (!farmId) return null
     try {
-        // Query microplastics where the sample_source (soilsample) references this site id
-        // Using nested filter: sample_source.site = farmId
         const resp = await directus.request(readItems('microplastics', { filter: { sample_source: { site: { _eq: farmId } } }, limit: -1 }))
         const items = Array.isArray(resp) ? resp : (resp?.data || [])
         if (!items || items.length === 0) return null
 
-        // Client-side dynamic bucketing: group by normalized color string
         const normalizeRaw = s => (s || '').toString().trim()
         const normKey = s => (s || '').toString().trim().toLowerCase().replace(/[^a-z0-9#\s]/g, '') || 'unknown'
 
@@ -366,7 +286,6 @@ async function fetchColorComparisonForFarm(farmId) {
             if (idx >= 0) obj.drilldown[idx] = (obj.drilldown[idx] || 0) + 1
         }
 
-        // Convert map -> array and sort by count desc
         const arr = Array.from(counts.entries()).map(([norm, v]) => {
             const topRaw = Array.from(v.raws.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || norm
             const display = /^#/.test(String(topRaw).trim()) ? topRaw.trim() : topRaw.split(/\s+/).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')
@@ -389,16 +308,11 @@ async function fetchColorComparisonForFarm(farmId) {
             drilldown.push(otherDrill)
         }
 
-        // assign colors for categories: prefer known mapping, fall back to deterministic HSL
-        const known = {
-            gray: '#9e9e9e', grey: '#9e9e9e', blue: '#1976d2', white: '#ffffff', transparent: '#cfd8dc',
-            black: '#000000', green: '#2E7D32'
-        }
+        const known = { gray: '#9e9e9e', grey: '#9e9e9e', blue: '#1976d2', white: '#ffffff', transparent: '#cfd8dc', black: '#000000', green: '#2E7D32' }
         const colorsArr = categories.map(label => {
             const key = (label || '').toString().toLowerCase()
             if (known[key]) return known[key]
             if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(label)) return label
-            // deterministic hash -> hue
             let h = 0
             for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) % 360
             return `hsl(${h},60%,45%)`
@@ -415,7 +329,6 @@ async function fetchColorComparisonForFarm(farmId) {
 
 const colorComparison = computed(() => {
     if (colorComparisonFetched.value) return colorComparisonFetched.value
-    // fallback synthetic distribution when no per-record data
     const totals = colorBucketRatios.map(r => Math.round((farmTotalMP.value || 0) * r))
     const mp = microplasticData.value
     const mpTotal = farmTotalMP.value || 0
@@ -428,7 +341,6 @@ const colorComparison = computed(() => {
         const pellets = Math.max(0, t - (fragments + fibers + foams + films))
         return [fragments, fibers, foams, films, pellets]
     })
-    // generate overview colors for fallback buckets
     const known = { gray: '#9e9e9e', blue: '#1976d2', white: '#ffffff', transparent: '#cfd8dc', black: '#000000', green: '#2E7D32' }
     const overviewColors = colorBuckets.map(label => {
         const key = (label || '').toString().toLowerCase()
@@ -459,27 +371,43 @@ const sizeComparison = computed(() => {
 })
 
 watch(farmParam, async () => {
-    // fetch the farm record from Directus whenever the route param changes
     farm.value = await fetchFarmFromDirectus(farmParam.value)
-    console.log('Loaded farm data:', farm.value)
 }, { immediate: true })
 
-// When the farm object is set, fetch the latest soil sample date
 watch(farm, async (newFarm) => {
     if (newFarm?.id) {
         await fetchLatestSampleDateForFarm(newFarm.id)
-        // also attempt to fetch per-record microplastics color data for this farm
         await fetchColorComparisonForFarm(newFarm.id)
-        console.log('Latest sample date:', latestSampleDate.value)
+        try {
+            comparisonSites.value = await fetchSitesByPractice(newFarm.cultivation_practice)
+        } catch (e) {
+            comparisonSites.value = null
+        }
     } else {
         latestSampleDate.value = null
         colorComparisonFetched.value = null
+        comparisonSites.value = null
     }
 }, { immediate: true })
 
-onMounted(() => {
-    // nothing else to do here; watch will fetch immediately
-})
+onMounted(() => { })
+
+function printReport() { window.print() }
+
+async function fetchLatestSampleDateForFarm(farmId) {
+    latestSampleDate.value = null
+    if (!farmId) return null
+    try {
+        const resp = await directus.request(readItems('soilsamples', { filter: { site: { _eq: farmId } }, sort: ['-date_collected'], limit: 1 }))
+        const items = Array.isArray(resp) ? resp : (resp?.data || [])
+        const sample = (items && items[0]) || null
+        latestSampleDate.value = sample?.date_collected || null
+    } catch (err) {
+        console.error('Error fetching latest soilsample for farm', farmId, err)
+        latestSampleDate.value = null
+    }
+    return latestSampleDate.value
+}
 </script>
 
 <template>
