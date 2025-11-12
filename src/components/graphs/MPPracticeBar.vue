@@ -1,6 +1,6 @@
 <script setup>
 import VueApexCharts from 'vue3-apexcharts'
-import { toRef, computed, ref, watch } from 'vue'
+import { toRef, computed } from 'vue'
 
 const props = defineProps({
     series: { type: Array, required: true },
@@ -14,9 +14,6 @@ const props = defineProps({
 
 const seriesRef = toRef(props, 'series')
 const optionsRef = toRef(props, 'options')
-
-// ref to the ApexCharts component instance so we can call updateOptions/updateSeries
-const chartRef = ref(null)
 
 // Apply a conservative default: if caller didn't specify bar dataLabel position
 // we'll set it to 'top' and enable a small offset; otherwise respect caller options.
@@ -44,19 +41,6 @@ const mergedOptions = computed(() => {
 
     return Object.assign({}, base, { chart, plotOptions, dataLabels })
 })
-
-// Keep chart instance in sync when options or series change
-watch(optionsRef, (newOpts) => {
-    if (chartRef.value && typeof chartRef.value.updateOptions === 'function') {
-        try { chartRef.value.updateOptions(newOpts, false, true) } catch (e) { console.warn('MPPracticeBar updateOptions failed', e) }
-    }
-}, { immediate: true, deep: true })
-
-watch(seriesRef, (newSeries) => {
-    if (chartRef.value && typeof chartRef.value.updateSeries === 'function') {
-        try { chartRef.value.updateSeries(newSeries) } catch (e) { console.warn('MPPracticeBar updateSeries failed', e) }
-    }
-}, { immediate: true })
 </script>
 
 <template>
@@ -64,7 +48,7 @@ watch(seriesRef, (newSeries) => {
         <h4 class="text-h6 font-weight-bold mb-1" style="line-height: 1.2em;" v-if="title">{{ title }}</h4>
         <p class="subtitle mb-2" v-if="subtitle || props.date">{{ subtitle || props.date }}</p>
         <div>
-            <VueApexCharts ref="chartRef" type="bar" :options="mergedOptions" :series="seriesRef" :height="height" />
+            <VueApexCharts type="bar" :options="mergedOptions" :series="seriesRef" :height="height" />
         </div>
     </div>
 </template>

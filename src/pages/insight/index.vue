@@ -494,7 +494,7 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
       <VCol cols="6">
         <div class="card">
           <MPPracticeBar :series="contaminationByPracticeSeries" :options="contaminationByPracticeOptions"
-            title="Contamination Comparison by Farm Practices" subtitle="Data as of September 22, 2025" />
+            title="Contamination Comparison by Farm Practices" subtitle="Data as of September 22, 2025" :height="360" />
         </div>
       </VCol>
       <VCol cols="6">
