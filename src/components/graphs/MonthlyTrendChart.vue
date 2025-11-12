@@ -4,7 +4,9 @@ import { buildMonthlyChartData } from './monthlyTrend.js'
 
 const props = defineProps({
     microplasticData: { type: Object, required: true },
-    subtitle: { type: String, default: 'Data as of September 22, 2025' },
+    // optional human-readable date string to display in subtitle
+    date: { type: String, default: '' },
+    subtitle: { type: String, default: '' },
     // optional height in pixels for the chart (makes the component adjustable)
     height: { type: Number, default: 400 },
     colors: { type: Object, default: () => ({}) }
@@ -12,6 +14,17 @@ const props = defineProps({
 
 // expose a reactive ref for template binding
 const height = toRef(props, 'height')
+
+// default date used when parent doesn't supply `date` prop
+const defaultDate = computed(() => {
+    try {
+        const now = new Date()
+        const options = { year: 'numeric', month: 'long', day: 'numeric' }
+        return now.toLocaleDateString(undefined, options)
+    } catch (e) {
+        return ''
+    }
+})
 
 const totals = computed(() => ({
     fragments: props.microplasticData?.fragments || 0,
@@ -46,8 +59,10 @@ watch(totals, (nv) => {
 
 <template>
     <div class="card">
-        <h3>Total Monthly Microplastic Waste per Morphological Category</h3>
-        <p class="subtitle">{{ subtitle }}</p>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3>Total Monthly Microplastic Waste per Morphological Category</h3>
+            <p class="subtitle">{{ subtitle || (props.date || defaultDate) }}</p>
+        </div>
         <apexchart :options="monthlyOptions" :series="monthlySeries" type="line" :height="height" />
     </div>
 </template>

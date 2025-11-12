@@ -23,6 +23,9 @@ const props = defineProps({
     overviewColors: { type: Array, default: () => [] },
     // optional chart height in pixels
     height: { type: Number, default: 400 }
+    ,
+    // optional human-readable date string to display (e.g., 'September 2022' or computed string)
+    date: { type: String, default: '' }
 })
 
 // Prepare names and totals
@@ -30,6 +33,17 @@ const siteNames = computed(() => props.categories || [])
 const totalBySite = computed(() => props.totals || [])
 
 const siteCategoryLabels = computed(() => props.categoryLabels)
+
+// default date string when caller does not provide one
+const defaultDate = computed(() => {
+    try {
+        const now = new Date()
+        const options = { year: 'numeric', month: 'long', day: 'numeric' }
+        return now.toLocaleDateString(undefined, options)
+    } catch (e) {
+        return ''
+    }
+})
 
 // Overview series (totals)
 const overviewSeries = ref([{ name: 'Total MP', data: totalBySite.value }])
@@ -157,8 +171,14 @@ watch([() => props.categories, () => props.totals], () => {
                 <VIcon color="grey" style="line-height:1;">mdi-menu-left</VIcon>
                 <span>Counts for {{ currentSiteName }}</span>
             </h3>
-            <p class="subtitle">Data as of September 2022</p>
+            <p class="subtitle">{{ props.date || defaultDate }}</p>
         </div>
         <apexchart :options="displayedOptions" :series="displayedSeries" type="bar" :height="props.height" />
     </div>
 </template>
+
+<style scoped>
+.subtitle {
+    color: rgb(155, 155, 155);
+}
+</style>

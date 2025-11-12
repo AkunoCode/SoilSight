@@ -7,6 +7,8 @@ const props = defineProps({
     options: { type: Object, required: true },
     title: { type: String, required: false, default: '' },
     subtitle: { type: String, required: false, default: '' },
+    // optional human-readable date string to display
+    date: { type: String, default: '' },
     height: { type: Number, default: 400 }
 })
 
@@ -44,7 +46,7 @@ const mergedOptions = computed(() => {
 <template>
     <div class="d-flex flex-column">
         <h4 class="text-h6 font-weight-bold mb-1" style="line-height: 1.2em;" v-if="title">{{ title }}</h4>
-        <p class="subtitle mb-2" v-if="subtitle">{{ subtitle }}</p>
+        <p class="subtitle mb-2" v-if="subtitle || props.date">{{ subtitle || props.date }}</p>
         <div>
             <VueApexCharts type="bar" :options="mergedOptions" :series="seriesRef" :height="height" />
         </div>
@@ -53,4 +55,8 @@ const mergedOptions = computed(() => {
 
 <style scoped>
 /* Minimal styles — previewCard supplies shared styles for consistency */
+
+.subtitle {
+    color: rgb(155, 155, 155);
+}
 </style>

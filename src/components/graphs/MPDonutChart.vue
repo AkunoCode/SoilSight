@@ -8,6 +8,9 @@ const props = defineProps({
     colors: { type: Object, required: false, default: () => ({ fibers: '#19568E', fragments: '#0B2E4E', films: '#63B3FF', foams: '#4688C7', pellets: '#B9DDFF' }) },
     // parent can control selection via this prop; null means no selection
     activeKey: { type: [String, null], required: false, default: null }
+    ,
+    // optional human-readable date string to display
+    date: { type: String, default: '' }
 });
 
 const emit = defineEmits(['selection']);
@@ -88,6 +91,16 @@ const donutChartOptions = ref({
         }
     }
 });
+
+const defaultDate = computed(() => {
+    try {
+        const now = new Date()
+        const options = { year: 'numeric', month: 'long', day: 'numeric' }
+        return now.toLocaleDateString(undefined, options)
+    } catch (e) {
+        return ''
+    }
+})
 
 // Default total formatter reused when resetting the chart options
 function defaultTotalFormatter(w) {
@@ -222,7 +235,7 @@ watch(() => props.activeKey, (newKey) => {
                         per Morphological
                         Category
                     </h4>
-                    <p class="subtitle mb-2">Data as of September 22, 2025</p>
+                    <p class="subtitle mb-2">{{ props.date || defaultDate }}</p>
                 </div>
                 <VueApexCharts ref="donutChart" :key="chartKey" type="donut" :options="donutChartOptions"
                     :series="displaySeries" height="300" />
@@ -276,5 +289,9 @@ watch(() => props.activeKey, (newKey) => {
     height: 2.5em;
     background-color: #ffffff;
     margin: 0 1em;
+}
+
+.subtitle {
+    color: rgb(155, 155, 155);
 }
 </style>

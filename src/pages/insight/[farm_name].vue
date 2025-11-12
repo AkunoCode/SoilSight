@@ -465,23 +465,26 @@ onMounted(() => {
             <VCol cols="5">
                 <div class="d-flex flex-column ga-4">
                     <div class="card">
-                        <MPDonutChart :microplasticData="microplasticData" />
+                        <MPDonutChart :microplasticData="microplasticData" :date="displaySampleDate" />
                     </div>
                     <div class="card">
                         <SiteDrilldownChart :categories="anonymizedComparison.categories"
                             :totals="anonymizedComparison.totals" :drilldown="anonymizedComparison.drilldown"
                             :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors"
-                            :height="320" :overview-colors="overviewColors"
+                            :height="320" :overview-colors="overviewColors" :date="displaySampleDate"
                             :title="farm?.cultivation_practice ? `Contamination Comparison to Other ${titleCase(farm?.cultivation_practice)} Farms` : 'Contamination Comparison to Other Farms'" />
                     </div>
                     <div class="card">
-                        <div class="d-flex align-center mb-1">
-                            <h4 class="text-h6 font-weight-bold" style="line-height: 1.2em;">
-                                AI Summary
-                            </h4>
-                            <VIcon size="small" color="primary" class="ml-2">mdi-creation</VIcon>
+                        <div class="d-flex align-center mb-1"
+                            style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="display:flex; align-items:center;">
+                                <h4 class="text-h6 font-weight-bold" style="line-height: 1.2em;">
+                                    AI Summary
+                                </h4>
+                                <VIcon size="small" color="primary" class="ml-2">mdi-creation</VIcon>
+                            </div>
+                            <p class="subtitle mb-0">{{ displaySampleDate }}</p>
                         </div>
-                        <p class="subtitle">Data as of {{ displaySampleDate }}</p>
                         <div class="summary-box">
                             <p class="preserve-newlines">{{ aiSummaryText }}</p>
                         </div>
@@ -491,18 +494,18 @@ onMounted(() => {
             <VCol cols="7">
                 <div class="d-flex flex-column ga-4">
                     <MonthlyTrendChart :siteId="farm?.id" :title="`Monthly Microplastic Trend for ${farm?.site_name}`"
-                        :height="320" />
+                        :height="320" :date="displaySampleDate" />
                     <div class="card">
                         <SiteDrilldownChart :categories="colorComparison.categories" :totals="colorComparison.totals"
                             :drilldown="colorComparison.drilldown"
                             :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors"
-                            :height="260" title="Microplastic Count by Color" />
+                            :height="260" :date="displaySampleDate" title="Microplastic Count by Color" />
                     </div>
                     <div class="card">
                         <SiteDrilldownChart :categories="sizeComparison.categories" :totals="sizeComparison.totals"
                             :drilldown="sizeComparison.drilldown"
                             :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors"
-                            :height="260" title="Microplastic Count by Size Range" />
+                            :height="260" :date="displaySampleDate" title="Microplastic Count by Size Range" />
                     </div>
                 </div>
             </VCol>
@@ -557,5 +560,9 @@ onMounted(() => {
 
 .preserve-newlines {
     white-space: pre-wrap;
+}
+
+.subtitle {
+    color: rgb(155, 155, 155);
 }
 </style>
