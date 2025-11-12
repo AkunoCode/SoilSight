@@ -19,41 +19,20 @@
         <!-- Top-right controls: search + category filter -->
         <div class="top-controls" role="search">
           <div class="control-surface">
-            <v-select
-              v-model="selectedCategory"
-              clearable
-              dense
-              hide-details
-              :items="categories"
-              placeholder="Select farm category"
-              style="min-width: 220px;"
-              variant="outlined"
-            />
+            <v-select v-model="selectedCategory" clearable dense hide-details :items="categories"
+              placeholder="Select farm category" style="min-width: 220px;" variant="outlined" />
           </div>
 
           <div class="control-surface" style="margin-left: 12px;">
-            <v-text-field
-              v-model="searchText"
-              append-inner-icon="mdi-magnify"
-              clearable
-              dense
-              hide-details
-              placeholder="Search here"
-              style="min-width: 360px;"
-              variant="outlined"
-            />
+            <v-text-field v-model="searchText" append-inner-icon="mdi-magnify" clearable dense hide-details
+              placeholder="Search here" style="min-width: 360px;" variant="outlined" />
           </div>
         </div>
 
-        <PreviewCard
-          ref="previewCardRef"
-          :all-farms-data="allFarmsData"
-          class="preview-card"
-          :is-overview="!selectedItem"
-          :item="selectedItem"
+        <PreviewCard ref="previewCardRef" :all-farms-data="allFarmsData" class="preview-card"
+          :is-overview="!selectedItem" :item="selectedItem"
           :subtitle="selectedItem ? `Owner: ${selectedItem.owner} | ${selectedItem.cultivation_practice}` : 'Microplastic Analysis Overview'"
-          :title="selectedItem ? selectedItem.site_name : 'Tayabas City'"
-        />
+          :title="selectedItem ? selectedItem.site_name : 'Tayabas City'" />
       </div>
       <div id="map" />
     </v-main>
@@ -61,103 +40,121 @@
 </template>
 
 <script setup>
-  import L from 'leaflet'
-  import { computed, onMounted, ref, watch } from 'vue'
-  import PreviewCard from '@/components/PreviewCard.vue'
-  import 'leaflet/dist/leaflet.css'
+import L from 'leaflet'
+import { computed, onMounted, ref, watch } from 'vue'
+import directus from '@/composables/useDirectus'
+import { readItems } from '@directus/sdk'
+import PreviewCard from '@/components/PreviewCard.vue'
+import 'leaflet/dist/leaflet.css'
 
-  const selectedItem = ref(null)
-  const isOverview = ref(true)
-  const allFarmsData = ref([])
-  const previewCardRef = ref(null)
+const selectedItem = ref(null)
+const isOverview = ref(true)
+const allFarmsData = ref([])
+const previewCardRef = ref(null)
 
-  // Controls
-  const searchText = ref('')
-  const selectedCategory = ref(null)
+// Controls
+const searchText = ref('')
+const selectedCategory = ref(null)
 
-  // Breadcrumb labels (can be wired to router or data later)
-  const regionName = ref('Quezon Province')
-  const cityName = ref('Tayabas City')
+// Breadcrumb labels (can be wired to router or data later)
+const regionName = ref('Quezon Province')
+const cityName = ref('Tayabas City')
 
-  // Default center for Tayabas
-  const TAYABAS = [13.9649, 121.5923]
+// Default center for Tayabas
+const TAYABAS = [13.9649, 121.5923]
 
-  // Map + markers refs so we can manipulate them from outside onMounted
-  const mapRef = ref(null)
-  const markersRef = ref([])
-  let debounceTimer = null
+// Map + markers refs so we can manipulate them from outside onMounted
+const mapRef = ref(null)
+const markersRef = ref([])
+let debounceTimer = null
 
-  function setPreviewCardData (item) {
-    console.log('Preview Card Data:', item)
-    selectedItem.value = item
-    isOverview.value = false
+// Fetch data from Directus
+const fetchDataFromDirectus = async () => {
+  try {
+    // Use the new Directus SDK request helper
+    const res = await directus.request(readItems('sites'))
+    // The SDK may return either an array or an object with a `data` key.
+    const items = Array.isArray(res) ? res : (res?.data || [])
+    allFarmsData.value = items
+    console.log('Fetched farms data from Directus:', items)
+    return items
+  } catch (error) {
+    console.error('Error fetching farms data from Directus:', error)
+    throw error
+  }
+}
 
-    // Automatically raise the preview card when a marker is clicked
-    if (previewCardRef.value && previewCardRef.value.raiseCard) {
-      previewCardRef.value.raiseCard()
-    }
+function setPreviewCardData(item) {
+  console.log('Preview Card Data:', item)
+  selectedItem.value = item
+  isOverview.value = false
+
+  // Automatically raise the preview card when a marker is clicked
+  if (previewCardRef.value && previewCardRef.value.raiseCard) {
+    previewCardRef.value.raiseCard()
+  }
+}
+
+function resetToOverview() {
+  console.log('Resetting to overview mode')
+  selectedItem.value = null
+  isOverview.value = true
+}
+
+// Breadcrumb actions
+function gotoRegion() {
+  // For now, reset selection and zoom out to region-level view
+  resetToOverview()
+  if (mapRef.value) {
+    mapRef.value.setView(TAYABAS, 11)
+  }
+}
+
+function gotoCity() {
+  // Reset selection and center on the city (Tayabas)
+  resetToOverview()
+  if (mapRef.value) {
+    mapRef.value.setView(TAYABAS, 13)
+  }
+}
+
+function gotoFarm() {
+  if (!selectedItem.value || !mapRef.value) return
+  const item = selectedItem.value
+  if (item.latitude && item.longitude) {
+    mapRef.value.panTo([item.latitude, item.longitude])
+    mapRef.value.setZoom(16)
+  }
+  // ensure preview card remains open for this farm
+  if (previewCardRef.value && previewCardRef.value.raiseCard) previewCardRef.value.raiseCard()
+}
+
+// Shared helper to map cultivation practice to a marker color
+function getMarkerColor(practice) {
+  const practiceStr = practice?.toLowerCase() || ''
+  if (practiceStr.includes('integrated')) {
+    return '#FF9800' // Orange
+  } else if (practiceStr.includes('organic')) {
+    return '#4CAF50' // Green
+  } else if (practiceStr.includes('conventional')) {
+    return '#19568E' // Blue
+  } else {
+    return '#757575' // Grey
+  }
+}
+
+function createMarker(item, map) {
+  if (!item.latitude || !item.longitude) {
+    console.log('Skipping item - missing coordinates:', item)
+    return
   }
 
-  function resetToOverview () {
-    console.log('Resetting to overview mode')
-    selectedItem.value = null
-    isOverview.value = true
-  }
+  const color = getMarkerColor(item.cultivation_practice)
 
-  // Breadcrumb actions
-  function gotoRegion () {
-    // For now, reset selection and zoom out to region-level view
-    resetToOverview()
-    if (mapRef.value) {
-      mapRef.value.setView(TAYABAS, 11)
-    }
-  }
-
-  function gotoCity () {
-    // Reset selection and center on the city (Tayabas)
-    resetToOverview()
-    if (mapRef.value) {
-      mapRef.value.setView(TAYABAS, 13)
-    }
-  }
-
-  function gotoFarm () {
-    if (!selectedItem.value || !mapRef.value) return
-    const item = selectedItem.value
-    if (item.latitude && item.longitude) {
-      mapRef.value.panTo([item.latitude, item.longitude])
-      mapRef.value.setZoom(16)
-    }
-    // ensure preview card remains open for this farm
-    if (previewCardRef.value && previewCardRef.value.raiseCard) previewCardRef.value.raiseCard()
-  }
-
-  // Shared helper to map cultivation practice to a marker color
-  function getMarkerColor (practice) {
-    const practiceStr = practice?.toLowerCase() || ''
-    if (practiceStr.includes('integrated')) {
-      return '#FF9800' // Orange
-    } else if (practiceStr.includes('organic')) {
-      return '#4CAF50' // Green
-    } else if (practiceStr.includes('conventional')) {
-      return '#19568E' // Blue
-    } else {
-      return '#757575' // Grey
-    }
-  }
-
-  function createMarker (item, map) {
-    if (!item.latitude || !item.longitude) {
-      console.log('Skipping item - missing coordinates:', item)
-      return
-    }
-
-    const color = getMarkerColor(item.cultivation_practice)
-
-    // Create custom icon
-    const customIcon = L.divIcon({
-      className: 'custom-marker',
-      html: `<div style="
+  // Create custom icon
+  const customIcon = L.divIcon({
+    className: 'custom-marker',
+    html: `<div style="
       background-color: ${color};
       width: 20px;
       height: 20px;
@@ -165,16 +162,16 @@
       border: 3px solid white;
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     "></div>`,
-      iconSize: [20, 20],
-      iconAnchor: [10, 10],
-    })
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  })
 
-    const marker = L.marker([item.latitude, item.longitude], { icon: customIcon }).addTo(map)
-    // Attach the source item for later lookup (e.g., breadcrumb -> pan to farm)
-    marker._item = item
+  const marker = L.marker([item.latitude, item.longitude], { icon: customIcon }).addTo(map)
+  // Attach the source item for later lookup (e.g., breadcrumb -> pan to farm)
+  marker._item = item
 
-    // Enhanced popup content based on actual data structure
-    marker.bindPopup(`
+  // Enhanced popup content based on actual data structure
+  marker.bindPopup(`
     <div style="min-width: 250px;">
       <strong style="color: ${color}; font-size: 16px;">${item.site_name ?? 'Unknown Site'}</strong><br/>
       <hr style="margin: 8px 0;"/>
@@ -188,236 +185,224 @@
     </div>
   `)
 
-    // Click event to update preview card
-    marker.on('click', e => {
-      console.log('Marker clicked:', item.site_name)
-      // Prevent the map click event from firing
-      L.DomEvent.stopPropagation(e)
-      setPreviewCardData(item)
-    })
-
-    return marker
-  }
-
-  // Clear all existing markers from the map
-  function clearMarkers () {
-    if (!mapRef.value) return
-    for (const m of markersRef.value) {
-      try {
-        mapRef.value.removeLayer(m)
-      } catch {
-      // ignore
-      }
-    }
-    markersRef.value = []
-  }
-
-  // Add markers for a list of items (assumes mapRef is set)
-  function addMarkers (items) {
-    if (!mapRef.value || !Array.isArray(items)) return
-    clearMarkers()
-    for (const item of items) {
-      try {
-        const marker = createMarker(item, mapRef.value)
-        if (marker) markersRef.value.push(marker)
-      } catch (error) {
-        console.error('Error adding marker:', error, item)
-      }
-    }
-  }
-
-  // Compute categories from data
-  const categories = computed(() => {
-    const set = new Set()
-    for (const i of (allFarmsData.value || [])) {
-      if (i.cultivation_practice) set.add(i.cultivation_practice)
-    }
-    return Array.from(set.values())
+  // Click event to update preview card
+  marker.on('click', e => {
+    console.log('Marker clicked:', item.site_name)
+    // Prevent the map click event from firing
+    L.DomEvent.stopPropagation(e)
+    setPreviewCardData(item)
   })
 
-  // Apply filters based on searchText and selectedCategory
-  function applyFilters () {
-    const q = (searchText.value || '').toLowerCase().trim()
-    const cat = (selectedCategory.value || 'All')
-    const items = Array.isArray(allFarmsData.value) ? allFarmsData.value : []
-    const filtered = items.filter(item => {
-      // category filter
-      if (cat && cat !== 'All' && (!item.cultivation_practice || item.cultivation_practice !== cat)) return false
-      if (!q) return true
-      const name = (item.site_name || '').toLowerCase()
-      return name.includes(q)
-    })
-    addMarkers(filtered.filter(i => i.latitude && i.longitude))
-  }
+  return marker
+}
 
-  // Watch controls with a small debounce
-  watch([searchText, selectedCategory], () => {
-    if (debounceTimer) clearTimeout(debounceTimer)
-    debounceTimer = setTimeout(() => {
-      applyFilters()
-    }, 180)
-  })
-
-  onMounted(async () => {
-    console.log('Initializing map...')
-
-    // Wait a moment for DOM to be ready
-    await new Promise(resolve => setTimeout(resolve, 100))
-
+// Clear all existing markers from the map
+function clearMarkers() {
+  if (!mapRef.value) return
+  for (const m of markersRef.value) {
     try {
-      // Tayabas City coordinates
-      const tayabas = [13.9649, 121.5923]
-      // Disable default zoom control so we can place it bottom-right
-      const map = L.map('map', { zoomControl: false }).setView(tayabas, 13)
-      mapRef.value = map
-      console.log('Map instance created')
+      mapRef.value.removeLayer(m)
+    } catch {
+      // ignore
+    }
+  }
+  markersRef.value = []
+}
 
-      // Shift the map view to the right to accommodate the preview card
-      setTimeout(() => {
-        map.panBy([-160, 0]) // Pan left by 160px to center content in visible area
-      }, 100)
+// Add markers for a list of items (assumes mapRef is set)
+function addMarkers(items) {
+  if (!mapRef.value || !Array.isArray(items)) return
+  clearMarkers()
+  for (const item of items) {
+    try {
+      const marker = createMarker(item, mapRef.value)
+      if (marker) markersRef.value.push(marker)
+    } catch (error) {
+      console.error('Error adding marker:', error, item)
+    }
+  }
+}
 
-      // Base map
-      const tileLayer = L.tileLayer(
-        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/">OSM</a> contributors',
-          maxZoom: 19,
-        },
-      )
-      tileLayer.addTo(map)
-      console.log('Tile layer added')
+// Compute categories from data
+const categories = computed(() => {
+  const set = new Set()
+  for (const i of (allFarmsData.value || [])) {
+    if (i.cultivation_practice) set.add(i.cultivation_practice)
+  }
+  return Array.from(set.values())
+})
 
-      // Add map click event to reset selection when clicking on empty areas
-      map.on('click', e => {
-        console.log('Map clicked - resetting to overview')
-        resetToOverview()
-      })
+// Apply filters based on searchText and selectedCategory
+function applyFilters() {
+  const q = (searchText.value || '').toLowerCase().trim()
+  const cat = (selectedCategory.value || 'All')
+  const items = Array.isArray(allFarmsData.value) ? allFarmsData.value : []
+  const filtered = items.filter(item => {
+    // category filter
+    if (cat && cat !== 'All' && (!item.cultivation_practice || item.cultivation_practice !== cat)) return false
+    if (!q) return true
+    const name = (item.site_name || '').toLowerCase()
+    return name.includes(q)
+  })
+  addMarkers(filtered.filter(i => i.latitude && i.longitude))
+}
 
-      // Add zoom control to bottom right
-      const zoomControl = L.control.zoom({ position: 'bottomright' }).addTo(map)
+// Watch controls with a small debounce
+watch([searchText, selectedCategory], () => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    applyFilters()
+  }, 180)
+})
 
-      // Add a legend control directly below the zoom control
-      const legend = L.control({ position: 'bottomright' })
-      legend.onAdd = function () {
-        const div = L.DomUtil.create('div', 'legend-box')
-        // prevent map interactions when interacting with legend
-        L.DomEvent.disableClickPropagation(div)
+onMounted(async () => {
+  console.log('Initializing map...')
 
-        // Build legend content — use same keys as getMarkerColor
-        const entries = [
-          { label: 'Integrated', color: getMarkerColor('integrated') },
-          { label: 'Organic', color: getMarkerColor('organic') },
-          { label: 'Conventional', color: getMarkerColor('conventional') },
-          { label: 'Other', color: getMarkerColor('other') },
-        ]
+  // Wait a moment for DOM to be ready
+  await new Promise(resolve => setTimeout(resolve, 100))
 
-        div.innerHTML = entries.map(e => `
+  try {
+    // Tayabas City coordinates
+    const tayabas = [13.9649, 121.5923]
+    // Disable default zoom control so we can place it bottom-right
+    const map = L.map('map', { zoomControl: false }).setView(tayabas, 13)
+    mapRef.value = map
+    console.log('Map instance created')
+
+    // Shift the map view to the right to accommodate the preview card
+    setTimeout(() => {
+      map.panBy([-160, 0]) // Pan left by 160px to center content in visible area
+    }, 100)
+
+    // Base map
+    const tileLayer = L.tileLayer(
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/">OSM</a> contributors',
+        maxZoom: 19,
+      },
+    )
+    tileLayer.addTo(map)
+    console.log('Tile layer added')
+
+    // Add map click event to reset selection when clicking on empty areas
+    map.on('click', e => {
+      console.log('Map clicked - resetting to overview')
+      resetToOverview()
+    })
+
+    // Add zoom control to bottom right
+    const zoomControl = L.control.zoom({ position: 'bottomright' }).addTo(map)
+
+    // Add a legend control directly below the zoom control
+    const legend = L.control({ position: 'bottomright' })
+    legend.onAdd = function () {
+      const div = L.DomUtil.create('div', 'legend-box')
+      // prevent map interactions when interacting with legend
+      L.DomEvent.disableClickPropagation(div)
+
+      // Build legend content — use same keys as getMarkerColor
+      const entries = [
+        { label: 'Integrated', color: getMarkerColor('integrated') },
+        { label: 'Organic', color: getMarkerColor('organic') },
+        { label: 'Conventional', color: getMarkerColor('conventional') },
+        { label: 'Other', color: getMarkerColor('other') },
+      ]
+
+      div.innerHTML = entries.map(e => `
         <div class="legend-entry">
           <span class="legend-swatch" style="background:${e.color}"></span>
           <span class="legend-label">${e.label}</span>
         </div>
       `).join('')
 
-        return div
-      }
-      legend.addTo(map)
-
-      // Load and add GeoJSON boundary
-      try {
-        console.log('Loading GeoJSON...')
-        const geoResponse = await fetch('/src/assets/geojson/Tayabas.geojson')
-
-        if (!geoResponse.ok) {
-          throw new Error(`HTTP error! status: ${geoResponse.status}`)
-        }
-
-        const tayabasGeo = await geoResponse.json()
-        console.log('GeoJSON loaded successfully:', tayabasGeo)
-
-        const geoLayer = L.geoJSON(tayabasGeo, {
-          style: {
-            color: '#2264A2',
-            weight: 3,
-            dashArray: '5, 5',
-            fillColor: '#2264A2',
-            fillOpacity: 0.1,
-          },
-          interactive: false, // Disable all interactions (clicks, hover, etc.)
-        // Removed onEachFeature to prevent popups and click events
-        }).addTo(map)
-
-        // Fit the map to the GeoJSON boundary with padding to account for preview card
-        map.fitBounds(geoLayer.getBounds(), {
-          paddingTopLeft: [350, 50], // Extra left padding for preview card + margins
-          paddingBottomRight: [50, 50],
-        })
-
-        // Additional pan adjustment after fitting bounds
-        setTimeout(() => {
-          map.panBy([-100, 0]) // Fine-tune position to center in visible area
-        }, 200)
-
-        console.log('GeoJSON layer added and map bounds set')
-      } catch (geoError) {
-        console.error('Error loading GeoJSON:', geoError)
-        console.log('Continuing without GeoJSON boundary')
-      }
-
-      // Load dummy data for markers
-      try {
-        console.log('Loading marker data...')
-        const dataResponse = await fetch('/src/assets/dummyData.json')
-
-        if (!dataResponse.ok) {
-          throw new Error(`HTTP error! status: ${dataResponse.status}`)
-        }
-
-        const data = await dataResponse.json()
-        console.log('Raw data loaded:', data)
-
-        // Extract the sites array from the data structure
-        const items = data.sites || data || []
-        console.log('Marker data loaded. Total items:', items.length)
-
-        // Store all farms data for the PreviewCard
-        allFarmsData.value = items
-
-        if (!Array.isArray(items)) {
-          throw new TypeError('Data is not an array. Structure: ' + JSON.stringify(Object.keys(data)))
-        }
-
-        // Filter items with valid coordinates
-        const validItems = items.filter(item => {
-          const hasCoords = item.latitude && item.longitude
-          if (!hasCoords) {
-            console.log('Item missing coordinates:', item.site_name || item.id)
-          }
-          return hasCoords
-        })
-        console.log('Items with valid coordinates:', validItems.length)
-
-        if (validItems.length === 0) {
-          console.warn('No items have valid latitude/longitude coordinates')
-          return
-        }
-
-        // Add markers via the filter-aware helper so UI controls take effect
-        applyFilters()
-      } catch (dataError) {
-        console.error('Error loading marker data:', dataError)
-        console.log('Continuing without markers')
-      }
-
-      // Force map to refresh
-      setTimeout(() => {
-        map.invalidateSize()
-        console.log('Map size invalidated')
-      }, 100)
-    } catch (error) {
-      console.error('Error initializing map:', error)
+      return div
     }
-  })
+    legend.addTo(map)
+
+    // Load and add GeoJSON boundary
+    try {
+      console.log('Loading GeoJSON...')
+      const geoResponse = await fetch('/src/assets/geojson/Tayabas.geojson')
+
+      if (!geoResponse.ok) {
+        throw new Error(`HTTP error! status: ${geoResponse.status}`)
+      }
+
+      const tayabasGeo = await geoResponse.json()
+      console.log('GeoJSON loaded successfully:', tayabasGeo)
+
+      const geoLayer = L.geoJSON(tayabasGeo, {
+        style: {
+          color: '#2264A2',
+          weight: 3,
+          dashArray: '5, 5',
+          fillColor: '#2264A2',
+          fillOpacity: 0.1,
+        },
+        interactive: false, // Disable all interactions (clicks, hover, etc.)
+        // Removed onEachFeature to prevent popups and click events
+      }).addTo(map)
+
+      // Fit the map to the GeoJSON boundary with padding to account for preview card
+      map.fitBounds(geoLayer.getBounds(), {
+        paddingTopLeft: [350, 50], // Extra left padding for preview card + margins
+        paddingBottomRight: [50, 50],
+      })
+
+      // Additional pan adjustment after fitting bounds
+      setTimeout(() => {
+        map.panBy([-100, 0]) // Fine-tune position to center in visible area
+      }, 200)
+
+      console.log('GeoJSON layer added and map bounds set')
+    } catch (geoError) {
+      console.error('Error loading GeoJSON:', geoError)
+      console.log('Continuing without GeoJSON boundary')
+    }
+
+    // Load marker data from Directus only
+    try {
+      console.log('Loading marker data from Directus...')
+      const items = await fetchDataFromDirectus()
+
+      if (!Array.isArray(items)) {
+        throw new TypeError('Directus returned non-array data')
+      }
+
+      // Keep a copy for the PreviewCard
+      allFarmsData.value = items
+
+      // Filter items with valid coordinates
+      const validItems = items.filter(item => {
+        const hasCoords = item.latitude && item.longitude
+        if (!hasCoords) console.log('Item missing coordinates:', item.site_name || item.id)
+        return hasCoords
+      })
+
+      console.log('Items with valid coordinates (Directus):', validItems.length)
+
+      if (validItems.length === 0) {
+        console.warn('No items from Directus have valid latitude/longitude coordinates')
+        // no markers will be added
+      }
+
+      // Add markers via the filter-aware helper so UI controls take effect
+      applyFilters()
+    } catch (dataError) {
+      console.error('Error loading marker data from Directus:', dataError)
+      console.log('Continuing without markers')
+    }
+
+    // Force map to refresh
+    setTimeout(() => {
+      map.invalidateSize()
+      console.log('Map size invalidated')
+    }, 100)
+  } catch (error) {
+    console.error('Error initializing map:', error)
+  }
+})
 </script>
 
 <style>
