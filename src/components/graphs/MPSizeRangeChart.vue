@@ -90,7 +90,7 @@ async function fetchAndAggregate(siteId, fieldKey) {
             const idx = bucketForValue(val)
             if (idx < 0) continue
 
-            const morph = it.morphology || it.mp_category || it.type
+            const morph = it.shape || it.morphology || it.mp_category || it.type
             const morphIdx = (function (m) {
                 const mm = (m || '').toString().toLowerCase()
                 if (mm.includes('fragment')) return 0

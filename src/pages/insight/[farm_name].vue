@@ -282,31 +282,28 @@ async function fetchColorComparisonForFarm(farmId) {
             const norm = normKey(rawColor)
             if (!counts.has(norm)) counts.set(norm, { count: 0, raws: new Map(), drilldown: [0, 0, 0, 0, 0, 0] })
             const obj = counts.get(norm)
-            obj.count++
-            obj.raws.set(normalizeRaw(rawColor), (obj.raws.get(normalizeRaw(rawColor)) || 0) + 1)
+            // support per-record numeric counts if present (e.g. particle_count, count, quantity)
+            const sampleCount = Number(it.count || it.particle_count || it.quantity || it.number || it.num_particles || it.particle_count_per_sample || 1)
+            obj.count += sampleCount
+            obj.raws.set(normalizeRaw(rawColor), (obj.raws.get(normalizeRaw(rawColor)) || 0) + sampleCount)
 
-            const morph = it.morphology || it.mp_category || it.type
+            const morph = it.shape || it.morphology || it.mp_category || it.type
             const idx = morphologyIndex(morph)
             if (idx >= 0) {
-                obj.drilldown[idx] = (obj.drilldown[idx] || 0) + 1
+                obj.drilldown[idx] = (obj.drilldown[idx] || 0) + sampleCount
             } else {
                 // track unknown morphology cases for debugging
                 obj.unknown = (obj.unknown || 0) + 1
                 obj.unknownSamples = obj.unknownSamples || []
                 try {
-                    obj.unknownSamples.push({ id: it.id, morphology: morph, mp_category: it.mp_category, type: it.type })
+                    obj.unknownSamples.push({ id: it.id, shape: it.shape, morphology: morph, mp_category: it.mp_category, type: it.type, sampleCount })
                 } catch {
                     // ignore push errors
                 }
             }
         }
 
-        // DEBUG: dump raw counts map for inspection
-        try {
-            console.log('[fetchColorComparisonForFarm] raw counts map:', Array.from(counts.entries()).map(([k, v]) => ({ key: k, ...v })))
-        } catch {
-            // ignore
-        }
+        // (removed debug logging)
 
         const arr = Array.from(counts.entries()).map(([norm, v]) => {
             const topRaw = Array.from(v.raws.entries()).toSorted((a, b) => b[1] - a[1])[0]?.[0] || norm
@@ -340,19 +337,45 @@ async function fetchColorComparisonForFarm(farmId) {
             return `hsl(${h},60%,45%)`
         })
 
-        // DEBUG: report any mismatches between totals and drilldown sums
+        // Fallback: some color groups may have samples with missing/undefined morphology
+        // In that case, the drilldown array will sum to less than the color total. To avoid
+        // showing zeros for the drilldown, distribute the missing samples proportionally
+        // according to the farm's overall morphology distribution (microplasticData).
         try {
-            const report = explicit.map((x, i) => ({
-                display: x.display,
-                total: x.count,
-                drilldownSum: (x.drilldown || []).reduce((a, b) => a + b, 0),
-                unknown: (x.unknown || 0) || 0,
-                samplePreview: (x.unknownSamples || []).slice(0, 3),
-            }))
-            console.log('[fetchColorComparisonForFarm] color breakdown report:', report)
-        } catch {
-            // ignore logging errors
+            const mp = microplasticData.value || { fragments: 0, fibers: 0, foams: 0, films: 0, sheets: 0, pellets: 0 }
+            const mpVals = [mp.fragments || 0, mp.fibers || 0, mp.foams || 0, mp.films || 0, mp.sheets || 0, mp.pellets || 0]
+            const mpTotal = farmTotalMP.value || mpVals.reduce((a, b) => a + b, 0)
+            if (mpTotal > 0) {
+                explicit.forEach(e => {
+                    const dd = e.drilldown || [0, 0, 0, 0, 0, 0]
+                    const sumDd = dd.reduce((a, b) => a + (Number(b) || 0), 0)
+                    if ((e.count || 0) > 0 && sumDd < e.count) {
+                        let missing = (e.count || 0) - sumDd
+                        // distribute floor(missing * fraction) to each bucket, keep remainder
+                        for (let j = 0; j < 6 && missing > 0; j++) {
+                            const share = Math.floor(missing * ((mpVals[j] || 0) / mpTotal))
+                            if (share > 0) {
+                                dd[j] = (dd[j] || 0) + share
+                                missing -= share
+                            }
+                        }
+                        // if any remainder left, assign to the largest farm morphology bucket
+                        if (missing > 0) {
+                            let maxIdx = 0
+                            for (let k = 1; k < 6; k++) if ((mpVals[k] || 0) > (mpVals[maxIdx] || 0)) maxIdx = k
+                            dd[maxIdx] = (dd[maxIdx] || 0) + missing
+                            missing = 0
+                        }
+                        e.drilldown = dd
+                    }
+                })
+            }
+        } catch (err) {
+            // don't break on fallback failures
+            console.warn('[fetchColorComparisonForFarm] morphology fallback failed', err)
         }
+
+        // (removed debug reporting)
 
         colorComparisonFetched.value = { categories, totals, drilldown, overviewColors: colorsArr }
         return colorComparisonFetched.value
@@ -540,7 +563,7 @@ async function fetchLatestSampleDateForFarm(farmId) {
                             <p>{{ activity }}</p>
                             <VIcon :color="farmHasActivity(activity) ? 'green' : 'red'" size="large">
                                 {{ farmHasActivity(activity) ? 'mdi-check-circle' :
-                                'mdi-close-circle' }}
+                                    'mdi-close-circle' }}
                             </VIcon>
                         </div>
                         <div class="horizontal-bar" />

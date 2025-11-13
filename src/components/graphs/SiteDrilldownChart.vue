@@ -73,19 +73,27 @@ async function handleSiteClick(idx) {
         details = props.drilldown[name] || props.drilldown[idx] || props.drilldown
     }
 
-    // DEBUG: log incoming shapes to help diagnose drilldown issues
-    try {
-        console.log('[SiteDrilldownChart] handleSiteClick - idx:', idx, 'name:', name)
-        console.log('[SiteDrilldownChart] incoming drilldown prop type:', Object.prototype.toString.call(props.drilldown), 'length:', Array.isArray(props.drilldown) ? props.drilldown.length : undefined)
-        console.log('[SiteDrilldownChart] resolved details (raw):', details)
-    } catch {
-        // ignore logging errors
-    }
+    // incoming shapes are accepted and normalized below
 
     // Normalize `details` into an array of numbers matching siteCategoryLabels
     let siteData = []
     if (Array.isArray(details)) {
-        siteData = siteCategoryLabels.value.map((_, i) => Number(details[i] || 0))
+        // Two common shapes:
+        //  - an array of numbers: [frag, fiber, ...]
+        //  - an array where the first element is an object: [{ fragments: 1, fibers: 2, ... }] (rare)
+        if (details.length > 0 && typeof details[0] === 'object' && !Array.isArray(details[0])) {
+            // try to map from the first object's keys
+            const first = details[0] || {}
+            const keys = Object.keys(first)
+            siteData = siteCategoryLabels.value.map(lbl => {
+                const lower = (lbl || '').toString().toLowerCase()
+                const match = keys.find(k => k.toLowerCase() === lower || k.toLowerCase() === lower + 's' || (k.toLowerCase() || '').startsWith(lower))
+                return Number(first[match] || first[lower] || 0)
+            })
+        } else {
+            // assume an array of numbers aligned by index
+            siteData = siteCategoryLabels.value.map((_, i) => Number(details[i] || 0))
+        }
     } else if (details && typeof details === 'object') {
         // details could be { fragments: 1, fibers: 2, ... } or { drilldown: [..] }
         if (Array.isArray(details.drilldown)) {
@@ -105,10 +113,22 @@ async function handleSiteClick(idx) {
         siteData = siteCategoryLabels.value.map(() => 0)
     }
 
-    // DEBUG: log normalized data that will be used to build the drilldown series
+    // If normalization produced zeros while the overview total is non-zero, attempt a silent fallback
     try {
-        console.log('[SiteDrilldownChart] normalized siteData for', name, '=>', siteData)
-        console.log('[SiteDrilldownChart] category labels =>', siteCategoryLabels.value)
+        const sum = siteData.reduce((a, b) => a + (Number(b) || 0), 0)
+        const overviewTotal = Number(totalBySite.value[idx] || 0)
+        if (overviewTotal > 0 && sum === 0) {
+            try {
+                const alt = Array.isArray(details) ? Object.values(details).map(v => Number(v || 0)) : Object.values(details || {}).map(v => Number(v || 0))
+                const altSum = alt.reduce((a, b) => a + (Number(b) || 0), 0)
+                if (altSum > 0) {
+                    // use the extracted alt values aligned to category labels (pad/truncate as necessary)
+                    siteData = siteCategoryLabels.value.map((_, i) => Number(alt[i] || 0))
+                }
+            } catch {
+                // ignore fallback errors
+            }
+        }
     } catch {
         // ignore
     }
