@@ -70,7 +70,11 @@ async function fetchAndAggregate(siteId, fieldKey) {
     if (!siteId) return
     loading.value = true
     try {
-        const resp = await directus.request(readItems('microplastics', { filter: { sample_source: { site: { _eq: siteId } } }, limit: -1 }))
+        // limit to last 24 months to avoid very large client-side fetches
+        const cutoff = new Date()
+        cutoff.setMonth(cutoff.getMonth() - 24)
+        const cutoffIso = cutoff.toISOString()
+        const resp = await directus.request(readItems('microplastics', { filter: { sample_source: { site: { _eq: siteId }, date_collected: { _gte: cutoffIso } } }, limit: -1 }))
         const items = Array.isArray(resp) ? resp : (resp?.data || [])
         const counts = Array(sizeBuckets.length).fill(0)
         const drill = Array(sizeBuckets.length).fill(0).map(() => [0, 0, 0, 0, 0])
@@ -132,20 +136,36 @@ onMounted(() => {
     <div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <h4 class="text-h6 font-weight-bold" style="line-height:1.2em">{{ title }}</h4>
-            <div style="display:flex; gap:8px; align-items:center">
-                <label style="color:rgba(0,0,0,0.6); font-size:0.85rem">Measurement</label>
-                <select v-model="selectedField">
-                    <option v-for="m in measurementFields" :key="m.key" :value="m.key">{{ m.label }}</option>
-                </select>
+            <div style="display:flex; gap:8px; align-items:center; width:360px;">
+                <VSelect
+                    :items="measurementFields"
+                    item-title="label"
+                    item-value="key"
+                    v-model="selectedField"
+                    dense
+                    outlined
+                    hide-details
+                    style="min-width:220px"
+                />
+                <VTooltip>
+                    <template #activator="{ props }">
+                        <VIcon v-bind="props" size="20" color="grey">mdi-help-circle</VIcon>
+                    </template>
+                    <span style="max-width:240px; display:block">When "Area (µm²)" is selected we convert area to an equivalent circular diameter using d = 2·√(area/π). This gives a diameter-like measure that can be bucketed by size.</span>
+                </VTooltip>
             </div>
         </div>
 
-        <div v-if="loading">Loading...</div>
+        <div v-if="loading" :style="{ minHeight: props.height + 'px', display: 'flex', justifyContent: 'center', alignItems: 'center' }">
+            <VProgressCircular indeterminate size="28" color="primary" />
+        </div>
 
-        <SiteDrilldownChart :categories="categories" :totals="totals" :drilldown="drilldown"
-            :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']"
-            :colors="{ fragments: '#0B2E4E', fibers: '#19568E', films: '#63B3FF', foams: '#4688C7', pellets: '#B9DDFF' }"
-            :height="props.height" :date="props.date" />
+        <div v-else>
+            <SiteDrilldownChart :categories="categories" :totals="totals" :drilldown="drilldown"
+                :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']"
+                :colors="{ fragments: '#0B2E4E', fibers: '#19568E', films: '#63B3FF', foams: '#4688C7', pellets: '#B9DDFF' }"
+                :height="props.height" :date="props.date" />
+        </div>
     </div>
 </template>
 
