@@ -1,9 +1,9 @@
 <script setup>
-import { computed, ref, toRef, watch } from 'vue'
-import { ensurePlotOptionsBar, updateApexChart } from '@/composables/useApexChart'
-import ApexChartBase from './ApexChartBase.vue'
+  import { computed, ref, toRef, watch } from 'vue'
+  import { ensurePlotOptionsBar, updateApexChart } from '@/composables/useApexChart'
+  import ApexChartBase from './ApexChartBase.vue'
 
-const props = defineProps({
+  const props = defineProps({
     series: { type: Array, required: true },
     options: { type: Object, required: true },
     title: { type: String, required: false, default: '' },
@@ -11,20 +11,20 @@ const props = defineProps({
     // optional human-readable date string to display
     date: { type: String, default: '' },
     height: { type: Number, default: 400 },
-})
+  })
 
-const seriesRef = toRef(props, 'series')
-const optionsRef = toRef(props, 'options')
+  const seriesRef = toRef(props, 'series')
+  const optionsRef = toRef(props, 'options')
 
-// wrapper ref (exposes inner chartRef)
-const chartRef = ref(null)
+  // wrapper ref (exposes inner chartRef)
+  const chartRef = ref(null)
 
-// ensure plotOptions.bar exists to avoid Apex errors
-const mergedOptionsSafe = computed(() => ensurePlotOptionsBar(mergedOptions.value))
+  // ensure plotOptions.bar exists to avoid Apex errors
+  const mergedOptionsSafe = computed(() => ensurePlotOptionsBar(mergedOptions.value))
 
-// Apply a conservative default: if caller didn't specify bar dataLabel position
-// we'll set it to 'top' and enable a small offset; otherwise respect caller options.
-const mergedOptions = computed(() => {
+  // Apply a conservative default: if caller didn't specify bar dataLabel position
+  // we'll set it to 'top' and enable a small offset; otherwise respect caller options.
+  const mergedOptions = computed(() => {
     const base = optionsRef.value || {}
 
     // shallow copy of plotOptions so we can safely modify bar/dataLabels without deep merging
@@ -34,7 +34,7 @@ const mergedOptions = computed(() => {
     // If caller did not set a dataLabels position for bar, default to 'top'
     const callerBarDLPos = plotOptions.bar.dataLabels && plotOptions.bar.dataLabels.position
     if (!callerBarDLPos) {
-        plotOptions.bar.dataLabels = Object.assign({}, plotOptions.bar.dataLabels || {}, { position: 'top' })
+      plotOptions.bar.dataLabels = Object.assign({}, plotOptions.bar.dataLabels || {}, { position: 'top' })
     }
 
     // If caller didn't provide a top-level dataLabels config, provide a sensible default
@@ -47,27 +47,32 @@ const mergedOptions = computed(() => {
     if (!chart.toolbar) chart.toolbar = { show: false }
 
     return Object.assign({}, base, { chart, plotOptions, dataLabels })
-})
+  })
 
-// keep chart in sync without remounting
-watch([seriesRef, mergedOptionsSafe], _nv => {
+  // keep chart in sync without remounting
+  watch([seriesRef, mergedOptionsSafe], _nv => {
     // nv not used directly; call our updater
     const inner = chartRef.value?.chartRef
     if (inner) {
-        void updateApexChart(inner, mergedOptionsSafe.value, seriesRef.value, true)
+      void updateApexChart(inner, mergedOptionsSafe.value, seriesRef.value, true)
     }
-}, { immediate: true })
+  }, { immediate: true })
 </script>
 
 <template>
-    <div class="d-flex flex-column">
-        <h4 v-if="title" class="text-h6 font-weight-bold mb-1" style="line-height: 1.2em;">{{ title }}</h4>
-        <p v-if="subtitle || props.date" class="subtitle mb-2">{{ subtitle || props.date }}</p>
-        <div>
-            <ApexChartBase ref="chartRef" :height="height" :options="mergedOptionsSafe" :series="seriesRef"
-                type="bar" />
-        </div>
+  <div class="d-flex flex-column">
+    <h4 v-if="title" class="text-h6 font-weight-bold mb-1" style="line-height: 1.2em;">{{ title }}</h4>
+    <p v-if="subtitle || props.date" class="subtitle mb-2">{{ subtitle || props.date }}</p>
+    <div>
+      <ApexChartBase
+        ref="chartRef"
+        :height="height"
+        :options="mergedOptionsSafe"
+        :series="seriesRef"
+        type="bar"
+      />
     </div>
+  </div>
 </template>
 
 <style scoped>

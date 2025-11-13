@@ -1,96 +1,161 @@
 <script setup>
 /* eslint-disable unicorn/no-array-callback-reference, unicorn/no-array-method-this-argument */
-import L from 'leaflet'
-import { computed, defineProps, onMounted, ref, watch } from 'vue'
-import 'leaflet/dist/leaflet.css'
-// We'll fetch the GeoJSON at runtime (some bundlers treat .geojson as asset URLs)
+  import L from 'leaflet'
+  import { computed, defineProps, onMounted, ref, watch } from 'vue'
+  import 'leaflet/dist/leaflet.css'
+  // We'll fetch the GeoJSON at runtime (some bundlers treat .geojson as asset URLs)
 
-const props = defineProps({
-  sampledSites: {
-    type: Array,
-    default: () => [],
-  },
-  // show or hide the map. default true for backward compatibility
-  showMap: {
-    type: Boolean,
-    default: true,
-  },
-})
+  const props = defineProps({
+    sampledSites: {
+      type: Array,
+      default: () => [],
+    },
+    // show or hide the map. default true for backward compatibility
+    showMap: {
+      type: Boolean,
+      default: true,
+    },
+  })
 
-// local UI state
-const query = ref('')
-const sortBy = ref('level') // 'level' or 'name'
-const sortDir = ref('desc') // 'asc' or 'desc'
+  // local UI state
+  const query = ref('')
+  const sortBy = ref('level') // 'level' or 'name'
+  const sortDir = ref('desc') // 'asc' or 'desc'
 
-const mapRef = ref(null)
-const markersMap = {}
-let markersLayer = null
-let polygonLayer = null
+  const mapRef = ref(null)
+  const markersMap = {}
+  let markersLayer = null
+  let polygonLayer = null
 
-function contaminationLevel(site) {
-  const total = (site.fragment_count || 0) + (site.fiber_count || 0) + (site.film_count || 0) + (site.foam_count || 0) + (site.beads_count || 0)
-  if (total > 700) return 'HIGH'
-  if (total > 400) return 'MODERATE'
-  if (total > 150) return 'LOW'
-  return 'ZERO'
-}
-
-function colorForLevel(level) {
-  switch (level) {
-    case 'HIGH': {
-      return '#d32f2f'
-    }
-    case 'MODERATE': {
-      return '#fb8c00'
-    }
-    case 'LOW': {
-      return '#43a047'
-    }
-    default: {
-      return '#9e9e9e'
-    }
-  }
-}
-
-function initMap() {
-  if (!mapRef.value || typeof window === 'undefined') return
-  // prevent double-init
-  if (mapRef.value.__leafletMap) return
-
-  const map = L.map(mapRef.value, { scrollWheelZoom: false }).setView([14.03, 121.58], 11)
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap',
-  }).addTo(map)
-  // create a layer group for markers so we can refresh them
-  markersLayer = L.layerGroup().addTo(map)
-
-  // add polygon for Tayabas by fetching the geojson file at runtime
-  try {
-    const geoUrl = new URL('../assets/geojson/Tayabas.geojson', import.meta.url).href
-    fetch(geoUrl)
-      .then(r => r.json())
-      .then(geojson => {
-        polygonLayer = L.geoJSON(geojson, {
-          style: () => ({ color: '#1976d2', weight: 2, fillColor: '#1976d2', fillOpacity: 0.06 }),
-        }).addTo(map)
-        // if polygon added and no markers, fit bounds to polygon
-        try {
-          if ((!props.sampledSites || props.sampledSites.length === 0) && polygonLayer && polygonLayer.getBounds) {
-            const b = polygonLayer.getBounds()
-            if (b.isValid()) map.fitBounds(b, { padding: [40, 40] })
-          }
-        } catch { /* ignore */ }
-      })
-      .catch(error => console.warn('Could not fetch Tayabas.geojson', error))
-  } catch (error) {
-    console.warn('Could not build Tayabas.geojson URL', error)
+  function contaminationLevel (site) {
+    const total = (site.fragment_count || 0) + (site.fiber_count || 0) + (site.film_count || 0) + (site.foam_count || 0) + (site.beads_count || 0)
+    if (total > 700) return 'HIGH'
+    if (total > 400) return 'MODERATE'
+    if (total > 150) return 'LOW'
+    return 'ZERO'
   }
 
-  function addMarkersFromSites(sites) {
+  function colorForLevel (level) {
+    switch (level) {
+      case 'HIGH': {
+        return '#d32f2f'
+      }
+      case 'MODERATE': {
+        return '#fb8c00'
+      }
+      case 'LOW': {
+        return '#43a047'
+      }
+      default: {
+        return '#9e9e9e'
+      }
+    }
+  }
+
+  function initMap () {
+    if (!mapRef.value || typeof window === 'undefined') return
+    // prevent double-init
+    if (mapRef.value.__leafletMap) return
+
+    const map = L.map(mapRef.value, { scrollWheelZoom: false }).setView([14.03, 121.58], 11)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap',
+    }).addTo(map)
+    // create a layer group for markers so we can refresh them
+    markersLayer = L.layerGroup().addTo(map)
+
+    // add polygon for Tayabas by fetching the geojson file at runtime
+    try {
+      const geoUrl = new URL('../assets/geojson/Tayabas.geojson', import.meta.url).href
+      fetch(geoUrl)
+        .then(r => r.json())
+        .then(geojson => {
+          polygonLayer = L.geoJSON(geojson, {
+            style: () => ({ color: '#1976d2', weight: 2, fillColor: '#1976d2', fillOpacity: 0.06 }),
+          }).addTo(map)
+          // if polygon added and no markers, fit bounds to polygon
+          try {
+            if ((!props.sampledSites || props.sampledSites.length === 0) && polygonLayer && polygonLayer.getBounds) {
+              const b = polygonLayer.getBounds()
+              if (b.isValid()) map.fitBounds(b, { padding: [40, 40] })
+            }
+          } catch { /* ignore */ }
+        })
+        .catch(error => console.warn('Could not fetch Tayabas.geojson', error))
+    } catch (error) {
+      console.warn('Could not build Tayabas.geojson URL', error)
+    }
+
+    function addMarkersFromSites (sites) {
+      markersLayer.clearLayers()
+      const bounds = []
+      for (const site of sites) {
+        if (!site.latitude || !site.longitude) continue
+        const lvl = site.level || contaminationLevel(site)
+        const color = colorForLevel(lvl)
+        const marker = L.circleMarker([site.latitude, site.longitude], {
+          radius: 9,
+          fillColor: color,
+          color: '#fff',
+          weight: 1.5,
+          fillOpacity: 0.95,
+        }).bindPopup(`<strong>${site.site_name}</strong><br/>${site.address}<br/>Level: ${lvl}`)
+        marker.addTo(markersLayer)
+        markersMap[site.id] = marker
+        bounds.push([site.latitude, site.longitude])
+      }
+
+      // extend bounds with polygon bounds if present
+      if (polygonLayer && polygonLayer.getBounds && polygonLayer.getBounds().isValid()) {
+        const polyBounds = polygonLayer.getBounds()
+        bounds.push([polyBounds.getSouthWest().lat, polyBounds.getSouthWest().lng], [polyBounds.getNorthEast().lat, polyBounds.getNorthEast().lng])
+      }
+
+      if (bounds.length > 0) map.fitBounds(bounds, { padding: [40, 40] })
+    }
+
+    // initial markers
+    addMarkersFromSites(props.sampledSites)
+
+    // expose a simple focus function on the map instance so list rows can pan/open popups
+    mapRef.value.__leafletMap = map
+  }
+
+  function destroyMap () {
+    try {
+      const map = mapRef.value && mapRef.value.__leafletMap
+      if (map) {
+        map.remove()
+      }
+    } catch {
+    // ignore removal errors
+    }
+    // reset references
+    if (mapRef.value && mapRef.value.__leafletMap) delete mapRef.value.__leafletMap
+    markersLayer = null
+    polygonLayer = null
+    for (const k of Object.keys(markersMap)) delete markersMap[k]
+  }
+
+  onMounted(() => {
+    if (props.showMap) initMap()
+  })
+
+  // watch for showMap toggles to init / destroy map dynamically
+  watch(() => props.showMap, nv => {
+    if (nv) initMap()
+    else destroyMap()
+  })
+
+  // watch props and update markers when sampledSites changes
+  watch(() => props.sampledSites, nv => {
+    const map = mapRef.value && mapRef.value.__leafletMap
+    if (!map || !markersLayer) return
+    // rebuild markers
     markersLayer.clearLayers()
     const bounds = []
-    for (const site of sites) {
+    for (const site of nv) {
       if (!site.latitude || !site.longitude) continue
       const lvl = site.level || contaminationLevel(site)
       const color = colorForLevel(lvl)
@@ -105,119 +170,54 @@ function initMap() {
       markersMap[site.id] = marker
       bounds.push([site.latitude, site.longitude])
     }
-
-    // extend bounds with polygon bounds if present
     if (polygonLayer && polygonLayer.getBounds && polygonLayer.getBounds().isValid()) {
       const polyBounds = polygonLayer.getBounds()
       bounds.push([polyBounds.getSouthWest().lat, polyBounds.getSouthWest().lng], [polyBounds.getNorthEast().lat, polyBounds.getNorthEast().lng])
     }
-
     if (bounds.length > 0) map.fitBounds(bounds, { padding: [40, 40] })
-  }
+  }, { deep: true })
 
-  // initial markers
-  addMarkersFromSites(props.sampledSites)
-
-  // expose a simple focus function on the map instance so list rows can pan/open popups
-  mapRef.value.__leafletMap = map
-}
-
-function destroyMap() {
-  try {
+  function focusSite (site) {
+    if (!site || !site.latitude || !site.longitude) return
     const map = mapRef.value && mapRef.value.__leafletMap
+    const marker = markersMap[site.id]
     if (map) {
-      map.remove()
+      map.setView([site.latitude, site.longitude], Math.max(map.getZoom(), 13), { animate: true })
+      if (marker) marker.openPopup()
     }
-  } catch {
-    // ignore removal errors
   }
-  // reset references
-  if (mapRef.value && mapRef.value.__leafletMap) delete mapRef.value.__leafletMap
-  markersLayer = null
-  polygonLayer = null
-  for (const k of Object.keys(markersMap)) delete markersMap[k]
-}
 
-onMounted(() => {
-  if (props.showMap) initMap()
-})
-
-// watch for showMap toggles to init / destroy map dynamically
-watch(() => props.showMap, nv => {
-  if (nv) initMap()
-  else destroyMap()
-})
-
-// watch props and update markers when sampledSites changes
-watch(() => props.sampledSites, nv => {
-  const map = mapRef.value && mapRef.value.__leafletMap
-  if (!map || !markersLayer) return
-  // rebuild markers
-  markersLayer.clearLayers()
-  const bounds = []
-  for (const site of nv) {
-    if (!site.latitude || !site.longitude) continue
-    const lvl = site.level || contaminationLevel(site)
-    const color = colorForLevel(lvl)
-    const marker = L.circleMarker([site.latitude, site.longitude], {
-      radius: 9,
-      fillColor: color,
-      color: '#fff',
-      weight: 1.5,
-      fillOpacity: 0.95,
-    }).bindPopup(`<strong>${site.site_name}</strong><br/>${site.address}<br/>Level: ${lvl}`)
-    marker.addTo(markersLayer)
-    markersMap[site.id] = marker
-    bounds.push([site.latitude, site.longitude])
+  function toggleSort () {
+    if (sortBy.value === 'name') {
+      sortBy.value = 'level'
+      sortDir.value = 'desc'
+    } else {
+      sortBy.value = 'name'
+      sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+    }
   }
-  if (polygonLayer && polygonLayer.getBounds && polygonLayer.getBounds().isValid()) {
-    const polyBounds = polygonLayer.getBounds()
-    bounds.push([polyBounds.getSouthWest().lat, polyBounds.getSouthWest().lng], [polyBounds.getNorthEast().lat, polyBounds.getNorthEast().lng])
-  }
-  if (bounds.length > 0) map.fitBounds(bounds, { padding: [40, 40] })
-}, { deep: true })
 
-function focusSite(site) {
-  if (!site || !site.latitude || !site.longitude) return
-  const map = mapRef.value && mapRef.value.__leafletMap
-  const marker = markersMap[site.id]
-  if (map) {
-    map.setView([site.latitude, site.longitude], Math.max(map.getZoom(), 13), { animate: true })
-    if (marker) marker.openPopup()
-  }
-}
+  const levelRank = { HIGH: 4, MODERATE: 3, LOW: 2, ZERO: 1 }
 
-function toggleSort() {
-  if (sortBy.value === 'name') {
-    sortBy.value = 'level'
-    sortDir.value = 'desc'
-  } else {
-    sortBy.value = 'name'
-    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
-  }
-}
-
-const levelRank = { HIGH: 4, MODERATE: 3, LOW: 2, ZERO: 1 }
-
-const filteredSites = computed(() => {
-  const q = (query.value || '').trim().toLowerCase()
-  let arr = props.sampledSites.map(s => ({ ...s }))
-  if (q) {
-    arr = arr.filter(s => (s.site_name || '').toLowerCase().includes(q) || (s.address || '').toLowerCase().includes(q))
-  }
-  arr = sortBy.value === 'name'
-    ? arr.toSorted((a, b) => {
-      const an = (a.site_name || '').toLowerCase()
-      const bn = (b.site_name || '').toLowerCase()
-      return sortDir.value === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an)
-    })
-    : arr.toSorted((a, b) => {
-      const ar = levelRank[a.level] || levelRank[contaminationLevel(a)] || 0
-      const br = levelRank[b.level] || levelRank[contaminationLevel(b)] || 0
-      return sortDir.value === 'asc' ? ar - br : br - ar
-    })
-  return arr
-})
+  const filteredSites = computed(() => {
+    const q = (query.value || '').trim().toLowerCase()
+    let arr = props.sampledSites.map(s => ({ ...s }))
+    if (q) {
+      arr = arr.filter(s => (s.site_name || '').toLowerCase().includes(q) || (s.address || '').toLowerCase().includes(q))
+    }
+    arr = sortBy.value === 'name'
+      ? arr.toSorted((a, b) => {
+        const an = (a.site_name || '').toLowerCase()
+        const bn = (b.site_name || '').toLowerCase()
+        return sortDir.value === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an)
+      })
+      : arr.toSorted((a, b) => {
+        const ar = levelRank[a.level] || levelRank[contaminationLevel(a)] || 0
+        const br = levelRank[b.level] || levelRank[contaminationLevel(b)] || 0
+        return sortDir.value === 'asc' ? ar - br : br - ar
+      })
+    return arr
+  })
 </script>
 
 <template>

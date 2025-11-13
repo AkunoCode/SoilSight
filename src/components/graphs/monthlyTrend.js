@@ -18,6 +18,7 @@ export function buildMonthlyChartData (totals = {}) {
     { name: 'Fibers', data: distributeAcrossMonths(totals.fibers || 0) },
     { name: 'Foam', data: distributeAcrossMonths(totals.foams || 0) },
     { name: 'Films', data: distributeAcrossMonths(totals.films || 0) },
+    { name: 'Sheets', data: distributeAcrossMonths(totals.sheets || 0) },
     { name: 'Pellets', data: distributeAcrossMonths(totals.pellets || 0) },
   ]
 
