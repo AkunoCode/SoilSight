@@ -137,26 +137,22 @@ onMounted(() => {
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <h4 class="text-h6 font-weight-bold" style="line-height:1.2em">{{ title }}</h4>
             <div style="display:flex; gap:8px; align-items:center; width:360px;">
-                <VSelect
-                    :items="measurementFields"
-                    item-title="label"
-                    item-value="key"
-                    v-model="selectedField"
-                    dense
-                    outlined
-                    hide-details
-                    style="min-width:220px"
-                />
+                <VSelect :items="measurementFields" item-title="label" item-value="key" v-model="selectedField" dense
+                    outlined hide-details style="min-width:220px" />
                 <VTooltip>
                     <template #activator="{ props }">
                         <VIcon v-bind="props" size="20" color="grey">mdi-help-circle</VIcon>
                     </template>
-                    <span style="max-width:240px; display:block">When "Area (µm²)" is selected we convert area to an equivalent circular diameter using d = 2·√(area/π). This gives a diameter-like measure that can be bucketed by size.</span>
+                    <span style="max-width:240px; display:block">When "Area (µm²)" is selected we convert area to an
+                        equivalent circular
+                        diameter using d = 2·√(area/π). This gives a diameter-like measure that can be bucketed by
+                        size.</span>
                 </VTooltip>
             </div>
         </div>
 
-        <div v-if="loading" :style="{ minHeight: props.height + 'px', display: 'flex', justifyContent: 'center', alignItems: 'center' }">
+        <div v-if="loading"
+            :style="{ minHeight: props.height + 'px', display: 'flex', justifyContent: 'center', alignItems: 'center' }">
             <VProgressCircular indeterminate size="28" color="primary" />
         </div>
 
