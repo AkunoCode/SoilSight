@@ -154,7 +154,8 @@ watch([() => props.categories, () => props.totals], () => {
             </h3>
             <p class="subtitle">{{ props.date || defaultDate }}</p>
         </div>
-        <apexchart :key="chartKey" ref="chartRef" :options="displayedOptions" :series="displayedSeries" type="bar" :height="props.height" />
+        <apexchart :key="chartKey" ref="chartRef" :options="displayedOptions" :series="displayedSeries" type="bar"
+            :height="props.height" />
     </div>
 </template>
 
