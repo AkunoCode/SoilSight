@@ -2,11 +2,12 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import dummy from '@/assets/dummyData.json'
 
-import MPPracticeBar from '@/components/graphs/MPPracticeBar.vue'
+import ApexChartBase from '@/components/graphs/ApexChartBase.vue'
 import { getDefaultBarOptions } from '@/components/graphs/defaultBarOptions.js'
-import MPDonutChart from '@/components/graphs/MPDonutChart.vue'
-import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
 import MonthlyTrendChart from '@/components/graphs/MonthlyTrendChart.vue'
+import MPDonutChart from '@/components/graphs/MPDonutChart.vue'
+import MPPracticeBar from '@/components/graphs/MPPracticeBar.vue'
+import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
 import SampledFarms from '@/components/SampledFarms.vue'
 
 // Simple derived metrics
@@ -29,21 +30,22 @@ const microplasticData = computed(() => ({
   fibers: totalFibers,
   foams: totalFoams,
   films: totalFilms,
-  pellets: totalPellets
+  pellets: totalPellets,
 }))
 
 const totalMP = computed(() => Object.values(microplasticData.value).reduce((a, b) => a + b, 0))
 
 const percentages = computed(() => {
   const t = totalMP.value
-  if (t === 0) return { fragments: 0, fibers: 0, foams: 0, films: 0, pellets: 0 }
-  return {
-    fragments: Math.round((microplasticData.value.fragments / t) * 100),
-    fibers: Math.round((microplasticData.value.fibers / t) * 100),
-    foams: Math.round((microplasticData.value.foams / t) * 100),
-    films: Math.round((microplasticData.value.films / t) * 100),
-    pellets: Math.round((microplasticData.value.pellets / t) * 100)
-  }
+  return t === 0
+    ? { fragments: 0, fibers: 0, foams: 0, films: 0, pellets: 0 }
+    : {
+      fragments: Math.round((microplasticData.value.fragments / t) * 100),
+      fibers: Math.round((microplasticData.value.fibers / t) * 100),
+      foams: Math.round((microplasticData.value.foams / t) * 100),
+      films: Math.round((microplasticData.value.films / t) * 100),
+      pellets: Math.round((microplasticData.value.pellets / t) * 100),
+    }
 })
 
 const mpColors = {
@@ -51,7 +53,7 @@ const mpColors = {
   fibers: '#19568E',
   films: '#63B3FF',
   foams: '#4688C7',
-  pellets: '#B9DDFF'
+  pellets: '#B9DDFF',
 }
 
 const labelsMap = {
@@ -59,7 +61,7 @@ const labelsMap = {
   fibers: 'Fibers',
   foams: 'Foam',
   films: 'Films',
-  pellets: 'Pellets'
+  pellets: 'Pellets',
 }
 
 const selectedKey = ref(null)
@@ -69,7 +71,7 @@ const donutLabelsMap = {
   fibers: 'Fibers',
   foams: 'Foam',
   films: 'Films',
-  pellets: 'Pellets'
+  pellets: 'Pellets',
 }
 
 const donutColors = {
@@ -77,7 +79,7 @@ const donutColors = {
   fibers: mpColors.fibers,
   foams: mpColors.foams,
   films: mpColors.films,
-  pellets: mpColors.pellets
+  pellets: mpColors.pellets,
 }
 
 // Series shown in the donut (updates when user filters via legend)
@@ -86,10 +88,10 @@ const displaySeries = ref([
   microplasticData.value.fibers,
   microplasticData.value.foams,
   microplasticData.value.films,
-  microplasticData.value.pellets
+  microplasticData.value.pellets,
 ])
 
-watch(microplasticData, (nv) => {
+watch(microplasticData, nv => {
   if (selectedKey.value === null) {
     displaySeries.value = [nv.fragments, nv.fibers, nv.foams, nv.films, nv.pellets]
   } else {
@@ -119,14 +121,14 @@ const compositionOptions = ref({
             formatter: function (w) {
               const total = Object.values(microplasticData.value).reduce((a, b) => a + b, 0)
               return total
-            }
-          }
-        }
-      }
-    }
-  }
+            },
+          },
+        },
+      },
+    },
+  },
 })
-const handleLegendClick = (key) => {
+function handleLegendClick(key) {
   if (selectedKey.value === key) {
     selectedKey.value = null
     displaySeries.value = [
@@ -134,7 +136,7 @@ const handleLegendClick = (key) => {
       microplasticData.value.fibers,
       microplasticData.value.foams,
       microplasticData.value.films,
-      microplasticData.value.pellets
+      microplasticData.value.pellets,
     ]
     compositionOptions.value.labels = Object.values(labelsMap)
     compositionOptions.value.colors = Object.values(mpColors)
@@ -210,7 +212,7 @@ const siteDrilldown = sites.map(s => [
   s.fiber_count || 0,
   s.foam_count || 0,
   s.film_count || 0,
-  s.beads_count || 0
+  s.beads_count || 0,
 ])
 
 const numOrganic = computed(() => sites.filter(s => (s.cultivation_practice || '').toLowerCase().includes('organic')).length)
@@ -239,20 +241,20 @@ const contaminationByPracticeSeries = ref(practiceNames.map((name, idx) => ({
     fibersByPractice[idx] || 0,
     foamsByPractice[idx] || 0,
     filmsByPractice[idx] || 0,
-    pelletsByPractice[idx] || 0
-  ]
+    pelletsByPractice[idx] || 0,
+  ],
 })))
 
 // compute a comfortable y-axis max from the data (per-category values across practices)
 const allVals = contaminationByPracticeSeries.value.flatMap(s => s.data)
-const maxVal = allVals.length ? Math.max(...allVals) : 700
+const maxVal = allVals.length > 0 ? Math.max(...allVals) : 700
 
 // Use the same base options as PreviewCard so visuals match exactly
 const contaminationByPracticeOptions = ref(getDefaultBarOptions(categoriesForPracticeChart, {
   chart: { type: 'bar', height: 20 },
   plotOptions: { bar: { horizontal: false } },
   legend: { position: 'bottom' },
-  yaxis: { title: { text: 'Number of MP found (in Thousands)' }, min: 0, max: Math.ceil(maxVal * 1.15) }
+  yaxis: { title: { text: 'Number of MP found (in Thousands)' }, min: 0, max: Math.ceil(maxVal * 1.15) },
 }))
 
 // Monthly trend: moved into MonthlyTrendChart component
@@ -341,7 +343,7 @@ const sizeDrilldown = sizeRanges.map((_, idx) => {
 
 const sizeTotals = sizeDrilldown.map(arr => arr.reduce((a, b) => a + b, 0))
 
-const aiSummaryText = 'Based on the data, farms practicing organic cultivation tend to have lower microplastic contamination levels compared to conventional farms. Implementing integrated pest management and reducing plastic mulch usage could further mitigate contamination risks.';
+const aiSummaryText = 'Based on the data, farms practicing organic cultivation tend to have lower microplastic contamination levels compared to conventional farms. Implementing integrated pest management and reducing plastic mulch usage could further mitigate contamination risks.'
 
 // Map setup
 const mapRef = ref(null)
@@ -363,7 +365,7 @@ function colorForLevel(level) {
   }
 }
 
-const printReport = () => {
+function printReport() {
   window.print()
 }
 
@@ -404,7 +406,7 @@ for (const s of sites) {
     cropCounts[key] = (cropCounts[key] || 0) + 1
   }
 }
-const sortedCrops = Object.entries(cropCounts).sort((a, b) => b[1] - a[1])
+const sortedCrops = Object.entries(cropCounts).toSorted((a, b) => b[1] - a[1])
 const topCrops = sortedCrops.slice(0, 10).map(([crop, count]) => ({ crop, count }))
 
 // Farm size distribution: small <1ha, medium 1-3ha, large >3ha
@@ -422,7 +424,7 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
   <div class="insight-page">
     <header class="page-header">
       <div class="d-flex align-center">
-        <VIcon style="cursor:pointer; vertical-align:middle;" @click="$router.back()" color="grey" size="x-large">
+        <VIcon color="grey" size="x-large" style="cursor:pointer; vertical-align:middle;" @click="$router.back()">
           mdi-menu-left</VIcon>
         <h1>Tayabas
           City, Quezon Province, Philippines</h1>
@@ -432,22 +434,22 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
     <div class="columns">
       <div class="kpi">
         <div class="kpi-num">{{ sites.length }}</div>
-        <div class="v-separator"></div>
+        <div class="v-separator" />
         <div class="kpi-body">Number of Sampled Farms</div>
       </div>
       <div class="kpi">
         <div class="kpi-num">{{ numOrganic }}</div>
-        <div class="v-separator"></div>
+        <div class="v-separator" />
         <div class="kpi-body">Organic Farms</div>
       </div>
       <div class="kpi">
         <div class="kpi-num">{{ numConventional }}</div>
-        <div class="v-separator"></div>
+        <div class="v-separator" />
         <div class="kpi-body">Conventional Farms</div>
       </div>
       <div class="kpi">
         <div class="kpi-num">{{ numIntegrated }}</div>
-        <div class="v-separator"></div>
+        <div class="v-separator" />
         <div class="kpi-body">Integrated Farms</div>
       </div>
       <div class="d-flex align-center justify-center bg-blue ga-2 rounded-lg cursor-pointer"
@@ -457,11 +459,11 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
       </div>
     </div>
     <VRow class="mt-2">
-      <VCol cols="3" class="d-flex flex-column justify-space-between">
+      <VCol class="d-flex flex-column justify-space-between" cols="3">
         <div class="card crops-card" style="height: 38%;">
           <h3>Most Common Crops Grown</h3>
           <ul class="crop-list">
-            <li v-for="(c, idx) in topCrops" :key="c.crop">
+            <li v-for="c in topCrops" :key="c.crop">
               <div style="display:flex; justify-content:space-between; gap:8px;">
                 <span class="crop-name">{{ c.crop }}</span>
               </div>
@@ -470,22 +472,22 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
         </div>
         <div class="card" style="height: 58%;">
           <h3>Size Distribution of Sampled Farms</h3>
-          <apexchart :options="farmSizeOptions" :series="farmSizeSeries" type="bar" :height="150" />
+          <ApexChartBase :height="150" :options="farmSizeOptions" :series="farmSizeSeries" type="bar" />
         </div>
       </VCol>
 
       <VCol cols="4">
         <div class="card">
-          <MPDonutChart :microplasticData="microplasticData" :labelsMap="donutLabelsMap" :colors="donutColors"
-            :activeKey="selectedKey" @selection="handleLegendClick" />
+          <MPDonutChart :active-key="selectedKey" :colors="donutColors" :labels-map="donutLabelsMap"
+            :microplastic-data="microplasticData" @selection="handleLegendClick" />
         </div>
       </VCol>
 
       <VCol cols="5">
         <div class="card">
-          <SiteDrilldownChart :categories="siteCategories" :totals="siteTotals" :drilldown="siteDrilldown"
-            title="Microplastic Count by Farm Site"
-            :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors" :height="330" />
+          <SiteDrilldownChart :categories="siteCategories"
+            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors"
+            :drilldown="siteDrilldown" :height="330" title="Microplastic Count by Farm Site" :totals="siteTotals" />
         </div>
       </VCol>
     </VRow>
@@ -493,12 +495,12 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
     <VRow class="mt-2">
       <VCol cols="6">
         <div class="card">
-          <MPPracticeBar :series="contaminationByPracticeSeries" :options="contaminationByPracticeOptions"
-            title="Contamination Comparison by Farm Practices" subtitle="Data as of September 22, 2025" :height="360" />
+          <MPPracticeBar :height="360" :options="contaminationByPracticeOptions" :series="contaminationByPracticeSeries"
+            subtitle="Data as of September 22, 2025" title="Contamination Comparison by Farm Practices" />
         </div>
       </VCol>
       <VCol cols="6">
-        <MonthlyTrendChart :microplasticData="microplasticData" :colors="mpColors"
+        <MonthlyTrendChart :colors="mpColors" :microplastic-data="microplasticData"
           subtitle="Data as of September 22, 2025" />
       </VCol>
     </VRow>
@@ -506,38 +508,39 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
     <VRow class="mt-2">
       <VCol cols="7">
         <div class="card">
-          <SiteDrilldownChart :categories="inputTypes" :totals="inputTotals" :drilldown="inputDrilldown"
-            title="Microplastic Counts by Plastic-Related Farm Inputs"
-            :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors" />
+          <SiteDrilldownChart :categories="inputTypes"
+            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors"
+            :drilldown="inputDrilldown" title="Microplastic Counts by Plastic-Related Farm Inputs"
+            :totals="inputTotals" />
         </div>
       </VCol>
       <VCol cols="5">
         <div class="card">
-          <SiteDrilldownChart :categories="textures" :totals="textureTotals" :drilldown="textureDrilldown"
-            title="Microplastic Count by Soil Texture"
-            :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors" />
+          <SiteDrilldownChart :categories="textures"
+            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors"
+            :drilldown="textureDrilldown" title="Microplastic Count by Soil Texture" :totals="textureTotals" />
         </div>
       </VCol>
     </VRow>
 
     <VRow class="mt-2">
-      <VCol cols="6" class="d-flex flex-column justify-space-between">
+      <VCol class="d-flex flex-column justify-space-between" cols="6">
         <div class="card bottom-card">
-          <SiteDrilldownChart :categories="colors" :totals="colorTotals" :drilldown="colorDrilldown"
-            title="Microplastic Count by Color" :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']"
-            :colors="mpColors" :height="250" />
+          <SiteDrilldownChart :categories="colors"
+            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors"
+            :drilldown="colorDrilldown" :height="250" title="Microplastic Count by Color" :totals="colorTotals" />
         </div>
 
         <div class="card bottom-card">
-          <SiteDrilldownChart :categories="sizeRanges" :totals="sizeTotals" :drilldown="sizeDrilldown"
-            title="Microplastic Count by Size Range"
-            :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors" :height="250" />
+          <SiteDrilldownChart :categories="sizeRanges"
+            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors"
+            :drilldown="sizeDrilldown" :height="250" title="Microplastic Count by Size Range" :totals="sizeTotals" />
         </div>
 
         <div class="card bottom-card">
           <div class="d-flex align-center">
             <h3>AI Insights</h3>
-            <VIcon color="blue" class="ml-2">mdi-creation</VIcon>
+            <VIcon class="ml-2" color="blue">mdi-creation</VIcon>
           </div>
           <p class="subtitle mb-2">Generated on September 22, 2025</p>
           <div class="summary-box">
@@ -551,7 +554,7 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
           <h3>Sampled Farms</h3>
           <!-- list moved to SampledFarms component to make it reusable -->
           <!-- pass full `sites` (contains latitude/longitude) so the map can render markers -->
-          <SampledFarms :sampledSites="sites" />
+          <SampledFarms :sampled-sites="sites" />
         </div>
       </VCol>
     </VRow>
@@ -613,7 +616,6 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
   color: rgba(0, 0, 0, 0.7);
 }
 
-
 .columns {
   /* Make this 5-column layout using repeat */
   display: grid;
@@ -653,7 +655,6 @@ const farmSizeOptions = ref({ chart: { type: 'bar', toolbar: { show: false } }, 
   margin-top: 1.3em;
   /* adjust as needed */
 }
-
 
 .list-card ul {
   list-style: none;

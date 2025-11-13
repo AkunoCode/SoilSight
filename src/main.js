@@ -18,8 +18,8 @@ import App from './App.vue'
 import 'unfonts.css'
 
 const app = createApp(App)
+// vue3-apexcharts registers itself when used as a plugin. Only call use here to install it.
 app.use(VueApexCharts)
-app.component('apexchart', VueApexCharts)
 
 registerPlugins(app)
 

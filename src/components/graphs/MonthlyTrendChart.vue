@@ -1,9 +1,11 @@
 <script setup>
-import { computed, ref, watch, toRef } from 'vue'
-import { buildMonthlyChartData } from './monthlyTrend.js'
+import { readItems } from '@directus/sdk'
+import { computed, ref, toRef, watch } from 'vue'
+import { ensurePlotOptionsBar, safeColorArray, updateApexChart } from '@/composables/useApexChart'
 // Directus
 import directus from '@/composables/useDirectus'
-import { readItems } from '@directus/sdk'
+import ApexChartBase from './ApexChartBase.vue'
+import { buildMonthlyChartData } from './monthlyTrend.js'
 
 const props = defineProps({
     microplasticData: { type: Object, required: false, default: () => ({}) },
@@ -11,7 +13,7 @@ const props = defineProps({
     date: { type: String, default: '' },
     subtitle: { type: String, default: '' },
     height: { type: Number, default: 400 },
-    colors: { type: Object, default: () => ({}) }
+    colors: { type: Object, default: () => ({}) },
 })
 
 const height = toRef(props, 'height')
@@ -23,7 +25,7 @@ const totals = computed(() => ({
     fibers: props.microplasticData?.fibers || 0,
     foams: props.microplasticData?.foams || 0,
     films: props.microplasticData?.films || 0,
-    pellets: props.microplasticData?.pellets || 0
+    pellets: props.microplasticData?.pellets || 0,
 }))
 
 // aggregated monthly data coming from soilsamples for a given site (if provided)
@@ -34,33 +36,34 @@ baseOptions.chart = Object.assign({}, baseOptions.chart || {}, { height: props.h
 const monthlySeries = ref(baseSeries)
 const monthlyOptions = ref(baseOptions)
 
-// chart instance ref so updates can be applied via API
-const chartRef = ref(null)
+// wrapper ref (exposes inner chartRef via defineExpose)
+const chartWrapper = ref(null)
 
-if (props.colors && Object.keys(props.colors).length) monthlyOptions.value.colors = Object.values(props.colors)
+if (props.colors && Object.keys(props.colors).length > 0) monthlyOptions.value.colors = safeColorArray(props.colors)
 
 // If soilsample-based monthly aggregation is available use that, otherwise fall back to distribution build
-watch([totals, soilsampleMonthly], (nv) => {
+watch([totals, soilsampleMonthly], _nv => {
     const soil = soilsampleMonthly.value
     if (soil && soil.months && soil.series) {
         monthlySeries.value = soil.series
         monthlyOptions.value = Object.assign({}, monthlyOptions.value || {}, { xaxis: { categories: soil.months }, chart: Object.assign({}, monthlyOptions.value?.chart || {}, { height: props.height }) })
-        if (props.colors && Object.keys(props.colors).length) monthlyOptions.value.colors = Object.values(props.colors)
+        if (props.colors && Object.keys(props.colors).length > 0) monthlyOptions.value.colors = Object.values(props.colors)
     } else {
         const { series, options } = buildMonthlyChartData(totals.value)
         monthlySeries.value = series
         options.chart = Object.assign({}, options.chart || {}, { height: props.height })
         monthlyOptions.value = options
-        if (props.colors && Object.keys(props.colors).length) monthlyOptions.value.colors = Object.values(props.colors)
+        if (props.colors && Object.keys(props.colors).length > 0) monthlyOptions.value.colors = Object.values(props.colors)
     }
 
-    if (chartRef.value && typeof chartRef.value.updateOptions === 'function') {
-        try {
-            chartRef.value.updateOptions(monthlyOptions.value, false, true)
-            if (typeof chartRef.value.updateSeries === 'function') chartRef.value.updateSeries(monthlySeries.value)
-        } catch (e) {
-            console.warn('MonthlyTrendChart: chart update failed', e)
-        }
+    // ensure plotOptions.bar exists to avoid Apex runtime errors
+    monthlyOptions.value = ensurePlotOptionsBar(monthlyOptions.value)
+    try {
+        // wrapper exposes inner chartRef via chartWrapper.value.chartRef
+        const inner = chartWrapper.value?.chartRef
+        void updateApexChart(inner, monthlyOptions.value, monthlySeries.value, true)
+    } catch (error) {
+        console.warn('MonthlyTrendChart: chart update failed', error)
     }
 })
 
@@ -83,8 +86,12 @@ async function fetchSoilsamplesMonthly(siteId) {
         for (const s of items) {
             const dateRaw = s.date_collected || s.sample_date || s.date || null
             let d = null
-            try { d = dateRaw ? new Date(dateRaw) : null } catch { d = null }
-            if (!d || isNaN(d.getTime())) continue
+            try {
+                d = dateRaw ? new Date(dateRaw) : null
+            } catch {
+                d = null
+            }
+            if (!d || Number.isNaN(d.getTime())) continue
             const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
             if (!monthMap.has(key)) monthMap.set(key, { fragments: 0, fibers: 0, foams: 0, films: 0, pellets: 0 })
             const agg = monthMap.get(key)
@@ -95,7 +102,7 @@ async function fetchSoilsamplesMonthly(siteId) {
             agg.pellets += getCountField(s, ['beads_count', 'pellets', 'beadsCount'])
         }
 
-        const keys = Array.from(monthMap.keys()).sort()
+        const keys = Array.from(monthMap.keys()).toSorted()
         if (keys.length === 0) return null
         const months = keys.map(k => {
             const [y, m] = k.split('-')
@@ -108,21 +115,21 @@ async function fetchSoilsamplesMonthly(siteId) {
             { name: 'Fibers', data: keys.map(k => monthMap.get(k).fibers) },
             { name: 'Foam', data: keys.map(k => monthMap.get(k).foams) },
             { name: 'Films', data: keys.map(k => monthMap.get(k).films) },
-            { name: 'Pellets', data: keys.map(k => monthMap.get(k).pellets) }
+            { name: 'Pellets', data: keys.map(k => monthMap.get(k).pellets) },
         ]
 
         soilsampleMonthly.value = { months, series }
         return soilsampleMonthly.value
-    } catch (err) {
-        console.error('MonthlyTrendChart: error fetching soilsamples', err)
+    } catch (error) {
+        console.error('MonthlyTrendChart: error fetching soilsamples', error)
         soilsampleMonthly.value = null
         return null
     }
 }
 
 // watch siteId and re-fetch soilsamples
-watch(() => props.siteId, (nv) => {
-    if (nv) fetchSoilsamplesMonthly(nv)
+watch(() => props.siteId, _nv => {
+    if (_nv) fetchSoilsamplesMonthly(_nv)
 }, { immediate: true })
 </script>
 
@@ -132,7 +139,8 @@ watch(() => props.siteId, (nv) => {
             <h3>Total Monthly Microplastic Waste per Morphological Category</h3>
             <p class="subtitle">{{ subtitle || (props.date || defaultDate) }}</p>
         </div>
-        <apexchart ref="chartRef" :options="monthlyOptions" :series="monthlySeries" type="line" :height="height" />
+        <ApexChartBase ref="chartWrapper" :height="height" :options="monthlyOptions" :series="monthlySeries"
+            type="line" />
     </div>
 </template>
 

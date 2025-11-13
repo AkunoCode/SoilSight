@@ -1,13 +1,14 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
-import VueApexCharts from 'vue3-apexcharts';
+import { computed, ref, watch } from 'vue'
+import { safeColorArray, updateApexChart } from '@/composables/useApexChart'
+import ApexChartBase from './ApexChartBase.vue'
 
 const props = defineProps({
     microplasticData: { type: Object, required: true },
     labelsMap: { type: Object, default: () => ({ fragments: 'Fragments', fibers: 'Fibers', foams: 'Foam', films: 'Films', pellets: 'Pellets' }) },
     colors: { type: Object, default: () => ({ fibers: '#19568E', fragments: '#0B2E4E', films: '#63B3FF', foams: '#4688C7', pellets: '#B9DDFF' }) },
     activeKey: { type: [String, null], default: null },
-    date: { type: String, default: '' }
+    date: { type: String, default: '' },
 })
 
 const emit = defineEmits(['selection'])
@@ -18,7 +19,7 @@ const chartSeries = computed(() => [
     props.microplasticData.fibers || 0,
     props.microplasticData.foams || 0,
     props.microplasticData.films || 0,
-    props.microplasticData.pellets || 0
+    props.microplasticData.pellets || 0,
 ])
 
 const total = computed(() => chartSeries.value.reduce((a, b) => a + b, 0))
@@ -31,7 +32,7 @@ const percentages = computed(() => {
         fibers: Math.round(((props.microplasticData.fibers || 0) / t) * 100),
         foams: Math.round(((props.microplasticData.foams || 0) / t) * 100),
         films: Math.round(((props.microplasticData.films || 0) / t) * 100),
-        pellets: Math.round(((props.microplasticData.pellets || 0) / t) * 100)
+        pellets: Math.round(((props.microplasticData.pellets || 0) / t) * 100),
     }
 })
 
@@ -40,7 +41,7 @@ const selectedKey = ref(null)
 const donutChart = ref(null)
 const displaySeries = ref([...chartSeries.value])
 
-watch(chartSeries, (newSeries) => {
+watch(chartSeries, newSeries => {
     if (selectedKey.value === null) displaySeries.value = newSeries
 }, { immediate: true })
 
@@ -52,11 +53,11 @@ const donutChartOptions = ref({
                 const indexToKey = ['fragments', 'fibers', 'foams', 'films', 'pellets']
                 const clickedKey = indexToKey[config.dataPointIndex]
                 if (selectedKey.value === null) handleLegendClick(clickedKey)
-            }
-        }
+            },
+        },
     },
     labels: Object.values(props.labelsMap),
-    colors: Object.values(props.colors),
+    colors: safeColorArray(props.colors),
     dataLabels: { enabled: false },
     legend: { show: false },
     plotOptions: {
@@ -67,11 +68,11 @@ const donutChartOptions = ref({
                     show: true,
                     name: { show: true, fontSize: '16px' },
                     value: { show: true, fontSize: '22px', fontWeight: 'bold' },
-                    total: { show: true, label: 'Total number\nof MP found', fontSize: '14px', formatter: defaultTotalFormatter }
-                }
-            }
-        }
-    }
+                    total: { show: true, label: 'Total number\nof MP found', fontSize: '14px', formatter: defaultTotalFormatter },
+                },
+            },
+        },
+    },
 })
 
 const defaultDate = computed(() => new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }))
@@ -79,11 +80,11 @@ const defaultDate = computed(() => new Date().toLocaleDateString(undefined, { ye
 function defaultTotalFormatter(w) {
     const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0)
     if (total >= 1_000_000) return (total / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
-    if (total >= 1_000) return (total / 1_000).toFixed(1).replace(/\.0$/, '') + 'K'
+    if (total >= 1000) return (total / 1000).toFixed(1).replace(/\.0$/, '') + 'K'
     return total
 }
 
-const clearSelections = () => {
+function clearSelections() {
     selectedKey.value = null
     displaySeries.value = [...chartSeries.value]
 
@@ -91,18 +92,16 @@ const clearSelections = () => {
     donutChartOptions.value = {
         ...donutChartOptions.value,
         labels: Object.values(props.labelsMap),
-        colors: Object.values(props.colors),
-        chart: { ...donutChartOptions.value.chart }
+        colors: safeColorArray(props.colors),
+        chart: { ...donutChartOptions.value.chart },
     }
-
+    // try updating chart via composable (safe)
     setTimeout(() => {
         try {
+            const inner = donutChart.value?.chartRef
             if (donutChart.value && typeof donutChart.value.clearSelections === 'function') donutChart.value.clearSelections()
-            if (donutChart.value && typeof donutChart.value.updateOptions === 'function') {
-                donutChart.value.updateOptions({ labels: donutChartOptions.value.labels, colors: donutChartOptions.value.colors }, false, true)
-                if (typeof donutChart.value.updateSeries === 'function') donutChart.value.updateSeries(displaySeries.value)
-            }
-        } catch (e) {
+            void updateApexChart(inner, { labels: donutChartOptions.value.labels, colors: donutChartOptions.value.colors }, displaySeries.value, true)
+        } catch {
             // silent
         }
     }, 50)
@@ -110,7 +109,7 @@ const clearSelections = () => {
     emit('selection', null)
 }
 
-const applySelection = (key, emitEvent = true) => {
+function applySelection(key, emitEvent = true) {
     if (!key || selectedKey.value === key) {
         clearSelections()
         return
@@ -122,17 +121,14 @@ const applySelection = (key, emitEvent = true) => {
     donutChartOptions.value = {
         ...donutChartOptions.value,
         labels: [props.labelsMap[key]],
-        colors: [props.colors[key]],
-        chart: { ...donutChartOptions.value.chart }
+        colors: safeColorArray([props.colors[key]]),
+        chart: { ...donutChartOptions.value.chart },
     }
-
     setTimeout(() => {
         try {
-            if (donutChart.value && typeof donutChart.value.updateOptions === 'function') {
-                donutChart.value.updateOptions({ labels: donutChartOptions.value.labels, colors: donutChartOptions.value.colors }, false, true)
-                if (typeof donutChart.value.updateSeries === 'function') donutChart.value.updateSeries(displaySeries.value)
-            }
-        } catch (e) {
+            const inner = donutChart.value?.chartRef
+            void updateApexChart(inner, { labels: donutChartOptions.value.labels, colors: donutChartOptions.value.colors }, displaySeries.value, true)
+        } catch {
             // silent
         }
     }, 50)
@@ -140,9 +136,9 @@ const applySelection = (key, emitEvent = true) => {
     if (emitEvent) emit('selection', key)
 }
 
-const handleLegendClick = (key) => applySelection(key, true)
+const handleLegendClick = key => applySelection(key, true)
 
-watch(() => props.activeKey, (newKey) => {
+watch(() => props.activeKey, newKey => {
     if (newKey === selectedKey.value) return
     applySelection(newKey, false)
 })
@@ -159,8 +155,8 @@ watch(() => props.activeKey, (newKey) => {
                     </h4>
                     <p class="subtitle mb-2">{{ props.date || defaultDate }}</p>
                 </div>
-                <VueApexCharts ref="donutChart" type="donut" :options="donutChartOptions" :series="displaySeries"
-                    height="300" />
+                <ApexChartBase ref="donutChart" :height="300" :options="donutChartOptions" :series="displaySeries"
+                    type="donut" />
             </div>
         </VCol>
 

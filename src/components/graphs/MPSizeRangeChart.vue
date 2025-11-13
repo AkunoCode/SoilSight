@@ -1,16 +1,16 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
-import SiteDrilldownChart from './SiteDrilldownChart.vue'
+import { readItems } from '@directus/sdk'
+import { computed, onMounted, ref, watch } from 'vue'
 // Directus
 import directus from '@/composables/useDirectus'
-import { readItems } from '@directus/sdk'
+import SiteDrilldownChart from './SiteDrilldownChart.vue'
 
 const props = defineProps({
     siteId: { type: [String, Number], required: false },
     height: { type: Number, default: 260 },
     date: { type: String, default: '' },
     title: { type: String, default: 'Microplastic Count by Size Range' },
-    defaultField: { type: String, default: 'equivalent_circular_diameter_um' }
+    defaultField: { type: String, default: 'equivalent_circular_diameter_um' },
 })
 
 const measurementFields = [
@@ -20,7 +20,7 @@ const measurementFields = [
     { key: 'skeleton_length_um', label: 'Skeleton Length (µm)' },
     { key: 'area_um2', label: 'Area (µm²) — converted to diameter' },
     { key: 'perimeter_um', label: 'Perimeter (µm)' },
-    { key: 'aspect_ratio', label: 'Aspect Ratio' }
+    { key: 'aspect_ratio', label: 'Aspect Ratio' },
 ]
 
 const selectedField = ref(props.defaultField)
@@ -30,7 +30,7 @@ const sizeBuckets = [
     { label: '20-100 µm', min: 20, max: 100 },
     { label: '100-500 µm', min: 100, max: 500 },
     { label: '500 µm-1 mm', min: 500, max: 1000 },
-    { label: '1-5 mm', min: 1000, max: 5000 }
+    { label: '1-5 mm', min: 1000, max: 5000 },
 ]
 
 const categories = computed(() => sizeBuckets.map(b => b.label))
@@ -41,25 +41,24 @@ const overviewColors = ref([])
 const loading = ref(false)
 
 function toNumber(v) {
-    if (v == null || v === '') return NaN
+    if (v == null || v === '') return Number.NaN
     const n = Number(v)
-    return isNaN(n) ? NaN : n
+    return Number.isNaN(n) ? Number.NaN : n
 }
 
 function areaToDiameter(area) {
     // area in µm^2 -> diameter in µm (equivalent circular diameter)
-    if (!isFinite(area) || area <= 0) return NaN
+    if (!Number.isFinite(area) || area <= 0) return Number.NaN
     return 2 * Math.sqrt(area / Math.PI)
 }
 
 function bucketForValue(val) {
-    if (!isFinite(val)) return -1
-    for (let i = 0; i < sizeBuckets.length; i++) {
-        const b = sizeBuckets[i]
+    if (!Number.isFinite(val)) return -1
+    for (const [i, b] of sizeBuckets.entries()) {
         if (val >= b.min && val < b.max) return i
     }
     // values >= last max go into last bucket
-    if (val >= sizeBuckets[sizeBuckets.length - 1].min) return sizeBuckets.length - 1
+    if (val >= sizeBuckets.at(-1).min) return sizeBuckets.length - 1
     return -1
 }
 
@@ -76,17 +75,17 @@ async function fetchAndAggregate(siteId, fieldKey) {
         const cutoffIso = cutoff.toISOString()
         const resp = await directus.request(readItems('microplastics', { filter: { sample_source: { site: { _eq: siteId }, date_collected: { _gte: cutoffIso } } }, limit: -1 }))
         const items = Array.isArray(resp) ? resp : (resp?.data || [])
-        const counts = Array(sizeBuckets.length).fill(0)
-        const drill = Array(sizeBuckets.length).fill(0).map(() => [0, 0, 0, 0, 0])
+        const counts = Array.from({ length: sizeBuckets.length }).fill(0)
+        const drill = Array.from({ length: sizeBuckets.length }).fill(0).map(() => [0, 0, 0, 0, 0])
 
         for (const it of items) {
-            let raw = it[fieldKey]
+            const raw = it[fieldKey]
             let val = toNumber(raw)
-            if ((fieldKey === 'area_um2' || fieldKey === 'area') && !isFinite(val) && it.area) val = toNumber(it.area)
+            if ((fieldKey === 'area_um2' || fieldKey === 'area') && !Number.isFinite(val) && it.area) val = toNumber(it.area)
             if (fieldKey === 'area_um2') val = areaToDiameter(val)
             // if field is perimeter or aspect_ratio we still try to bucket numerically
 
-            if (!isFinite(val)) continue
+            if (!Number.isFinite(val)) continue
 
             const idx = bucketForValue(val)
             if (idx < 0) continue
@@ -111,19 +110,19 @@ async function fetchAndAggregate(siteId, fieldKey) {
 
         // simple color palette
         overviewColors.value = ['#9e9e9e', '#1976d2', '#63B3FF', '#4688C7', '#B9DDFF']
-    } catch (err) {
-        console.error('MPSizeRangeChart: fetch error', err)
+    } catch (error) {
+        console.error('MPSizeRangeChart: fetch error', error)
     } finally {
         loading.value = false
     }
 }
 
-watch(() => props.siteId, (nv) => {
-    if (nv) fetchAndAggregate(nv, selectedField.value)
+watch(() => props.siteId, _nv => {
+    if (_nv) fetchAndAggregate(_nv, selectedField.value)
 }, { immediate: true })
 
-watch(selectedField, (nv) => {
-    if (props.siteId) fetchAndAggregate(props.siteId, nv)
+watch(selectedField, _nv => {
+    if (props.siteId) fetchAndAggregate(props.siteId, _nv)
 })
 
 // initial values
@@ -137,11 +136,11 @@ onMounted(() => {
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <h4 class="text-h6 font-weight-bold" style="line-height:1.2em">{{ title }}</h4>
             <div style="display:flex; gap:8px; align-items:center; width:360px;">
-                <VSelect :items="measurementFields" item-title="label" item-value="key" v-model="selectedField" dense
-                    outlined hide-details style="min-width:220px" />
+                <VSelect v-model="selectedField" dense hide-details item-title="label" item-value="key"
+                    :items="measurementFields" variant="outlined" style="min-width:220px" />
                 <VTooltip>
-                    <template #activator="{ props }">
-                        <VIcon v-bind="props" size="20" color="grey">mdi-help-circle</VIcon>
+                    <template #activator="{ props: slotProps }">
+                        <VIcon v-bind="slotProps" color="grey" size="20">mdi-help-circle</VIcon>
                     </template>
                     <span style="max-width:240px; display:block">When "Area (µm²)" is selected we convert area to an
                         equivalent circular
@@ -153,14 +152,14 @@ onMounted(() => {
 
         <div v-if="loading"
             :style="{ minHeight: props.height + 'px', display: 'flex', justifyContent: 'center', alignItems: 'center' }">
-            <VProgressCircular indeterminate size="28" color="primary" />
+            <VProgressCircular color="primary" indeterminate size="28" />
         </div>
 
         <div v-else>
-            <SiteDrilldownChart :categories="categories" :totals="totals" :drilldown="drilldown"
-                :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']"
+            <SiteDrilldownChart :categories="categories"
+                :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']"
                 :colors="{ fragments: '#0B2E4E', fibers: '#19568E', films: '#63B3FF', foams: '#4688C7', pellets: '#B9DDFF' }"
-                :height="props.height" :date="props.date" />
+                :date="props.date" :drilldown="drilldown" :height="props.height" :totals="totals" />
         </div>
     </div>
 </template>

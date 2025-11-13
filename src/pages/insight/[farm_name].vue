@@ -1,15 +1,15 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { readItems } from '@directus/sdk'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import LeafletMap from '../../components/LeafletMap.vue'
-import MPDonutChart from '@/components/graphs/MPDonutChart.vue'
 import MonthlyTrendChart from '@/components/graphs/MonthlyTrendChart.vue'
-import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
+import MPDonutChart from '@/components/graphs/MPDonutChart.vue'
 import MPSizeRangeChart from '@/components/graphs/MPSizeRangeChart.vue'
+import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
 
 // Directus helper
 import directus from '@/composables/useDirectus'
-import { readItems } from '@directus/sdk'
+import LeafletMap from '../../components/LeafletMap.vue'
 
 // Routing / params
 const route = useRoute()
@@ -41,7 +41,7 @@ const displaySampleDate = computed(() => {
     if (!d) return formattedDate.value
     try {
         const dt = new Date(d)
-        if (isNaN(dt.getTime())) return formattedDate.value
+        if (Number.isNaN(dt.getTime())) return formattedDate.value
         return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
     } catch {
         return formattedDate.value
@@ -53,13 +53,13 @@ const plasticActivityList = [
     'Plastic Mulching',
     'Seedling Trays (plastic)',
     'Compost with visible plastics',
-    'Greenhouse plastic sheets/tunnels'
+    'Greenhouse plastic sheets/tunnels',
 ]
 
 const cultivationDefinitions = {
     'Fully Organic': 'An agricultural practice that avoids the use of synthetic chemicals and fertilizers, relying instead on natural processes and materials to maintain soil fertility and control pests.',
     'Integrated': 'A sustainable approach to managing pests that combines biological, cultural, mechanical, and chemical methods to minimize environmental impact while effectively controlling pest populations.',
-    'Conventional': 'A traditional farming method that typically involves the use of synthetic chemicals, fertilizers, and pesticides to maximize crop yields.'
+    'Conventional': 'A traditional farming method that typically involves the use of synthetic chemicals, fertilizers, and pesticides to maximize crop yields.',
 }
 
 function getCultivationDefinition(practice) {
@@ -90,7 +90,7 @@ function normalizeActivityName(s) {
 
 const farmNormalizedActivities = computed(() => {
     const items = farm.value?.plastic_activity || []
-    return new Set(items.map(normalizeActivityName).filter(Boolean))
+    return new Set(items.map(x => normalizeActivityName(x)).filter(Boolean))
 })
 
 function farmHasActivity(activity) {
@@ -123,7 +123,7 @@ function titleCase(val) {
     return Array.isArray(val) ? val.map(v => titleCaseString(v)).join(', ') : titleCaseString(val)
 }
 
-function findFarmByParam(param) {
+function _findFarmByParam(param) {
     if (!param) return null
     const decoded = decodeURIComponent(String(param))
     const key = slugify(decoded)
@@ -141,8 +141,8 @@ async function fetchSitesByPractice(practice) {
         const resp = await directus.request(readItems('sites', { filter: { cultivation_practice: { _contains: practice } }, limit: -1 }))
         const items = Array.isArray(resp) ? resp : (resp?.data || [])
         return items || []
-    } catch (err) {
-        console.error('Error fetching sites by practice from Directus', err)
+    } catch (error) {
+        console.error('Error fetching sites by practice from Directus', error)
         return null
     }
 }
@@ -168,8 +168,8 @@ async function fetchFarmFromDirectus(param) {
             found = allItems.find(s => (s.site_name || '').toLowerCase().includes(decoded.toLowerCase()))
             if (found) return found
         }
-    } catch (err) {
-        console.error('Directus lookup failed for farm:', err)
+    } catch (error) {
+        console.error('Directus lookup failed for farm:', error)
     }
     return null
 }
@@ -181,7 +181,7 @@ const microplasticData = computed(() => {
         fibers: Number(f.fiber_count || 0),
         foams: Number(f.foam_count || 0),
         films: Number(f.film_count || 0),
-        pellets: Number(f.beads_count || 0)
+        pellets: Number(f.beads_count || 0),
     }
 })
 
@@ -190,7 +190,7 @@ const mpColors = {
     fibers: '#19568E',
     films: '#63B3FF',
     foams: '#4688C7',
-    pellets: '#B9DDFF'
+    pellets: '#B9DDFF',
 }
 
 // Prefer comparing the current site to other sites with the same cultivation practice.
@@ -200,7 +200,7 @@ const sitesOfSamePractice = computed(() => {
     if (comparisonSites.value && Array.isArray(comparisonSites.value) && comparisonSites.value.length > 0) {
         const arr = comparisonSites.value.slice()
         const fid = farm.value?.id
-        if (fid && !arr.find(s => s.id === fid)) {
+        if (fid && !arr.some(s => s.id === fid)) {
             const ffull = sites.find(s => s.id === fid)
             if (ffull) arr.unshift(ffull)
         }
@@ -216,7 +216,7 @@ const sitesOfSamePractice = computed(() => {
     if (!arr || arr.length === 0) arr = sites || []
 
     const fid = farm.value?.id
-    if (fid && !arr.find(s => s.id === fid)) {
+    if (fid && !arr.some(s => s.id === fid)) {
         const ffull = sites.find(s => s.id === fid)
         if (ffull) arr.unshift(ffull)
     }
@@ -236,7 +236,7 @@ const anonymizedComparison = computed(() => {
         if (s.id === farm.value?.id) {
             categories.push(s.site_name || 'This Site')
         } else {
-            const letter = String.fromCharCode(65 + (anonIdx % 26))
+            const letter = String.fromCodePoint(65 + (anonIdx % 26))
             categories.push(`Site ${letter}`)
             anonIdx++
         }
@@ -288,10 +288,10 @@ async function fetchColorComparisonForFarm(farmId) {
         }
 
         const arr = Array.from(counts.entries()).map(([norm, v]) => {
-            const topRaw = Array.from(v.raws.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || norm
-            const display = /^#/.test(String(topRaw).trim()) ? topRaw.trim() : topRaw.split(/\s+/).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')
+            const topRaw = Array.from(v.raws.entries()).toSorted((a, b) => b[1] - a[1])[0]?.[0] || norm
+            const display = String(topRaw).trim().startsWith('#') ? topRaw.trim() : topRaw.split(/\s+/).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')
             return { norm, display, count: v.count, drilldown: v.drilldown }
-        }).sort((a, b) => b.count - a.count)
+        }).toSorted((a, b) => b.count - a.count)
 
         const topN = 6
         const explicit = arr.slice(0, topN)
@@ -315,14 +315,14 @@ async function fetchColorComparisonForFarm(farmId) {
             if (known[key]) return known[key]
             if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(label)) return label
             let h = 0
-            for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) % 360
+            for (let i = 0; i < label.length; i++) h = (h * 31 + (label.codePointAt(i) || 0)) % 360
             return `hsl(${h},60%,45%)`
         })
 
         colorComparisonFetched.value = { categories, totals, drilldown, overviewColors: colorsArr }
         return colorComparisonFetched.value
-    } catch (err) {
-        console.error('Error fetching microplastics for color comparison', err)
+    } catch (error) {
+        console.error('Error fetching microplastics for color comparison', error)
         colorComparisonFetched.value = null
         return null
     }
@@ -347,7 +347,7 @@ const colorComparison = computed(() => {
         const key = (label || '').toString().toLowerCase()
         if (known[key]) return known[key]
         let h = 0
-        for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) % 360
+        for (let i = 0; i < label.length; i++) h = (h * 31 + (label.codePointAt(i) || 0)) % 360
         return `hsl(${h},60%,45%)`
     })
     return { categories: colorBuckets, totals, drilldown, overviewColors }
@@ -355,7 +355,7 @@ const colorComparison = computed(() => {
 
 const sizeRanges = ['1-20 µm', '20-100 µm', '100-500 µm', '500 µm-1 mm', '1-5 mm']
 const sizeRatios = [0.12, 0.28, 0.35, 0.15, 0.1]
-const sizeComparison = computed(() => {
+const _sizeComparison = computed(() => {
     const totals = sizeRatios.map(r => Math.round((farmTotalMP.value || 0) * r))
     const mp = microplasticData.value
     const mpTotal = farmTotalMP.value || 0
@@ -375,13 +375,13 @@ watch(farmParam, async () => {
     farm.value = await fetchFarmFromDirectus(farmParam.value)
 }, { immediate: true })
 
-watch(farm, async (newFarm) => {
+watch(farm, async newFarm => {
     if (newFarm?.id) {
         await fetchLatestSampleDateForFarm(newFarm.id)
         await fetchColorComparisonForFarm(newFarm.id)
         try {
             comparisonSites.value = await fetchSitesByPractice(newFarm.cultivation_practice)
-        } catch (e) {
+        } catch {
             comparisonSites.value = null
         }
     } else {
@@ -393,7 +393,9 @@ watch(farm, async (newFarm) => {
 
 onMounted(() => { })
 
-function printReport() { window.print() }
+function printReport() {
+    window.print()
+}
 
 async function fetchLatestSampleDateForFarm(farmId) {
     latestSampleDate.value = null
@@ -403,8 +405,8 @@ async function fetchLatestSampleDateForFarm(farmId) {
         const items = Array.isArray(resp) ? resp : (resp?.data || [])
         const sample = (items && items[0]) || null
         latestSampleDate.value = sample?.date_collected || null
-    } catch (err) {
-        console.error('Error fetching latest soilsample for farm', farmId, err)
+    } catch (error) {
+        console.error('Error fetching latest soilsample for farm', farmId, error)
         latestSampleDate.value = null
     }
     return latestSampleDate.value
@@ -416,8 +418,8 @@ async function fetchLatestSampleDateForFarm(farmId) {
         <div class="d-flex align-center justify-space-between mb-8">
             <div class="d-flex flex-column">
                 <div class="d-flex align-center">
-                    <VIcon style="cursor:pointer; vertical-align:middle;" @click="$router.back()" color="grey"
-                        size="x-large">
+                    <VIcon color="grey" size="x-large" style="cursor:pointer; vertical-align:middle;"
+                        @click="$router.back()">
                         mdi-menu-left</VIcon>
                     <h1 class="title mb-0">{{ farm?.site_name }}</h1>
                 </div>
@@ -435,7 +437,8 @@ async function fetchLatestSampleDateForFarm(farmId) {
                     <h3 class="text-h5 font-weight-bold">Geographic Location</h3>
                     <p class="mb-2">{{ farm?.latitude }}, {{ farm?.longitude }}</p>
                     <div v-if="farm?.latitude != null && farm?.longitude != null">
-                        <LeafletMap :lat="farm?.latitude" :lng="farm?.longitude" :zoom="13" />
+                        <LeafletMap :lat="farm?.latitude != null ? Number(farm.latitude) : null"
+                            :lng="farm?.longitude != null ? Number(farm.longitude) : null" :zoom="13" />
                     </div>
                     <div v-else class="card">
                         <p>No coordinates available for this farm.</p>
@@ -500,10 +503,10 @@ async function fetchLatestSampleDateForFarm(farmId) {
                             <p>{{ activity }}</p>
                             <VIcon :color="farmHasActivity(activity) ? 'green' : 'red'" size="large">
                                 {{ farmHasActivity(activity) ? 'mdi-check-circle' :
-                                    'mdi-close-circle' }}
+                                'mdi-close-circle' }}
                             </VIcon>
                         </div>
-                        <div class="horizontal-bar"></div>
+                        <div class="horizontal-bar" />
                     </template>
                 </div>
             </VCol>
@@ -512,14 +515,14 @@ async function fetchLatestSampleDateForFarm(farmId) {
             <VCol cols="5">
                 <div class="d-flex flex-column ga-4">
                     <div class="card">
-                        <MPDonutChart :microplasticData="microplasticData" :date="displaySampleDate" />
+                        <MPDonutChart :date="displaySampleDate" :microplastic-data="microplasticData" />
                     </div>
                     <div class="card">
                         <SiteDrilldownChart :categories="anonymizedComparison.categories"
-                            :totals="anonymizedComparison.totals" :drilldown="anonymizedComparison.drilldown"
-                            :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors"
-                            :height="320" :date="displaySampleDate"
-                            :title="farm?.cultivation_practice ? `Contamination Comparison to Other ${titleCase(farm?.cultivation_practice)} Farms` : 'Contamination Comparison to Other Farms'" />
+                            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors"
+                            :date="displaySampleDate" :drilldown="anonymizedComparison.drilldown" :height="320"
+                            :title="farm?.cultivation_practice ? `Contamination Comparison to Other ${titleCase(farm?.cultivation_practice)} Farms` : 'Contamination Comparison to Other Farms'"
+                            :totals="anonymizedComparison.totals" />
                     </div>
                     <div class="card">
                         <div class="d-flex align-center mb-1"
@@ -528,7 +531,7 @@ async function fetchLatestSampleDateForFarm(farmId) {
                                 <h4 class="text-h6 font-weight-bold" style="line-height: 1.2em;">
                                     AI Summary
                                 </h4>
-                                <VIcon size="small" color="primary" class="ml-2">mdi-creation</VIcon>
+                                <VIcon class="ml-2" color="primary" size="small">mdi-creation</VIcon>
                             </div>
                             <p class="subtitle mb-0">{{ displaySampleDate }}</p>
                         </div>
@@ -540,16 +543,16 @@ async function fetchLatestSampleDateForFarm(farmId) {
             </VCol>
             <VCol cols="7">
                 <div class="d-flex flex-column ga-4">
-                    <MonthlyTrendChart :siteId="farm?.id" :title="`Monthly Microplastic Trend for ${farm?.site_name}`"
-                        :height="320" :date="displaySampleDate" />
+                    <MonthlyTrendChart :date="displaySampleDate" :height="320" :site-id="farm?.id"
+                        :title="`Monthly Microplastic Trend for ${farm?.site_name}`" />
                     <div class="card">
-                        <SiteDrilldownChart :categories="colorComparison.categories" :totals="colorComparison.totals"
-                            :drilldown="colorComparison.drilldown"
-                            :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors"
-                            :height="260" :date="displaySampleDate" title="Microplastic Count by Color" />
+                        <SiteDrilldownChart :categories="colorComparison.categories"
+                            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors"
+                            :date="displaySampleDate" :drilldown="colorComparison.drilldown" :height="260"
+                            title="Microplastic Count by Color" :totals="colorComparison.totals" />
                     </div>
                     <div class="card">
-                        <MPSizeRangeChart :siteId="farm?.id" :height="260" :date="displaySampleDate"
+                        <MPSizeRangeChart :date="displaySampleDate" :height="260" :site-id="farm?.id"
                             title="Microplastic Count by Size Range" />
                     </div>
                 </div>

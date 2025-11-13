@@ -40,11 +40,11 @@
 </template>
 
 <script setup>
+import { readItems } from '@directus/sdk'
 import L from 'leaflet'
 import { computed, onMounted, ref, watch } from 'vue'
-import directus from '@/composables/useDirectus'
-import { readItems } from '@directus/sdk'
 import PreviewCard from '@/components/PreviewCard.vue'
+import directus from '@/composables/useDirectus'
 import 'leaflet/dist/leaflet.css'
 
 const selectedItem = ref(null)
@@ -69,7 +69,7 @@ const markersRef = ref([])
 let debounceTimer = null
 
 // Fetch data from Directus
-const fetchDataFromDirectus = async () => {
+async function fetchDataFromDirectus() {
   try {
     // Use the new Directus SDK request helper
     const res = await directus.request(readItems('sites'))
@@ -286,13 +286,13 @@ onMounted(async () => {
     console.log('Tile layer added')
 
     // Add map click event to reset selection when clicking on empty areas
-    map.on('click', e => {
+    map.on('click', () => {
       console.log('Map clicked - resetting to overview')
       resetToOverview()
     })
 
     // Add zoom control to bottom right
-    const zoomControl = L.control.zoom({ position: 'bottomright' }).addTo(map)
+    L.control.zoom({ position: 'bottomright' }).addTo(map)
 
     // Add a legend control directly below the zoom control
     const legend = L.control({ position: 'bottomright' })
@@ -309,12 +309,18 @@ onMounted(async () => {
         { label: 'Other', color: getMarkerColor('other') },
       ]
 
-      div.innerHTML = entries.map(e => `
+      // Use an explicit loop here to avoid false positives from the unicorn lint rule
+      // that sometimes misidentifies DOM/L.map usages as array map misuse.
+      let html = ''
+      for (const e of entries) {
+        html += `
         <div class="legend-entry">
           <span class="legend-swatch" style="background:${e.color}"></span>
           <span class="legend-label">${e.label}</span>
         </div>
-      `).join('')
+      `
+      }
+      div.innerHTML = html
 
       return div
     }
