@@ -5,6 +5,7 @@ import LeafletMap from '../../components/LeafletMap.vue'
 import MPDonutChart from '@/components/graphs/MPDonutChart.vue'
 import MonthlyTrendChart from '@/components/graphs/MonthlyTrendChart.vue'
 import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
+import MPSizeRangeChart from '@/components/graphs/MPSizeRangeChart.vue'
 
 // Directus helper
 import directus from '@/composables/useDirectus'
@@ -548,10 +549,8 @@ async function fetchLatestSampleDateForFarm(farmId) {
                             :height="260" :date="displaySampleDate" title="Microplastic Count by Color" />
                     </div>
                     <div class="card">
-                        <SiteDrilldownChart :categories="sizeComparison.categories" :totals="sizeComparison.totals"
-                            :drilldown="sizeComparison.drilldown"
-                            :categoryLabels="['Fragments', 'Fibers', 'Foam', 'Films', 'Pellets']" :colors="mpColors"
-                            :height="260" :date="displaySampleDate" title="Microplastic Count by Size Range" />
+                        <MPSizeRangeChart :siteId="farm?.id" :height="260" :date="displaySampleDate"
+                            title="Microplastic Count by Size Range" />
                     </div>
                 </div>
             </VCol>

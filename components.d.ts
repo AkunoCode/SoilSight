@@ -12,6 +12,7 @@ declare module 'vue' {
     MonthlyTrendChart: typeof import('./src/components/graphs/MonthlyTrendChart.vue')['default']
     MPDonutChart: typeof import('./src/components/graphs/MPDonutChart.vue')['default']
     MPPracticeBar: typeof import('./src/components/graphs/MPPracticeBar.vue')['default']
+    MPSizeRangeChart: typeof import('./src/components/graphs/MPSizeRangeChart.vue')['default']
     PreviewCard: typeof import('./src/components/PreviewCard.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
