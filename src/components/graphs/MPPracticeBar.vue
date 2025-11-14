@@ -63,6 +63,8 @@ const mergedOptions = computed(() => {
   // Ensure toolbar is hidden by default unless caller explicitly sets it
   const chart = Object.assign({}, base.chart || {})
   if (!chart.toolbar) chart.toolbar = { show: false }
+  // Ensure the options chart height follows the component `height` prop unless caller explicitly set height
+  if (chart.height == null) chart.height = props.height
 
   return Object.assign({}, base, { chart, plotOptions, dataLabels })
 })

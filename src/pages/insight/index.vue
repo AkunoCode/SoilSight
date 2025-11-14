@@ -853,8 +853,8 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
 
       <VCol cols="4">
         <div class="card">
-          <MPDonutChart :active-key="app.selectedMorphology" :colors="donutColors" :labels-map="donutLabelsMap"
-            :microplastic-data="microplasticData" @selection="handleLegendClick" />
+          <MPDonutChart :height="360" :active-key="app.selectedMorphology" :colors="donutColors"
+            :labels-map="donutLabelsMap" :microplastic-data="microplasticData" @selection="handleLegendClick" />
         </div>
       </VCol>
 
@@ -877,7 +877,7 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
         </div>
       </VCol>
       <VCol cols="6">
-        <MonthlyTrendChart :colors="mpColors" :microplastic-data="microplasticData"
+        <MonthlyTrendChart :height="340" :colors="mpColors" :microplastic-data="microplasticData"
           :subtitle="`Data as of ${displayLatestSampleDate}`" :filter-key="app.selectedMorphology" />
       </VCol>
     </VRow>
@@ -888,7 +888,7 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
           <SiteDrilldownChart :categories="inputTypes"
             :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
             :drilldown="inputDrilldown" title="Microplastic Counts by Plastic-Related Farm Inputs" :totals="inputTotals"
-            :filter-key="app.selectedMorphology" />
+            :height="300" :filter-key="app.selectedMorphology" />
         </div>
       </VCol>
       <VCol cols="5">
@@ -896,7 +896,7 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
           <SiteDrilldownChart :categories="textures"
             :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
             :drilldown="textureDrilldown" title="Microplastic Count by Soil Texture" :totals="textureTotals"
-            :filter-key="app.selectedMorphology" />
+            :filter-key="app.selectedMorphology" :height="300" />
         </div>
       </VCol>
     </VRow>
