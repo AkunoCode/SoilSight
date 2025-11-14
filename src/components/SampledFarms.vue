@@ -20,7 +20,7 @@ const props = defineProps({
 
 // local UI state
 const query = ref('')
-const sortBy = ref('level') // 'level' or 'name'
+const sortBy = ref('name') // currently only 'name' is used
 const sortDir = ref('desc') // 'asc' or 'desc'
 
 const mapRef = ref(null)
@@ -29,23 +29,7 @@ let markersLayer = null
 let polygonLayer = null
 const router = useRouter()
 
-function contaminationLevel(site) {
-  const total = (Number(site.fragment_count) || 0) + (Number(site.fiber_count) || 0) + (Number(site.film_count) || 0) + (Number(site.foam_count) || 0) + (Number(site.beads_count) || 0) + (Number(site.sheets_count) || Number(site.sheet_count) || Number(site.sheets) || 0)
-  if (total > 700) return 'HIGH'
-  if (total > 400) return 'MODERATE'
-  if (total > 150) return 'LOW'
-  return 'ZERO'
-}
 
-function colorForLevel(level) {
-  const l = (level || '').toString().toUpperCase().trim()
-  switch (l) {
-    case 'HIGH': return '#d32f2f'
-    case 'MODERATE': return '#fb8c00'
-    case 'LOW': return '#43a047'
-    default: return '#9e9e9e'
-  }
-}
 
 function colorForPractice(practice) {
   const p = (practice || '').toString().toLowerCase().trim()
@@ -96,7 +80,6 @@ function initMap() {
     const bounds = []
     for (const site of sites) {
       if (!site.latitude || !site.longitude) continue
-      const lvl = site.level || contaminationLevel(site)
       // use cultivation practice to color map markers to match index page
       const practice = site.cultivation_practice || site.cultivation || site.cultivationPractice || ''
       const color = colorForPractice(practice)
@@ -106,7 +89,7 @@ function initMap() {
         color: '#fff',
         weight: 1.5,
         fillOpacity: 0.95,
-      }).bindPopup(`<strong>${site.site_name}</strong><br/>${site.address}<br/>Level: ${lvl}<br/>Practice: ${practice || 'Unknown'}`)
+      }).bindPopup(`<strong>${site.site_name}</strong><br/>${site.address}<br/>Practice: ${practice || 'Unknown'}`)
       marker.addTo(markersLayer)
       // navigate to farm on double-click of marker
       try { marker.on && marker.on('dblclick', () => navigateToSite(site)) } catch { }
@@ -165,7 +148,6 @@ watch(() => props.sampledSites, nv => {
   const bounds = []
   for (const site of nv) {
     if (!site.latitude || !site.longitude) continue
-    const lvl = site.level || contaminationLevel(site)
     const practice = site.cultivation_practice || site.cultivation || site.cultivationPractice || ''
     const color = colorForPractice(practice)
     const marker = L.circleMarker([site.latitude, site.longitude], {
@@ -174,7 +156,7 @@ watch(() => props.sampledSites, nv => {
       color: '#fff',
       weight: 1.5,
       fillOpacity: 0.95,
-    }).bindPopup(`<strong>${site.site_name}</strong><br/>${site.address}<br/>Level: ${lvl}<br/>Practice: ${practice || 'Unknown'}`)
+    }).bindPopup(`<strong>${site.site_name}</strong><br/>${site.address}<br/>Practice: ${practice || 'Unknown'}`)
     marker.addTo(markersLayer)
     try { marker.on && marker.on('dblclick', () => navigateToSite(site)) } catch { }
     markersMap[site.id] = marker
@@ -208,16 +190,9 @@ function navigateToSite(site) {
 }
 
 function toggleSort() {
-  if (sortBy.value === 'name') {
-    sortBy.value = 'level'
-    sortDir.value = 'desc'
-  } else {
-    sortBy.value = 'name'
-    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
-  }
+  // Toggle sort direction for name sorting
+  sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
 }
-
-const levelRank = { HIGH: 4, MODERATE: 3, LOW: 2, ZERO: 1 }
 
 const filteredSites = computed(() => {
   const q = (query.value || '').trim().toLowerCase()
@@ -225,17 +200,12 @@ const filteredSites = computed(() => {
   if (q) {
     arr = arr.filter(s => (s.site_name || '').toLowerCase().includes(q) || (s.address || '').toLowerCase().includes(q))
   }
-  arr = sortBy.value === 'name'
-    ? arr.toSorted((a, b) => {
-      const an = (a.site_name || '').toLowerCase()
-      const bn = (b.site_name || '').toLowerCase()
-      return sortDir.value === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an)
-    })
-    : arr.toSorted((a, b) => {
-      const ar = levelRank[a.level] || levelRank[contaminationLevel(a)] || 0
-      const br = levelRank[b.level] || levelRank[contaminationLevel(b)] || 0
-      return sortDir.value === 'asc' ? ar - br : br - ar
-    })
+  // Always sort by name; toggleSort flips `sortDir` between asc/desc
+  arr = arr.toSorted((a, b) => {
+    const an = (a.site_name || '').toLowerCase()
+    const bn = (b.site_name || '').toLowerCase()
+    return sortDir.value === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an)
+  })
   return arr
 })
 </script>
@@ -257,8 +227,9 @@ const filteredSites = computed(() => {
           <div class="farm-addr">{{ s.address }}</div>
         </div>
         <div class="farm-right">
-          <span class="level-badge" :class="(s.level || '').toLowerCase()">{{ s.level }}</span>
-          <div class="level-sub">Level of contamination</div>
+          <span class="practice-badge"
+            :style="{ background: colorForPractice(s.cultivation_practice || s.cultivation || s.cultivationPractice || '') }">{{
+              (s.cultivation_practice || s.cultivation || s.cultivationPractice || 'Unknown') }}</span>
         </div>
       </li>
     </ul>
@@ -366,9 +337,15 @@ const filteredSites = computed(() => {
   font-size: 12px;
 }
 
-.level-sub {
+.practice-badge {
+  display: inline-block;
+  min-width: 72px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 700;
   font-size: 12px;
-  color: rgba(0, 0, 0, 0.5);
+  text-align: center;
 }
 
 .level-badge.high {

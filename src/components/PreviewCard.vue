@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { useAppStore } from '@/stores/app'
 // import router
 import { useRouter } from 'vue-router'
 import { getDefaultBarOptions } from './graphs/defaultBarOptions.js'
@@ -17,6 +18,8 @@ const props = defineProps({
 })
 
 const router = useRouter()
+
+const app = useAppStore()
 
 const { displayLatestSampleDate } = useLatestSampleDate()
 
@@ -126,8 +129,8 @@ watch(originalBarChartDataComputed, (nv) => {
 
 // Handler for selection events emitted by MPDonutChart
 function onDonutSelection(key) {
-  // reflect selection locally so custom labels opacity updates
-  selectedKey.value = key
+  // write to global store so selection persists
+  try { app.setSelectedMorphology(key) } catch { }
   const keyToIndex = {
     fragments: 0,
     fibers: 1,
@@ -323,8 +326,7 @@ const donutChart = ref(null)
 // Chart key for forcing re-renders when needed
 const chartKey = ref(0)
 
-// Track selected key
-const selectedKey = ref(null)
+// Track selected key via global store (use `app.selectedMorphology`)
 
 // Dragging functionality for the entire preview card
 const isDragging = ref(false)
@@ -438,20 +440,16 @@ const displaySeries = ref([])
 
 // Watch for changes in chartSeries and update displaySeries
 watch(chartSeries, newSeries => {
-  if (selectedKey.value === null) {
+  if (!app.selectedMorphology) {
     displaySeries.value = newSeries
   }
 }, { immediate: true })
 
 function handleLegendClick(key) {
-  // keep local selectedKey in sync and let the MPDonutChart react via prop
-  if (selectedKey.value === key) {
-    selectedKey.value = null
-    onDonutSelection(null)
-  } else {
-    selectedKey.value = key
-    onDonutSelection(key)
-  }
+  // toggle selection via global store
+  app.toggleSelectedMorphology(key)
+  const cur = app.selectedMorphology
+  onDonutSelection(cur)
 }
 </script>
 
@@ -478,7 +476,7 @@ function handleLegendClick(key) {
     <div class="card-content">
       <div class="d-flex align-center mb-4">
         <!-- Average Microplastic Waste per Morphological Category -->
-        <MPDonutChart :active-key="selectedKey" :colors="colors" :labels-map="labelsMap"
+        <MPDonutChart :active-key="app.selectedMorphology" :colors="colors" :labels-map="labelsMap"
           :microplastic-data="microplasticData" @selection="onDonutSelection" />
       </div>
       <!-- Contamination Comparison by Farm Practices - Only show in overview mode -->

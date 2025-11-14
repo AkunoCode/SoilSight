@@ -10,6 +10,7 @@ const props = defineProps({
   date: { type: String, default: '' },
   title: { type: String, default: 'Microplastic Count by Size Range' },
   defaultField: { type: String, default: 'equivalent_circular_diameter_um' },
+  filterKey: { type: [String, null], default: null },
 })
 
 const measurementFields = [
@@ -71,7 +72,9 @@ async function fetchAndAggregateAll(fieldKey) {
     const cutoff = new Date()
     cutoff.setMonth(cutoff.getMonth() - 24)
     const cutoffIso = cutoff.toISOString()
-    const resp = await directus.request(readItems('microplastics', { filter: { date_collected: { _gte: cutoffIso } }, limit: -1 }))
+    // date information for microplastics is stored on the related sample/source record
+    // apply the same nested filter pattern used by MPSizeRangeChart.vue
+    const resp = await directus.request(readItems('microplastics', { filter: { sample_source: { date_collected: { _gte: cutoffIso } } }, limit: -1 }))
     const items = Array.isArray(resp) ? resp : (resp?.data || [])
     const counts = Array.from({ length: sizeBuckets.length }).fill(0)
     const drill = Array.from({ length: sizeBuckets.length }).fill(0).map(() => [0, 0, 0, 0, 0, 0])
@@ -109,6 +112,7 @@ async function fetchAndAggregateAll(fieldKey) {
     // simple color palette (add sheets color)
     overviewColors.value = ['#9e9e9e', '#1976d2', '#63B3FF', '#4688C7', '#8FD3C7', '#B9DDFF']
   } catch (error) {
+    // Log the error object as-is for easier inspection (Directus returns structured error info)
     console.error('MPSizeRangeAll: fetch error', error)
   } finally {
     loading.value = false
@@ -144,7 +148,9 @@ onMounted(() => {
       <SiteDrilldownChart :categories="categories"
         :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']"
         :colors="{ fragments: '#0B2E4E', fibers: '#19568E', films: '#63B3FF', foams: '#4688C7', sheets: '#8FD3C7', pellets: '#B9DDFF' }"
-        :date="props.date" :drilldown="drilldown" :height="props.height" :totals="totals" />
+        :date="props.date" :drilldown="drilldown" :height="props.height" :totals="totals"
+        :filter-key="props.filterKey" />
+      <!-- pass through optional filterKey from parent to allow cross-chart selection filtering -->
     </div>
   </div>
 </template>

@@ -189,6 +189,11 @@ const microplasticData = computed(() => {
   }
 })
 
+// use global selection from app store for cross-page persistence
+function handleDonutSelection(key) {
+  app.toggleSelectedMorphology(key)
+}
+
 const mpColors = {
   fragments: '#0B2E4E',
   fibers: '#19568E',
@@ -585,14 +590,15 @@ async function fetchLatestSampleDateForFarm(farmId) {
       <VCol cols="5">
         <div class="d-flex flex-column ga-4">
           <div class="card">
-            <MPDonutChart :date="displaySampleDate" :microplastic-data="microplasticData" />
+            <MPDonutChart :date="displaySampleDate" :microplastic-data="microplasticData"
+              :active-key="app.selectedMorphology" @selection="handleDonutSelection" />
           </div>
           <div class="card">
             <SiteDrilldownChart :categories="anonymizedComparison.categories"
               :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
               :date="displaySampleDate" :drilldown="anonymizedComparison.drilldown" :height="320"
               :title="farm?.cultivation_practice ? `Contamination Comparison to Other ${titleCase(farm?.cultivation_practice)} Farms` : 'Contamination Comparison to Other Farms'"
-              :totals="anonymizedComparison.totals" />
+              :totals="anonymizedComparison.totals" :filter-key="app.selectedMorphology" />
           </div>
           <div class="card">
             <div class="d-flex align-center mb-1"
@@ -614,7 +620,7 @@ async function fetchLatestSampleDateForFarm(farmId) {
       <VCol cols="7">
         <div class="d-flex flex-column ga-4">
           <MonthlyTrendChart :date="displaySampleDate" :height="320" :site-id="farm?.id"
-            :title="`Monthly Microplastic Trend for ${farm?.site_name}`" />
+            :title="`Monthly Microplastic Trend for ${farm?.site_name}`" :filter-key="app.selectedMorphology" />
           <div class="card">
             <template v-if="colorComparisonLoading">
               <div :style="{ minHeight: '260px', display: 'flex', justifyContent: 'center', alignItems: 'center' }">
@@ -625,12 +631,13 @@ async function fetchLatestSampleDateForFarm(farmId) {
               <SiteDrilldownChart :categories="colorComparison.categories"
                 :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
                 :date="displaySampleDate" :drilldown="colorComparison.drilldown" :height="260"
-                title="Microplastic Count by Color" :totals="colorComparison.totals" />
+                title="Microplastic Count by Color" :totals="colorComparison.totals"
+                :filter-key="app.selectedMorphology" />
             </template>
           </div>
           <div class="card">
             <MPSizeRangeChart :date="displaySampleDate" :height="260" :site-id="farm?.id"
-              title="Microplastic Count by Size Range" />
+              title="Microplastic Count by Size Range" :filter-key="app.selectedMorphology" />
           </div>
         </div>
       </VCol>

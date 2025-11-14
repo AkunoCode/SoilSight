@@ -9,6 +9,7 @@ const props = defineProps({
   categories: { type: Array, required: true },
   totals: { type: Array, required: true },
   drilldown: { type: [Object, Array], required: true },
+  filterKey: { type: [String, null], default: null },
   title: { type: String, default: 'Overview' },
   categoryLabels: { type: Array, default: () => ['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets'] },
   colors: { type: Object, default: () => ({}) },
@@ -38,6 +39,39 @@ const overviewOptions = ref({
   legend: { position: 'top' },
 })
 
+function getMorphIndexFromKey(key) {
+  if (!key) return -1
+  const k = String(key).toLowerCase()
+  if (k.includes('fragment')) return 0
+  if (k.includes('fiber') || k.includes('fibre')) return 1
+  if (k.includes('foam')) return 2
+  if (k.includes('film')) return 3
+  if (k.includes('sheet')) return 4
+  if (k.includes('pellet') || k.includes('bead')) return 5
+  return -1
+}
+
+function extractMorphValueForSite(detail, morphIdx) {
+  if (!detail) return 0
+  // detail may be array or object
+  if (Array.isArray(detail)) return Number(detail[morphIdx] || 0)
+  if (typeof detail === 'object') {
+    if (Array.isArray(detail.drilldown)) return Number(detail.drilldown[morphIdx] || 0)
+    // try keyed fields
+    const keys = Object.keys(detail || {})
+    // try several common key names
+    const candidates = ['fragments', 'fibers', 'foam', 'films', 'sheets', 'pellets']
+    const key = candidates[morphIdx] || null
+    if (key && detail[key] != null) return Number(detail[key] || 0)
+    // fallback to first numeric value
+    for (const k of keys) {
+      const v = Number(detail[k])
+      if (!Number.isNaN(v)) return v
+    }
+  }
+  return 0
+}
+
 if (props.useOverviewColors && props.overviewColors.length > 0) {
   overviewOptions.value.plotOptions = { bar: { horizontal: false, distributed: true } }
   overviewOptions.value.colors = safeColorArray(props.overviewColors)
@@ -52,6 +86,50 @@ const drilldownOptions = ref({})
 
 const displayedSeries = computed(() => (isDrilldown.value ? drilldownSeries.value : overviewSeries.value))
 const displayedOptions = computed(() => (isDrilldown.value ? drilldownOptions.value : overviewOptions.value))
+
+// React to top-level filter (morphology key) to switch overview series to that morphology only
+watch(() => props.filterKey, async (newKey) => {
+  try {
+    const morphIdx = getMorphIndexFromKey(newKey)
+    if (!newKey || morphIdx < 0) {
+      // restore totals
+      overviewSeries.value = [{ name: 'Total MP', data: totalBySite.value }]
+      overviewOptions.value = Object.assign({}, overviewOptions.value, { xaxis: { categories: Array.isArray(siteNames.value) ? siteNames.value.slice() : siteNames.value } })
+    } else {
+      // build per-site values from drilldown
+      const values = (siteNames.value || []).map((_, idx) => {
+        let details = []
+        if (Array.isArray(props.drilldown)) details = props.drilldown[idx] || []
+        else if (props.drilldown && typeof props.drilldown === 'object') details = props.drilldown[idx] || props.drilldown[siteNames.value[idx]] || props.drilldown
+        return extractMorphValueForSite(details, morphIdx)
+      })
+      const label = (siteCategoryLabels.value && siteCategoryLabels.value[morphIdx]) || (newKey.charAt(0).toUpperCase() + newKey.slice(1))
+      overviewSeries.value = [{ name: label, data: values }]
+      // try to update options colors to use the single morphology color if provided
+      let colors = overviewOptions.value.colors || ['#1976d2']
+      try {
+        if (props.colors && Object.keys(props.colors).length > 0) {
+          const keyNames = Object.keys(props.colors || {})
+          const match = keyNames.find(k => k.toLowerCase().includes(newKey.toLowerCase()))
+          if (match) colors = [props.colors[match]]
+        }
+      } catch {
+        // ignore
+      }
+      overviewOptions.value = Object.assign({}, overviewOptions.value, { colors, xaxis: { categories: Array.isArray(siteNames.value) ? siteNames.value.slice() : siteNames.value } })
+    }
+
+    // update chart in-place
+    try {
+      const inner = chartRef.value?.chartRef || chartRef.value
+      await updateApexChart(inner, ensurePlotOptionsBar(displayedOptions.value), displayedSeries.value, true)
+    } catch {
+      chartKey.value += 1
+    }
+  } catch (e) {
+    // silent
+  }
+}, { immediate: true })
 
 const chartRef = ref(null)
 // When using the ApexChartBase wrapper we store its component ref here

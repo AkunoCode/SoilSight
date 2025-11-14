@@ -1,6 +1,7 @@
 <script setup>
 import { readItems } from '@directus/sdk'
 import { computed, ref, toRef, watch } from 'vue'
+import { useAppStore } from '@/stores/app'
 import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
 import { ensurePlotOptionsBar, safeColorArray, updateApexChart } from '@/composables/useApexChart'
 // Directus
@@ -15,6 +16,7 @@ const props = defineProps({
   subtitle: { type: String, default: '' },
   height: { type: Number, default: 400 },
   colors: { type: Object, default: () => ({}) },
+  filterKey: { type: [String, null], default: null },
 })
 
 const height = toRef(props, 'height')
@@ -44,8 +46,10 @@ const chartWrapper = ref(null)
 
 if (props.colors && Object.keys(props.colors).length > 0) monthlyOptions.value.colors = safeColorArray(props.colors)
 
+const app = useAppStore()
+
 // If soilsample-based monthly aggregation is available use that, otherwise fall back to distribution build
-watch([totals, soilsampleMonthly], _nv => {
+watch([totals, soilsampleMonthly, () => props.filterKey, () => app.selectedMorphology], _nv => {
   const soil = soilsampleMonthly.value
   if (soil && soil.months && soil.series) {
     monthlySeries.value = soil.series
@@ -64,11 +68,23 @@ watch([totals, soilsampleMonthly], _nv => {
   try {
     // wrapper exposes inner chartRef via chartWrapper.value.chartRef
     const inner = chartWrapper.value?.chartRef
-    void updateApexChart(inner, monthlyOptions.value, monthlySeries.value, true)
+
+    // apply optional filter to show only one morphology series
+    if (props.filterKey) {
+      const fk = (props.filterKey || '').toString().toLowerCase()
+      const found = (monthlySeries.value || []).find(s => (s.name || '').toString().toLowerCase().includes(fk))
+      if (found) {
+        void updateApexChart(inner, monthlyOptions.value, [found], true)
+      } else {
+        void updateApexChart(inner, monthlyOptions.value, monthlySeries.value, true)
+      }
+    } else {
+      void updateApexChart(inner, monthlyOptions.value, monthlySeries.value, true)
+    }
   } catch (error) {
     console.warn('MonthlyTrendChart: chart update failed', error)
   }
-})
+}, { immediate: true })
 
 // fetch soilsamples (optionally for a single site) and aggregate counts by month
 async function fetchSoilsamplesMonthly(siteId) {

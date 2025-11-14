@@ -98,7 +98,7 @@ const labelsMap = {
   pellets: 'Pellets',
 }
 
-const selectedKey = ref(null)
+const app = useAppStore()
 
 const donutLabelsMap = {
   fragments: 'Fragments',
@@ -128,10 +128,10 @@ const displaySeries = ref([
   microplasticData.value.pellets,
 ])
 
-watch(microplasticData, nv => {
-  displaySeries.value = selectedKey.value === null
+watch([microplasticData, () => app.selectedMorphology], ([nv]) => {
+  displaySeries.value = app.selectedMorphology === null
     ? [nv.fragments, nv.fibers, nv.foams, nv.films, nv.sheets, nv.pellets]
-    : [nv[selectedKey.value]]
+    : [nv[app.selectedMorphology]]
 })
 
 const compositionOptions = ref({
@@ -163,8 +163,10 @@ const compositionOptions = ref({
   },
 })
 function handleLegendClick(key) {
-  if (selectedKey.value === key) {
-    selectedKey.value = null
+  // toggle selection via global store so selection persists across pages
+  app.toggleSelectedMorphology(key)
+  const cur = app.selectedMorphology
+  if (!cur) {
     displaySeries.value = [
       microplasticData.value.fragments,
       microplasticData.value.fibers,
@@ -178,10 +180,9 @@ function handleLegendClick(key) {
     return
   }
 
-  selectedKey.value = key
-  displaySeries.value = [microplasticData.value[key]]
-  compositionOptions.value.labels = [labelsMap[key]]
-  compositionOptions.value.colors = [mpColors[key]]
+  displaySeries.value = [microplasticData.value[cur]]
+  compositionOptions.value.labels = [labelsMap[cur]]
+  compositionOptions.value.colors = [mpColors[cur]]
 }
 
 // Site drilldown chart extracted into a module component: SiteDrilldownChart
@@ -697,7 +698,6 @@ function printReport() {
 }
 
 onMounted(async () => {
-  const app = useAppStore()
   // load data then initialize any map markers that depend on data
   try {
     app.startLoading()
@@ -853,7 +853,7 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
 
       <VCol cols="4">
         <div class="card">
-          <MPDonutChart :active-key="selectedKey" :colors="donutColors" :labels-map="donutLabelsMap"
+          <MPDonutChart :active-key="app.selectedMorphology" :colors="donutColors" :labels-map="donutLabelsMap"
             :microplastic-data="microplasticData" @selection="handleLegendClick" />
         </div>
       </VCol>
@@ -862,7 +862,8 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
         <div class="card">
           <SiteDrilldownChart :categories="siteCategories"
             :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
-            :drilldown="siteDrilldown" :height="425" title="Microplastic Count by Farm Site" :totals="siteTotals" />
+            :drilldown="siteDrilldown" :height="425" title="Microplastic Count by Farm Site" :totals="siteTotals"
+            :filter-key="app.selectedMorphology" />
         </div>
       </VCol>
     </VRow>
@@ -871,12 +872,13 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
       <VCol cols="6">
         <div class="card">
           <MPPracticeBar :height="400" :options="contaminationByPracticeOptions" :series="contaminationByPracticeSeries"
-            :subtitle="`Data as of ${displayLatestSampleDate}`" title="Contamination Comparison by Farm Practices" />
+            :subtitle="`Data as of ${displayLatestSampleDate}`" title="Contamination Comparison by Farm Practices"
+            :filter-key="app.selectedMorphology" />
         </div>
       </VCol>
       <VCol cols="6">
         <MonthlyTrendChart :colors="mpColors" :microplastic-data="microplasticData"
-          :subtitle="`Data as of ${displayLatestSampleDate}`" />
+          :subtitle="`Data as of ${displayLatestSampleDate}`" :filter-key="app.selectedMorphology" />
       </VCol>
     </VRow>
 
@@ -885,15 +887,16 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
         <div class="card">
           <SiteDrilldownChart :categories="inputTypes"
             :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
-            :drilldown="inputDrilldown" title="Microplastic Counts by Plastic-Related Farm Inputs"
-            :totals="inputTotals" />
+            :drilldown="inputDrilldown" title="Microplastic Counts by Plastic-Related Farm Inputs" :totals="inputTotals"
+            :filter-key="app.selectedMorphology" />
         </div>
       </VCol>
       <VCol cols="5">
         <div class="card">
           <SiteDrilldownChart :categories="textures"
             :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
-            :drilldown="textureDrilldown" title="Microplastic Count by Soil Texture" :totals="textureTotals" />
+            :drilldown="textureDrilldown" title="Microplastic Count by Soil Texture" :totals="textureTotals"
+            :filter-key="app.selectedMorphology" />
         </div>
       </VCol>
     </VRow>
@@ -911,7 +914,7 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
             <SiteDrilldownChart :categories="colorComparisonAll.categories"
               :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
               :drilldown="colorComparisonAll.drilldown" :height="250" title="Microplastic Count by Color"
-              :totals="colorComparisonAll.totals" />
+              :totals="colorComparisonAll.totals" :filter-key="app.selectedMorphology" />
           </template>
           <template v-else>
             <div style="padding: 20px; text-align:center; color: #666;">
@@ -924,7 +927,8 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
         <div class="card bottom-card">
           <template
             v-if="sizeComparisonAll && Array.isArray(sizeComparisonAll.totals) && sizeComparisonAll.totals.length > 0">
-            <MPSizeRangeAll :height="220" title="Microplastic Count by Size Range" />
+            <MPSizeRangeAll :height="220" title="Microplastic Count by Size Range"
+              :filter-key="app.selectedMorphology" />
           </template>
           <template v-else>
             <div style="padding: 20px; text-align:center; color: #666;">

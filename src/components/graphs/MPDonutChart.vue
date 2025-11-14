@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { useAppStore } from '@/stores/app'
 import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
 import { safeColorArray, updateApexChart } from '@/composables/useApexChart'
 import ApexChartBase from './ApexChartBase.vue'
@@ -41,6 +42,7 @@ const percentages = computed(() => {
 
 // State and chart refs
 const selectedKey = ref(null)
+const app = useAppStore()
 const donutChart = ref(null)
 const displaySeries = ref([...chartSeries.value])
 
@@ -111,6 +113,7 @@ function clearSelections() {
   }, 50)
 
   emit('selection', null)
+  try { app.clearSelectedMorphology() } catch { }
 }
 
 function applySelection(key, emitEvent = true) {
@@ -138,11 +141,18 @@ function applySelection(key, emitEvent = true) {
   }, 50)
 
   if (emitEvent) emit('selection', key)
+  try { app.setSelectedMorphology(key) } catch { }
 }
 
 const handleLegendClick = key => applySelection(key, true)
 
 watch(() => props.activeKey, newKey => {
+  if (newKey === selectedKey.value) return
+  applySelection(newKey, false)
+})
+
+// keep in sync with global selection store
+watch(() => app.selectedMorphology, newKey => {
   if (newKey === selectedKey.value) return
   applySelection(newKey, false)
 })
@@ -169,7 +179,7 @@ watch(() => props.activeKey, newKey => {
       <div class="d-flex flex-column">
         <template v-for="(value, key) in microplasticData" :key="key">
           <div class="legend-item" :style="{
-            backgroundColor: colors[key],
+            backgroundColor: props.colors[key],
             opacity: selectedKey === null || selectedKey === key ? 1 : 0.4
           }" @click="handleLegendClick(key)">
             <p class="font-weight-bold" style="font-size: 1.5em;">
