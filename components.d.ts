@@ -8,9 +8,18 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    AppFooter: typeof import('./src/components/AppFooter.vue')['default']
-    HelloWorld: typeof import('./src/components/HelloWorld.vue')['default']
+    ApexChartBase: typeof import('./src/components/graphs/ApexChartBase.vue')['default']
+    LeafletMap: typeof import('./src/components/LeafletMap.vue')['default']
+    LoadingOverlay: typeof import('./src/components/LoadingOverlay.vue')['default']
+    MonthlyTrendChart: typeof import('./src/components/graphs/MonthlyTrendChart.vue')['default']
+    MPDonutChart: typeof import('./src/components/graphs/MPDonutChart.vue')['default']
+    MPPracticeBar: typeof import('./src/components/graphs/MPPracticeBar.vue')['default']
+    MPSizeRangeAll: typeof import('./src/components/graphs/MPSizeRangeAll.vue')['default']
+    MPSizeRangeChart: typeof import('./src/components/graphs/MPSizeRangeChart.vue')['default']
+    PreviewCard: typeof import('./src/components/PreviewCard.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SampledFarms: typeof import('./src/components/SampledFarms.vue')['default']
+    SiteDrilldownChart: typeof import('./src/components/graphs/SiteDrilldownChart.vue')['default']
   }
 }
