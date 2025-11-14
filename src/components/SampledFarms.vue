@@ -109,7 +109,7 @@ function initMap() {
       }).bindPopup(`<strong>${site.site_name}</strong><br/>${site.address}<br/>Level: ${lvl}<br/>Practice: ${practice || 'Unknown'}`)
       marker.addTo(markersLayer)
       // navigate to farm on double-click of marker
-      try { marker.on && marker.on('dblclick', () => navigateToSite(site)) } catch {}
+      try { marker.on && marker.on('dblclick', () => navigateToSite(site)) } catch { }
       markersMap[site.id] = marker
       bounds.push([site.latitude, site.longitude])
     }
@@ -176,7 +176,7 @@ watch(() => props.sampledSites, nv => {
       fillOpacity: 0.95,
     }).bindPopup(`<strong>${site.site_name}</strong><br/>${site.address}<br/>Level: ${lvl}<br/>Practice: ${practice || 'Unknown'}`)
     marker.addTo(markersLayer)
-    try { marker.on && marker.on('dblclick', () => navigateToSite(site)) } catch {}
+    try { marker.on && marker.on('dblclick', () => navigateToSite(site)) } catch { }
     markersMap[site.id] = marker
     bounds.push([site.latitude, site.longitude])
   }
@@ -250,7 +250,8 @@ const filteredSites = computed(() => {
     </div>
 
     <ul :class="['sampled-farms', { 'no-max-height': !props.showMap }]">
-      <li v-for="s in filteredSites" :key="s.id" class="farm-row" @click="focusSite(s)" @dblclick.prevent="navigateToSite(s)">
+      <li v-for="s in filteredSites" :key="s.id" class="farm-row" @click="focusSite(s)"
+        @dblclick.prevent="navigateToSite(s)">
         <div class="farm-left">
           <div class="farm-name">{{ s.site_name }}</div>
           <div class="farm-addr">{{ s.address }}</div>
