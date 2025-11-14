@@ -74,36 +74,55 @@ const displaySubtitle = computed(() => (props.item && !props.isOverview)
   })(),
 )
 
-const barChartDummySeries = ref([
-  {
-    name: 'Conventional Practice',
-    data: [650, 420, 350, 190, 90, 210],
-  },
-  {
-    name: 'Organic Practice',
-    data: [480, 300, 270, 130, 70, 150],
-  },
-  {
-    name: 'Integrated Practice',
-    data: [500, 440, 280, 110, 60, 80],
-  },
-])
+// Compute contamination totals by farming practice from Directus data (props.allFarmsData)
+const practiceKeys = ['conventional', 'organic', 'integrated']
+const practiceNames = ['Conventional Practice', 'Organic Practice', 'Integrated Practice']
 
-// Store original bar chart data for filtering
-const originalBarChartData = [
-  {
-    name: 'Conventional Practice',
-    data: [650, 420, 350, 190, 90, 210],
-  },
-  {
-    name: 'Organic Practice',
-    data: [480, 300, 270, 130, 70, 150],
-  },
-  {
-    name: 'Integrated Practice',
-    data: [500, 440, 280, 110, 60, 80],
-  },
-]
+function coerceCount(v) {
+  if (v == null || v === '') return 0
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
+const originalBarChartDataComputed = computed(() => {
+  if (!Array.isArray(props.allFarmsData) || props.allFarmsData.length === 0) {
+    // fallback to defaults when no data
+    return [
+      { name: 'Conventional Practice', data: [650, 420, 350, 190, 90, 210] },
+      { name: 'Organic Practice', data: [480, 300, 270, 130, 70, 150] },
+      { name: 'Integrated Practice', data: [500, 440, 280, 110, 60, 80] },
+    ]
+  }
+
+  // accumulate per-practice morphology totals
+  const accum = practiceKeys.map(() => [0, 0, 0, 0, 0, 0])
+
+  for (const farm of props.allFarmsData) {
+    const practice = (farm.cultivation_practice || '').toString().toLowerCase()
+    let idx = -1
+    if (practice.includes('conventional')) idx = 0
+    else if (practice.includes('organic')) idx = 1
+    else if (practice.includes('integrated')) idx = 2
+    else continue // skip farms without a recognized practice
+
+    accum[idx][0] += coerceCount(farm.fragment_count)
+    accum[idx][1] += coerceCount(farm.fiber_count)
+    accum[idx][2] += coerceCount(farm.foam_count)
+    accum[idx][3] += coerceCount(farm.film_count)
+    accum[idx][4] += coerceCount(farm.sheets_count || farm.sheet_count || farm.sheets)
+    accum[idx][5] += coerceCount(farm.beads_count)
+  }
+
+  return practiceNames.map((name, i) => ({ name, data: accum[i] }))
+})
+
+// Reactive series used by the bar chart; starts from computed original data and updates
+const barChartDummySeries = ref(originalBarChartDataComputed.value)
+
+// keep reactive in sync if underlying farms data changes
+watch(originalBarChartDataComputed, (nv) => {
+  barChartDummySeries.value = nv
+})
 
 // Handler for selection events emitted by MPDonutChart
 function onDonutSelection(key) {
@@ -120,7 +139,7 @@ function onDonutSelection(key) {
 
   // If selection is cleared (null), reset bar chart to original
   if (!key) {
-    barChartDummySeries.value = [...originalBarChartData]
+    barChartDummySeries.value = originalBarChartDataComputed.value.slice()
     barChartOptions.value = {
       ...barChartOptions.value,
       xaxis: {
@@ -139,7 +158,7 @@ function onDonutSelection(key) {
 
   // Otherwise, show only the selected category in the bar chart
   const selectedIndex = keyToIndex[key]
-  barChartDummySeries.value = originalBarChartData.map(series => ({
+  barChartDummySeries.value = originalBarChartDataComputed.value.map(series => ({
     ...series,
     data: [series.data[selectedIndex]],
   }))
@@ -252,6 +271,52 @@ const barChartOptions = ref(getDefaultBarOptions([
   'Sheets',
   'Pellets',
 ]))
+
+// Compute a dynamic y-axis maximum and format labels/tooltips depending on magnitude
+const practiceMax = computed(() => {
+  const series = originalBarChartDataComputed.value || []
+  let max = 0
+  for (const s of series) {
+    for (const v of (s.data || [])) {
+      const n = Number(v) || 0
+      if (n > max) max = n
+    }
+  }
+  return max
+})
+
+function niceMaxValue(n) {
+  if (!Number.isFinite(n) || n <= 0) return 10
+  const pow = Math.pow(10, Math.floor(Math.log10(n)))
+  const norm = n / pow
+  let r = 1
+  if (norm <= 1) r = 1
+  else if (norm <= 2) r = 2
+  else if (norm <= 5) r = 5
+  else r = 10
+  return r * pow
+}
+
+function formatNumberShort(val) {
+  const v = Number(val) || 0
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
+  if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, '') + 'K'
+  return String(v)
+}
+
+function buildBarOptions() {
+  const ymax = niceMaxValue(practiceMax.value)
+  return getDefaultBarOptions([
+    'Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets',
+  ], {
+    yaxis: { title: { text: 'Number of MP found' }, min: 0, max: ymax, labels: { formatter: function (val) { return formatNumberShort(val) } } },
+    tooltip: { y: { formatter: function (val) { return formatNumberShort(val) } } },
+  })
+}
+
+// initialize options from current data and keep in sync when aggregated data changes
+barChartOptions.value = buildBarOptions()
+watch(practiceMax, () => { barChartOptions.value = buildBarOptions() })
 
 const donutChart = ref(null)
 
