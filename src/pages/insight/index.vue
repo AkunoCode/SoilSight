@@ -843,7 +843,7 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
     <VRow class="mt-2">
       <VCol cols="6">
         <div class="card">
-          <MPPracticeBar :height="360" :options="contaminationByPracticeOptions" :series="contaminationByPracticeSeries"
+          <MPPracticeBar :height="400" :options="contaminationByPracticeOptions" :series="contaminationByPracticeSeries"
             :subtitle="`Data as of ${displayLatestSampleDate}`" title="Contamination Comparison by Farm Practices" />
         </div>
       </VCol>
