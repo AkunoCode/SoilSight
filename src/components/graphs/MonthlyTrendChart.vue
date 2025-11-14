@@ -32,6 +32,7 @@ const totals = computed(() => ({
 
 // aggregated monthly data coming from soilsamples for a given site (if provided)
 const soilsampleMonthly = ref(null)
+const soilsampleLoading = ref(false)
 
 const { series: baseSeries, options: baseOptions } = buildMonthlyChartData(totals.value)
 baseOptions.chart = Object.assign({}, baseOptions.chart || {}, { height: props.height })
@@ -72,6 +73,7 @@ watch([totals, soilsampleMonthly], _nv => {
 // fetch soilsamples (optionally for a single site) and aggregate counts by month
 async function fetchSoilsamplesMonthly(siteId) {
   soilsampleMonthly.value = null
+  soilsampleLoading.value = true
   try {
     // compute 12-month cutoff (start of month, 11 months back + current month = 12 months)
     const now = new Date()
@@ -142,6 +144,8 @@ async function fetchSoilsamplesMonthly(siteId) {
     console.error('MonthlyTrendChart: error fetching soilsamples', error)
     soilsampleMonthly.value = null
     return null
+  } finally {
+    soilsampleLoading.value = false
   }
 }
 
@@ -157,7 +161,14 @@ watch(() => props.siteId, _nv => {
       <h3>Total Monthly Microplastic Waste per Morphological Category</h3>
       <p class="subtitle">{{ subtitle || (props.date || defaultDate) }}</p>
     </div>
-    <ApexChartBase ref="chartWrapper" :height="height" :options="monthlyOptions" :series="monthlySeries" type="line" />
+    <div v-if="soilsampleLoading"
+      :style="{ minHeight: height + 'px', display: 'flex', justifyContent: 'center', alignItems: 'center' }">
+      <VProgressCircular color="primary" indeterminate size="28" />
+    </div>
+    <div v-else>
+      <ApexChartBase ref="chartWrapper" :height="height" :options="monthlyOptions" :series="monthlySeries"
+        type="line" />
+    </div>
   </div>
 </template>
 

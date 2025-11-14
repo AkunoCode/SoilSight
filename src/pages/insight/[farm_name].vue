@@ -23,6 +23,7 @@ const comparisonSites = ref(null)
 const farm = ref(null)
 const latestSampleDate = ref(null)
 const colorComparisonFetched = ref(null)
+const colorComparisonLoading = ref(false)
 
 // UI / static content
 const aiSummaryText = `Soil analysis from Green Valley’s high-value crop farms indicates that fragments are the dominant form of microplastics, followed by films. This pattern is likely linked to the widespread use of plastic mulching, as the color and texture of the detected films correspond to mulching sheets and seedling trays commonly used in the area. The farms’ clay loam soil structure may also contribute to microplastic retention, while irrigation water is a possible additional source of contamination.
@@ -268,6 +269,7 @@ function morphologyIndex(morph) {
 async function fetchColorComparisonForFarm(farmId) {
   colorComparisonFetched.value = null
   if (!farmId) return null
+  colorComparisonLoading.value = true
   try {
     const resp = await directus.request(readItems('microplastics', { filter: { sample_source: { site: { _eq: farmId } } }, limit: -1 }))
     const items = Array.isArray(resp) ? resp : (resp?.data || [])
@@ -383,6 +385,8 @@ async function fetchColorComparisonForFarm(farmId) {
     console.error('Error fetching microplastics for color comparison', error)
     colorComparisonFetched.value = null
     return null
+  } finally {
+    colorComparisonLoading.value = false
   }
 }
 
@@ -605,10 +609,17 @@ async function fetchLatestSampleDateForFarm(farmId) {
           <MonthlyTrendChart :date="displaySampleDate" :height="320" :site-id="farm?.id"
             :title="`Monthly Microplastic Trend for ${farm?.site_name}`" />
           <div class="card">
-            <SiteDrilldownChart :categories="colorComparison.categories"
-              :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
-              :date="displaySampleDate" :drilldown="colorComparison.drilldown" :height="260"
-              title="Microplastic Count by Color" :totals="colorComparison.totals" />
+            <template v-if="colorComparisonLoading">
+              <div :style="{ minHeight: '260px', display: 'flex', justifyContent: 'center', alignItems: 'center' }">
+                <VProgressCircular color="primary" indeterminate size="28" />
+              </div>
+            </template>
+            <template v-else>
+              <SiteDrilldownChart :categories="colorComparison.categories"
+                :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
+                :date="displaySampleDate" :drilldown="colorComparison.drilldown" :height="260"
+                title="Microplastic Count by Color" :totals="colorComparison.totals" />
+            </template>
           </div>
           <div class="card">
             <MPSizeRangeChart :date="displaySampleDate" :height="260" :site-id="farm?.id"

@@ -383,6 +383,7 @@ const colorTotals = computed(() => colorDrilldown.value.map(arr => arr.reduce((a
 
 // --- Aggregate microplastics by color across ALL sites (using Directus microplastics records)
 const colorComparisonAll = ref(null)
+const colorComparisonLoading = ref(false)
 
 function morphologyIndex(morph) {
   const m = (morph || '').toString().toLowerCase()
@@ -396,6 +397,7 @@ function morphologyIndex(morph) {
 }
 
 async function fetchColorComparisonAllSites() {
+  colorComparisonLoading.value = true
   try {
     const resp = await directus.request(readItems('microplastics', { limit: -1 }))
     const items = Array.isArray(resp) ? resp : (resp?.data || [])
@@ -464,6 +466,8 @@ async function fetchColorComparisonAllSites() {
     console.error('Error fetching microplastics for color comparison (all sites)', err)
     colorComparisonAll.value = { categories: [], totals: [], drilldown: [], overviewColors: [] }
     return colorComparisonAll.value
+  } finally {
+    colorComparisonLoading.value = false
   }
 }
 
@@ -890,8 +894,13 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
     <VRow class="mt-2">
       <VCol class="d-flex flex-column justify-space-between" cols="6">
         <div class="card bottom-card">
+          <template v-if="colorComparisonLoading">
+            <div :style="{ minHeight: '250px', display: 'flex', justifyContent: 'center', alignItems: 'center' }">
+              <VProgressCircular color="primary" indeterminate size="28" />
+            </div>
+          </template>
           <template
-            v-if="colorComparisonAll && Array.isArray(colorComparisonAll.totals) && colorComparisonAll.totals.length > 0">
+            v-else-if="colorComparisonAll && Array.isArray(colorComparisonAll.totals) && colorComparisonAll.totals.length > 0">
             <SiteDrilldownChart :categories="colorComparisonAll.categories"
               :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
               :drilldown="colorComparisonAll.drilldown" :height="250" title="Microplastic Count by Color"
