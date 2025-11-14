@@ -24,22 +24,22 @@ const { displayLatestSampleDate } = useLatestSampleDate()
 const computeOverviewTotals = computed(() => (
   props.allFarmsData.length === 0
     ? {
-      fragments: 648_000,
-      fibers: 405_000,
-      foams: 324_000,
-      films: 162_000,
-      sheets: 81_000,
-      pellets: 81_000,
+      fragments: 0,
+      fibers: 0,
+      foams: 0,
+      films: 0,
+      sheets: 0,
+      pellets: 0,
     }
     : (() => {
       // Sum up all the microplastic counts from all farms
       const totals = props.allFarmsData.reduce((acc, farm) => {
-        acc.fragments += farm.fragment_count || 0
-        acc.fibers += farm.fiber_count || 0
-        acc.foams += farm.foam_count || 0
-        acc.films += farm.film_count || 0
-        acc.sheets += farm.sheets_count || farm.sheet_count || farm.sheets || 0
-        acc.pellets += farm.beads_count || 0
+        acc.fragments += Number(farm.fragment_count) || 0
+        acc.fibers += Number(farm.fiber_count) || 0
+        acc.foams += Number(farm.foam_count) || 0
+        acc.films += Number(farm.film_count) || 0
+        acc.sheets += Number(farm.sheets_count || farm.sheet_count || farm.sheets) || 0
+        acc.pellets += Number(farm.beads_count) || 0
         return acc
       }, { fragments: 0, fibers: 0, foams: 0, films: 0, sheets: 0, pellets: 0 })
 
@@ -86,11 +86,11 @@ function coerceCount(v) {
 
 const originalBarChartDataComputed = computed(() => {
   if (!Array.isArray(props.allFarmsData) || props.allFarmsData.length === 0) {
-    // fallback to defaults when no data
+    // fallback to zeros when no data
     return [
-      { name: 'Conventional Practice', data: [650, 420, 350, 190, 90, 210] },
-      { name: 'Organic Practice', data: [480, 300, 270, 130, 70, 150] },
-      { name: 'Integrated Practice', data: [500, 440, 280, 110, 60, 80] },
+      { name: 'Conventional Practice', data: [0, 0, 0, 0, 0, 0] },
+      { name: 'Organic Practice', data: [0, 0, 0, 0, 0, 0] },
+      { name: 'Integrated Practice', data: [0, 0, 0, 0, 0, 0] },
     ]
   }
 

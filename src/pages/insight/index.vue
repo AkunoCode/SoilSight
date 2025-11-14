@@ -890,18 +890,32 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
     <VRow class="mt-2">
       <VCol class="d-flex flex-column justify-space-between" cols="6">
         <div class="card bottom-card">
-          <SiteDrilldownChart
-            :categories="(colorComparisonAll && colorComparisonAll.categories) ? colorComparisonAll.categories : colors"
-            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
-            :drilldown="(colorComparisonAll && colorComparisonAll.drilldown) ? colorComparisonAll.drilldown : colorDrilldown"
-            :height="250" title="Microplastic Count by Color"
-            :totals="(colorComparisonAll && colorComparisonAll.totals) ? colorComparisonAll.totals : colorTotals"
-            :overview-colors="(colorComparisonAll && colorComparisonAll.overviewColors) ? colorComparisonAll.overviewColors : []"
-            :use-overview-colors="Boolean(colorComparisonAll)" />
+          <template
+            v-if="colorComparisonAll && Array.isArray(colorComparisonAll.totals) && colorComparisonAll.totals.length > 0">
+            <SiteDrilldownChart :categories="colorComparisonAll.categories"
+              :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
+              :drilldown="colorComparisonAll.drilldown" :height="250" title="Microplastic Count by Color"
+              :totals="colorComparisonAll.totals" />
+          </template>
+          <template v-else>
+            <div style="padding: 20px; text-align:center; color: #666;">
+              <p style="margin:0; font-weight:600">Microplastic Count by Color</p>
+              <p style="margin:8px 0 0;">No color aggregation data available yet.</p>
+            </div>
+          </template>
         </div>
 
         <div class="card bottom-card">
-          <MPSizeRangeAll :height="220" title="Microplastic Count by Size Range" />
+          <template
+            v-if="sizeComparisonAll && Array.isArray(sizeComparisonAll.totals) && sizeComparisonAll.totals.length > 0">
+            <MPSizeRangeAll :height="220" title="Microplastic Count by Size Range" />
+          </template>
+          <template v-else>
+            <div style="padding: 20px; text-align:center; color: #666;">
+              <p style="margin:0; font-weight:600">Microplastic Count by Size Range</p>
+              <p style="margin:8px 0 0;">No size aggregation data available yet.</p>
+            </div>
+          </template>
         </div>
 
         <div class="card bottom-card">
