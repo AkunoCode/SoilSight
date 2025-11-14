@@ -43,6 +43,9 @@
 import { readItems } from '@directus/sdk'
 import L from 'leaflet'
 import { computed, onMounted, ref, watch } from 'vue'
+// Import GeoJSON as raw text and parse at runtime to avoid Rollup import errors for .geojson files
+import tayabasGeoRaw from '@/assets/geojson/Tayabas.geojson?raw'
+const tayabasGeo = JSON.parse(tayabasGeoRaw)
 import { useAppStore } from '@/stores/app'
 import PreviewCard from '@/components/PreviewCard.vue'
 import directus from '@/composables/useDirectus'
@@ -330,17 +333,10 @@ onMounted(async () => {
     }
     legend.addTo(map)
 
-    // Load and add GeoJSON boundary
+    // Load and add GeoJSON boundary (imported at build time)
     try {
-      console.log('Loading GeoJSON...')
-      const geoResponse = await fetch('/src/assets/geojson/Tayabas.geojson')
-
-      if (!geoResponse.ok) {
-        throw new Error(`HTTP error! status: ${geoResponse.status}`)
-      }
-
-      const tayabasGeo = await geoResponse.json()
-      console.log('GeoJSON loaded successfully:', tayabasGeo)
+      if (!tayabasGeo) throw new Error('Tayabas geojson not found')
+      console.log('Using imported GeoJSON object')
 
       const geoLayer = L.geoJSON(tayabasGeo, {
         style: {
@@ -350,24 +346,23 @@ onMounted(async () => {
           fillColor: '#2264A2',
           fillOpacity: 0.1,
         },
-        interactive: false, // Disable all interactions (clicks, hover, etc.)
-        // Removed onEachFeature to prevent popups and click events
+        interactive: false,
       }).addTo(map)
 
       // Fit the map to the GeoJSON boundary with padding to account for preview card
       map.fitBounds(geoLayer.getBounds(), {
-        paddingTopLeft: [350, 50], // Extra left padding for preview card + margins
+        paddingTopLeft: [350, 50],
         paddingBottomRight: [50, 50],
       })
 
       // Additional pan adjustment after fitting bounds
       setTimeout(() => {
-        map.panBy([-100, 0]) // Fine-tune position to center in visible area
+        map.panBy([-100, 0])
       }, 200)
 
-      console.log('GeoJSON layer added and map bounds set')
+      console.log('GeoJSON layer added and map bounds set (import)')
     } catch (geoError) {
-      console.error('Error loading GeoJSON:', geoError)
+      console.error('Error adding imported GeoJSON:', geoError)
       console.log('Continuing without GeoJSON boundary')
     }
 
