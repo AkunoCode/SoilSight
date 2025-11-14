@@ -9,15 +9,27 @@
 
 <script setup>
 import { useAppStore } from '@/stores/app'
+import { watch } from 'vue'
 const store = useAppStore()
+
+// toggle a class on the document body to prevent scrolling when loading overlay is active
+watch(() => store.loading, (val) => {
+    try {
+        if (val) document.body.classList.add('loading-active')
+        else document.body.classList.remove('loading-active')
+    } catch (e) {
+        // ignore (server-side rendering or restricted env)
+    }
+}, { immediate: true })
 </script>
 
+.\n+
 <style scoped>
 .loading-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(255, 255, 255, 0.75);
-    z-index: 2000;
+    background: rgba(255, 255, 255, 0.92);
+    z-index: 99999;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -38,5 +50,12 @@ const store = useAppStore()
     margin: 0;
     color: #333;
     font-weight: 600;
+}
+</style>
+
+<!-- global rule to disable scrolling while loading overlay is active -->
+<style>
+.loading-active {
+    overflow: hidden !important;
 }
 </style>

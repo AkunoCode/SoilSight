@@ -1,8 +1,11 @@
 <template>
-  <v-main>
-    <router-view />
+  <div class="layout-root">
+    <v-main>
+      <router-view />
+    </v-main>
+    <!-- place LoadingOverlay as a sibling to v-main so its fixed positioning covers the full document -->
     <LoadingOverlay />
-  </v-main>
+  </div>
 </template>
 
 <script setup>
