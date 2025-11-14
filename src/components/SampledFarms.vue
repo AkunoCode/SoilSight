@@ -2,6 +2,7 @@
 /* eslint-disable unicorn/no-array-callback-reference, unicorn/no-array-method-this-argument */
 import L from 'leaflet'
 import { computed, defineProps, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import 'leaflet/dist/leaflet.css'
 // We'll fetch the GeoJSON at runtime (some bundlers treat .geojson as asset URLs)
 
@@ -26,6 +27,9 @@ const mapRef = ref(null)
 const markersMap = {}
 let markersLayer = null
 let polygonLayer = null
+const lastClickedSiteId = ref(null)
+let lastClickTimer = null
+const router = useRouter()
 
 function contaminationLevel(site) {
   const total = (Number(site.fragment_count) || 0) + (Number(site.fiber_count) || 0) + (Number(site.film_count) || 0) + (Number(site.foam_count) || 0) + (Number(site.beads_count) || 0) + (Number(site.sheets_count) || Number(site.sheet_count) || Number(site.sheets) || 0)
@@ -43,6 +47,15 @@ function colorForLevel(level) {
     case 'LOW': return '#43a047'
     default: return '#9e9e9e'
   }
+}
+
+function colorForPractice(practice) {
+  const p = (practice || '').toString().toLowerCase().trim()
+  if (!p) return '#9e9e9e'
+  if (p.includes('organic')) return '#43a047' // green
+  if (p.includes('integrated')) return '#fb8c00' // orange
+  if (p.includes('conventional')) return '#19568E' // blue
+  return '#9e9e9e'
 }
 
 function initMap() {
@@ -86,14 +99,16 @@ function initMap() {
     for (const site of sites) {
       if (!site.latitude || !site.longitude) continue
       const lvl = site.level || contaminationLevel(site)
-      const color = colorForLevel(lvl)
+      // use cultivation practice to color map markers to match index page
+      const practice = site.cultivation_practice || site.cultivation || site.cultivationPractice || ''
+      const color = colorForPractice(practice)
       const marker = L.circleMarker([site.latitude, site.longitude], {
         radius: 9,
         fillColor: color,
         color: '#fff',
         weight: 1.5,
         fillOpacity: 0.95,
-      }).bindPopup(`<strong>${site.site_name}</strong><br/>${site.address}<br/>Level: ${lvl}`)
+      }).bindPopup(`<strong>${site.site_name}</strong><br/>${site.address}<br/>Level: ${lvl}<br/>Practice: ${practice || 'Unknown'}`)
       marker.addTo(markersLayer)
       markersMap[site.id] = marker
       bounds.push([site.latitude, site.longitude])
@@ -151,14 +166,15 @@ watch(() => props.sampledSites, nv => {
   for (const site of nv) {
     if (!site.latitude || !site.longitude) continue
     const lvl = site.level || contaminationLevel(site)
-    const color = colorForLevel(lvl)
+    const practice = site.cultivation_practice || site.cultivation || site.cultivationPractice || ''
+    const color = colorForPractice(practice)
     const marker = L.circleMarker([site.latitude, site.longitude], {
       radius: 9,
       fillColor: color,
       color: '#fff',
       weight: 1.5,
       fillOpacity: 0.95,
-    }).bindPopup(`<strong>${site.site_name}</strong><br/>${site.address}<br/>Level: ${lvl}`)
+    }).bindPopup(`<strong>${site.site_name}</strong><br/>${site.address}<br/>Level: ${lvl}<br/>Practice: ${practice || 'Unknown'}`)
     marker.addTo(markersLayer)
     markersMap[site.id] = marker
     bounds.push([site.latitude, site.longitude])
@@ -178,6 +194,33 @@ function focusSite(site) {
     map.setView([site.latitude, site.longitude], Math.max(map.getZoom(), 13), { animate: true })
     if (marker) marker.openPopup()
   }
+}
+
+function onSiteClick(site) {
+  // first, focus the site on the map
+  focusSite(site)
+  // if the same site was clicked previously within the timeout, navigate to the farm insight page
+  if (lastClickedSiteId.value === site.id) {
+    // navigate to farm insight
+    const farmName = encodeURIComponent(site.site_name || '')
+    try {
+      router.push(`/insight/${farmName}`)
+    } catch {
+      // ignore navigation errors
+    }
+    // reset state
+    lastClickedSiteId.value = null
+    if (lastClickTimer) { clearTimeout(lastClickTimer); lastClickTimer = null }
+    return
+  }
+
+  // otherwise set last clicked and start/reset timer (800ms window)
+  lastClickedSiteId.value = site.id
+  if (lastClickTimer) { clearTimeout(lastClickTimer); lastClickTimer = null }
+  lastClickTimer = setTimeout(() => {
+    lastClickedSiteId.value = null
+    lastClickTimer = null
+  }, 800)
 }
 
 function toggleSort() {
@@ -223,7 +266,7 @@ const filteredSites = computed(() => {
     </div>
 
     <ul :class="['sampled-farms', { 'no-max-height': !props.showMap }]">
-      <li v-for="s in filteredSites" :key="s.id" class="farm-row" @click="focusSite(s)">
+      <li v-for="s in filteredSites" :key="s.id" class="farm-row" @click="onSiteClick(s)">
         <div class="farm-left">
           <div class="farm-name">{{ s.site_name }}</div>
           <div class="farm-addr">{{ s.address }}</div>
@@ -235,7 +278,7 @@ const filteredSites = computed(() => {
       </li>
     </ul>
 
-    <div v-if="props.showMap" class="map-wrap">
+    <div v-if="props.showMap" class="map-wrap mt-6">
       <div ref="mapRef" class="map-canvas" />
     </div>
   </div>
@@ -246,7 +289,7 @@ const filteredSites = computed(() => {
   display: flex;
   gap: 12px;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 22px;
 }
 
 .search-input {
@@ -255,7 +298,7 @@ const filteredSites = computed(() => {
   border-radius: 8px;
   border: 1px solid rgba(0, 0, 0, 0.08);
   background: white;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .sort-btn {
@@ -367,7 +410,8 @@ const filteredSites = computed(() => {
 .map-wrap {
   border-radius: 8px;
   overflow: hidden;
-  height: 320px
+  height: 320px;
+
 }
 
 .map-canvas {
