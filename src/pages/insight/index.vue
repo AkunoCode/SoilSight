@@ -3,6 +3,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import directus from '@/composables/useDirectus.js'
 import { readItems } from '@directus/sdk'
+import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
 
 import ApexChartBase from '@/components/graphs/ApexChartBase.vue'
 import { getDefaultBarOptions } from '@/components/graphs/defaultBarOptions.js'
@@ -18,7 +19,7 @@ const sites = ref([])
 const loading = ref(false)
 const error = ref(null)
 
-const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+const { displayLatestSampleDate, fetchLatestSampleDate } = useLatestSampleDate()
 
 async function loadSites() {
   loading.value = true
@@ -693,6 +694,13 @@ function printReport() {
 onMounted(async () => {
   // load data then initialize any map markers that depend on data
   await loadSites()
+  // fetch latest soilsample date for the region
+  // use shared composable to populate latest sample date (best-effort)
+  try {
+    await fetchLatestSampleDate()
+  } catch (err) {
+    // ignore composable fetch errors here
+  }
   // fetch aggregated microplastics by color across all sites
   try {
     await fetchColorComparisonAllSites()
@@ -836,12 +844,12 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
       <VCol cols="6">
         <div class="card">
           <MPPracticeBar :height="360" :options="contaminationByPracticeOptions" :series="contaminationByPracticeSeries"
-            subtitle="Data as of September 22, 2025" title="Contamination Comparison by Farm Practices" />
+            :subtitle="`Data as of ${displayLatestSampleDate}`" title="Contamination Comparison by Farm Practices" />
         </div>
       </VCol>
       <VCol cols="6">
         <MonthlyTrendChart :colors="mpColors" :microplastic-data="microplasticData"
-          subtitle="Data as of September 22, 2025" />
+          :subtitle="`Data as of ${displayLatestSampleDate}`" />
       </VCol>
     </VRow>
 
@@ -885,7 +893,7 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
             <h3>AI Insights</h3>
             <VIcon class="ml-2" color="blue">mdi-creation</VIcon>
           </div>
-          <p class="subtitle mb-2">Generated on September 22, 2025</p>
+          <p class="subtitle mb-2">Generated on {{ displayLatestSampleDate }}</p>
           <div class="summary-box">
             <p>{{ aiSummaryText }}</p>
           </div>

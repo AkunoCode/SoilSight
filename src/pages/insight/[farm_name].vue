@@ -31,10 +31,10 @@ These findings suggest heightened risks of soil degradation, reduced microbial a
 
 It is recommended that farmers adopt more sustainable practices such as reducing reliance on single-use plastics, improving waste collection and disposal, and exploring biodegradable alternatives for mulching and seedling propagation. Regular monitoring of both soil and irrigation water quality is also advised to mitigate long-term risks.`
 
-  const formattedDate = computed(() => {
-    const now = new Date()
-    return now.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
-  })
+  import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
+  const { displayLatestSampleDate } = useLatestSampleDate()
+
+  const formattedDate = computed(() => displayLatestSampleDate.value)
 
   const displaySampleDate = computed(() => {
     const d = latestSampleDate.value

@@ -1,5 +1,6 @@
 <script setup>
   import { computed, ref, watch } from 'vue'
+  import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
   import { safeColorArray, updateApexChart } from '@/composables/useApexChart'
   import ApexChartBase from './ApexChartBase.vue'
 
@@ -77,7 +78,8 @@
     },
   })
 
-  const defaultDate = computed(() => new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }))
+  const { displayLatestSampleDate } = useLatestSampleDate()
+  const defaultDate = displayLatestSampleDate
 
   function defaultTotalFormatter (w) {
     const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0)

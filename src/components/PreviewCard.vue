@@ -6,6 +6,7 @@
   import MPDonutChart from './graphs/MPDonutChart.vue'
   import MPPracticeBar from './graphs/MPPracticeBar.vue'
   import SampledFarms from './SampledFarms.vue'
+  import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
 
   const props = defineProps({
     title: { type: String, required: false, default: 'SoilSight Analysis' },
@@ -16,6 +17,8 @@
   })
 
   const router = useRouter()
+
+  const { displayLatestSampleDate } = useLatestSampleDate()
 
   // Compute totals from all farms data
   const computeOverviewTotals = computed(() => (
@@ -427,7 +430,7 @@
         <MPPracticeBar
           :options="barChartOptions"
           :series="barChartDummySeries"
-          subtitle="Data as of September 22, 2025"
+          :subtitle="`Data as of ${displayLatestSampleDate}`"
           title="Contamination Comparison by Farm Practices"
         />
       </div>
@@ -440,7 +443,7 @@
             </h4>
             <VIcon class="ml-2" color="primary" size="small">mdi-creation</VIcon>
           </div>
-          <p class="subtitle mb-2">Generated on September 22, 2025</p>
+          <p class="subtitle mb-2">Generated on {{ displayLatestSampleDate }}</p>
           <div class="summary-box">
             <p>{{ aiSummaryText }}</p>
           </div>

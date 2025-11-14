@@ -1,6 +1,7 @@
 <script setup>
   import { readItems } from '@directus/sdk'
   import { computed, ref, toRef, watch } from 'vue'
+  import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
   import { ensurePlotOptionsBar, safeColorArray, updateApexChart } from '@/composables/useApexChart'
   // Directus
   import directus from '@/composables/useDirectus'
@@ -18,7 +19,8 @@
 
   const height = toRef(props, 'height')
 
-  const defaultDate = computed(() => new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }))
+  const { displayLatestSampleDate } = useLatestSampleDate()
+  const defaultDate = displayLatestSampleDate
 
   const totals = computed(() => ({
     fragments: props.microplasticData?.fragments || 0,

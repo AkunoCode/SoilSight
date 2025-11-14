@@ -1,5 +1,6 @@
 <script setup>
   import { computed, ref, watch } from 'vue'
+  import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
   import { VIcon } from 'vuetify/components'
   import { ensurePlotOptionsBar, safeColorArray, updateApexChart } from '@/composables/useApexChart'
   import ApexChartBase from './ApexChartBase.vue'
@@ -21,7 +22,8 @@
   const totalBySite = computed(() => props.totals || [])
   const siteCategoryLabels = computed(() => props.categoryLabels)
 
-  const defaultDate = computed(() => new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }))
+  const { displayLatestSampleDate } = useLatestSampleDate()
+  const defaultDate = displayLatestSampleDate
 
   const overviewSeries = ref([{ name: 'Total MP', data: totalBySite.value }])
   const overviewOptions = ref({
