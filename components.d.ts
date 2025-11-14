@@ -10,6 +10,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     ApexChartBase: typeof import('./src/components/graphs/ApexChartBase.vue')['default']
     LeafletMap: typeof import('./src/components/LeafletMap.vue')['default']
+    LoadingOverlay: typeof import('./src/components/LoadingOverlay.vue')['default']
     MonthlyTrendChart: typeof import('./src/components/graphs/MonthlyTrendChart.vue')['default']
     MPDonutChart: typeof import('./src/components/graphs/MPDonutChart.vue')['default']
     MPPracticeBar: typeof import('./src/components/graphs/MPPracticeBar.vue')['default']

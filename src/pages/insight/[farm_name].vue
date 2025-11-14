@@ -33,6 +33,8 @@ These findings suggest heightened risks of soil degradation, reduced microbial a
 It is recommended that farmers adopt more sustainable practices such as reducing reliance on single-use plastics, improving waste collection and disposal, and exploring biodegradable alternatives for mulching and seedling propagation. Regular monitoring of both soil and irrigation water quality is also advised to mitigate long-term risks.`
 
 import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
+import { useAppStore } from '@/stores/app'
+const app = useAppStore()
 const { displayLatestSampleDate } = useLatestSampleDate()
 
 const formattedDate = computed(() => displayLatestSampleDate.value)
@@ -441,12 +443,17 @@ watch(farmParam, async () => {
 
 watch(farm, async newFarm => {
   if (newFarm?.id) {
-    await fetchLatestSampleDateForFarm(newFarm.id)
-    await fetchColorComparisonForFarm(newFarm.id)
+    app.startLoading()
     try {
-      comparisonSites.value = await fetchSitesByPractice(newFarm.cultivation_practice)
-    } catch {
-      comparisonSites.value = null
+      await fetchLatestSampleDateForFarm(newFarm.id)
+      await fetchColorComparisonForFarm(newFarm.id)
+      try {
+        comparisonSites.value = await fetchSitesByPractice(newFarm.cultivation_practice)
+      } catch {
+        comparisonSites.value = null
+      }
+    } finally {
+      app.finishLoading()
     }
   } else {
     latestSampleDate.value = null

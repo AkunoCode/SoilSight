@@ -43,6 +43,7 @@
 import { readItems } from '@directus/sdk'
 import L from 'leaflet'
 import { computed, onMounted, ref, watch } from 'vue'
+import { useAppStore } from '@/stores/app'
 import PreviewCard from '@/components/PreviewCard.vue'
 import directus from '@/composables/useDirectus'
 import 'leaflet/dist/leaflet.css'
@@ -259,6 +260,8 @@ watch([searchText, selectedCategory], () => {
 onMounted(async () => {
   console.log('Initializing map...')
 
+  const app = useAppStore()
+
   // Wait a moment for DOM to be ready
   await new Promise(resolve => setTimeout(resolve, 100))
 
@@ -370,6 +373,7 @@ onMounted(async () => {
 
     // Load marker data from Directus only
     try {
+      app.startLoading()
       console.log('Loading marker data from Directus...')
       const items = await fetchDataFromDirectus()
 
@@ -399,6 +403,9 @@ onMounted(async () => {
     } catch (dataError) {
       console.error('Error loading marker data from Directus:', dataError)
       console.log('Continuing without markers')
+    } finally {
+      // ensure we stop the global loading flag even on errors
+      try { app.finishLoading() } catch { }
     }
 
     // Force map to refresh

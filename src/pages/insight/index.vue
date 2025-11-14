@@ -1,6 +1,7 @@
 <script setup>
 /* eslint-disable unicorn/no-array-callback-reference, unicorn/no-array-method-this-argument */
 import { computed, onMounted, ref, watch } from 'vue'
+import { useAppStore } from '@/stores/app'
 import directus from '@/composables/useDirectus.js'
 import { readItems } from '@directus/sdk'
 import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
@@ -696,27 +697,33 @@ function printReport() {
 }
 
 onMounted(async () => {
+  const app = useAppStore()
   // load data then initialize any map markers that depend on data
-  await loadSites()
-  // fetch latest soilsample date for the region
-  // use shared composable to populate latest sample date (best-effort)
   try {
-    await fetchLatestSampleDate()
-  } catch (err) {
-    // ignore composable fetch errors here
-  }
-  // fetch aggregated microplastics by color across all sites
-  try {
-    await fetchColorComparisonAllSites()
-  } catch (err) {
-    // ignore
-  }
+    app.startLoading()
+    await loadSites()
+    // fetch latest soilsample date for the region
+    // use shared composable to populate latest sample date (best-effort)
+    try {
+      await fetchLatestSampleDate()
+    } catch (err) {
+      // ignore composable fetch errors here
+    }
+    // fetch aggregated microplastics by color across all sites
+    try {
+      await fetchColorComparisonAllSites()
+    } catch (err) {
+      // ignore
+    }
 
-  // fetch aggregated microplastics by size across all sites (use selected field)
-  try {
-    await fetchSizeComparisonAllSites(selectedSizeField.value)
-  } catch (err) {
-    // ignore
+    // fetch aggregated microplastics by size across all sites (use selected field)
+    try {
+      await fetchSizeComparisonAllSites(selectedSizeField.value)
+    } catch (err) {
+      // ignore
+    }
+  } finally {
+    try { app.finishLoading() } catch { }
   }
 
   if (!mapRef.value || typeof window === 'undefined') return
