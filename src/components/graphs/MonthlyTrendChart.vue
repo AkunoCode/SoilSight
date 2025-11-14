@@ -69,12 +69,24 @@ watch([totals, soilsampleMonthly], _nv => {
   }
 })
 
-// fetch soilsamples for a site and aggregate counts by month
+// fetch soilsamples (optionally for a single site) and aggregate counts by month
 async function fetchSoilsamplesMonthly(siteId) {
   soilsampleMonthly.value = null
-  if (!siteId) return null
   try {
-    const resp = await directus.request(readItems('soilsamples', { filter: { site: { _eq: siteId } }, limit: -1 }))
+    // compute 12-month cutoff (start of month, 11 months back + current month = 12 months)
+    const now = new Date()
+    const cutoffMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    cutoffMonth.setMonth(cutoffMonth.getMonth() - 11)
+    const cutoffIso = cutoffMonth.toISOString()
+
+    // If siteId is provided, filter by site; otherwise fetch all soilsamples.
+    // Also add a server-side filter to reduce payload when possible (date_collected >= cutoff)
+    const baseFilter = { date_collected: { _gte: cutoffIso } }
+    const query = siteId
+      ? { filter: { _and: [{ site: { _eq: siteId } }, baseFilter] }, limit: -1 }
+      : { filter: baseFilter, limit: -1 }
+
+    const resp = await directus.request(readItems('soilsamples', query))
     const items = Array.isArray(resp) ? resp : (resp?.data || [])
     if (!items || items.length === 0) return null
 
@@ -94,6 +106,8 @@ async function fetchSoilsamplesMonthly(siteId) {
         d = null
       }
       if (!d || Number.isNaN(d.getTime())) continue
+      // skip samples older than cutoff (defensive JS filter in case Directus filter didn't match field)
+      if (d < cutoffMonth) continue
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       if (!monthMap.has(key)) monthMap.set(key, { fragments: 0, fibers: 0, foams: 0, films: 0, sheets: 0, pellets: 0 })
       const agg = monthMap.get(key)
@@ -131,9 +145,9 @@ async function fetchSoilsamplesMonthly(siteId) {
   }
 }
 
-// watch siteId and re-fetch soilsamples
+// watch siteId and re-fetch soilsamples (if siteId is falsy, fetch all soilsamples)
 watch(() => props.siteId, _nv => {
-  if (_nv) fetchSoilsamplesMonthly(_nv)
+  void fetchSoilsamplesMonthly(_nv)
 }, { immediate: true })
 </script>
 
