@@ -321,7 +321,7 @@ const allVals = computed(() => contaminationByPracticeSeries.value.flatMap(s => 
 const maxVal = computed(() => (allVals.value.length > 0 ? Math.max(...allVals.value) : 700))
 
 const contaminationByPracticeOptions = computed(() => getDefaultBarOptions(categoriesForPracticeChart, {
-  chart: { type: 'bar', height: 20 },
+  chart: { type: 'bar' },
   plotOptions: { bar: { horizontal: false } },
   legend: { position: 'bottom' },
   yaxis: { title: { text: 'Number of MP found (in Thousands)' }, min: 0, max: Math.ceil(maxVal.value * 1.15) },
@@ -902,7 +902,7 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
 
       <VCol cols="6">
         <div class="card list-card map-card">
-          <h3>Sampled Farms</h3>
+          <h3 class="mb-2">Sampled Farms</h3>
           <!-- list moved to SampledFarms component to make it reusable -->
           <!-- pass full `sites` (contains latitude/longitude) so the map can render markers -->
           <SampledFarms :sampled-sites="sites" />
@@ -1110,8 +1110,7 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
     width: 100%
   }
 
-  .main-col {
-    grid-template-columns: 1fr
+  .main-col {  grid-template-columns: 1fr
   }
 }
 </style>
@@ -1144,7 +1143,7 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
 .summary-box {
   background-color: #f9f9f9;
   border-left: 4px solid #1976d2;
-  padding: 12px 16px;
+  padding: 12px16px;
   margin-top: 8px;
 }
 </style>
