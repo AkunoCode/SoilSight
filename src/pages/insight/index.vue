@@ -743,19 +743,35 @@ onMounted(async () => {
 })
 
 // Most common crops
+// Accept both arrays and comma/semicolon/pipe-separated strings. Normalize to lowercase+trim and
+// count each crop at most once per site so that a crop listed multiple times for the same site
+// only contributes a single count for that site.
 const cropCounts = computed(() => {
-  const m = {}
+  const counts = {}
   for (const s of sites.value) {
-    for (const c of (s.crops || [])) {
-      const key = (c || '').trim()
+    let raw = s.crops
+    if (!raw) continue
+
+    // Normalize to array
+    if (typeof raw === 'string') raw = raw.split(/[;,|\n]/).map(x => x.trim())
+    if (!Array.isArray(raw)) continue
+
+    const seen = new Set()
+    for (const item of raw) {
+      if (item === null || item === undefined) continue
+      const key = String(item).toLowerCase().trim()
       if (!key) continue
-      m[key] = (m[key] || 0) + 1
+      seen.add(key)
     }
+
+    for (const k of seen) counts[k] = (counts[k] || 0) + 1
   }
-  return m
+  return counts
 })
+
 const sortedCrops = computed(() => Object.entries(cropCounts.value).toSorted((a, b) => b[1] - a[1]))
-const topCrops = computed(() => sortedCrops.value.slice(0, 10).map(([crop, count]) => ({ crop, count })))
+const titleCase = (s) => String(s || '').split(/\s+/).map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : '').join(' ')
+const topCrops = computed(() => sortedCrops.value.slice(0, 10).map(([crop, count]) => ({ crop: titleCase(crop), count })))
 
 // Farm size distribution: small <1ha, medium 1-3ha, large >3ha
 const farmSizeCounts = computed(() => ({
@@ -1110,7 +1126,8 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
     width: 100%
   }
 
-  .main-col {  grid-template-columns: 1fr
+  .main-col {
+    grid-template-columns: 1fr
   }
 }
 </style>
