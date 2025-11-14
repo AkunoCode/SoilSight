@@ -27,8 +27,6 @@ const mapRef = ref(null)
 const markersMap = {}
 let markersLayer = null
 let polygonLayer = null
-const lastClickedSiteId = ref(null)
-let lastClickTimer = null
 const router = useRouter()
 
 function contaminationLevel(site) {
@@ -110,6 +108,8 @@ function initMap() {
         fillOpacity: 0.95,
       }).bindPopup(`<strong>${site.site_name}</strong><br/>${site.address}<br/>Level: ${lvl}<br/>Practice: ${practice || 'Unknown'}`)
       marker.addTo(markersLayer)
+      // navigate to farm on double-click of marker
+      try { marker.on && marker.on('dblclick', () => navigateToSite(site)) } catch {}
       markersMap[site.id] = marker
       bounds.push([site.latitude, site.longitude])
     }
@@ -176,6 +176,7 @@ watch(() => props.sampledSites, nv => {
       fillOpacity: 0.95,
     }).bindPopup(`<strong>${site.site_name}</strong><br/>${site.address}<br/>Level: ${lvl}<br/>Practice: ${practice || 'Unknown'}`)
     marker.addTo(markersLayer)
+    try { marker.on && marker.on('dblclick', () => navigateToSite(site)) } catch {}
     markersMap[site.id] = marker
     bounds.push([site.latitude, site.longitude])
   }
@@ -196,31 +197,14 @@ function focusSite(site) {
   }
 }
 
-function onSiteClick(site) {
-  // first, focus the site on the map
-  focusSite(site)
-  // if the same site was clicked previously within the timeout, navigate to the farm insight page
-  if (lastClickedSiteId.value === site.id) {
-    // navigate to farm insight
-    const farmName = encodeURIComponent(site.site_name || '')
-    try {
-      router.push(`/insight/${farmName}`)
-    } catch {
-      // ignore navigation errors
-    }
-    // reset state
-    lastClickedSiteId.value = null
-    if (lastClickTimer) { clearTimeout(lastClickTimer); lastClickTimer = null }
-    return
+function navigateToSite(site) {
+  if (!site) return
+  const farmName = encodeURIComponent(site.site_name || '')
+  try {
+    router.push(`/insight/${farmName}`)
+  } catch {
+    // ignore navigation errors
   }
-
-  // otherwise set last clicked and start/reset timer (800ms window)
-  lastClickedSiteId.value = site.id
-  if (lastClickTimer) { clearTimeout(lastClickTimer); lastClickTimer = null }
-  lastClickTimer = setTimeout(() => {
-    lastClickedSiteId.value = null
-    lastClickTimer = null
-  }, 800)
 }
 
 function toggleSort() {
@@ -266,7 +250,7 @@ const filteredSites = computed(() => {
     </div>
 
     <ul :class="['sampled-farms', { 'no-max-height': !props.showMap }]">
-      <li v-for="s in filteredSites" :key="s.id" class="farm-row" @click="onSiteClick(s)">
+      <li v-for="s in filteredSites" :key="s.id" class="farm-row" @click="focusSite(s)" @dblclick.prevent="navigateToSite(s)">
         <div class="farm-left">
           <div class="farm-name">{{ s.site_name }}</div>
           <div class="farm-addr">{{ s.address }}</div>
