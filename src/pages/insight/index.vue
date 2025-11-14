@@ -812,7 +812,7 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
         </div>
         <div class="card" style="height: 58%;">
           <h3>Size Distribution of Sampled Farms</h3>
-          <ApexChartBase :height="150" :options="farmSizeOptions" :series="farmSizeSeries" type="bar" />
+          <ApexChartBase :height="230" :options="farmSizeOptions" :series="farmSizeSeries" type="bar" />
         </div>
       </VCol>
 
@@ -827,7 +827,7 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
         <div class="card">
           <SiteDrilldownChart :categories="siteCategories"
             :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
-            :drilldown="siteDrilldown" :height="330" title="Microplastic Count by Farm Site" :totals="siteTotals" />
+            :drilldown="siteDrilldown" :height="425" title="Microplastic Count by Farm Site" :totals="siteTotals" />
         </div>
       </VCol>
     </VRow>
@@ -877,7 +877,7 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
         </div>
 
         <div class="card bottom-card">
-          <MPSizeRangeAll :height="250" title="Microplastic Count by Size Range" />
+          <MPSizeRangeAll :height="220" title="Microplastic Count by Size Range" />
         </div>
 
         <div class="card bottom-card">
