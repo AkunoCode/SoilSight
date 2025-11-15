@@ -60,9 +60,9 @@ const plasticActivityList = [
 ]
 
 const cultivationDefinitions = {
-  'Fully Organic': 'An agricultural practice that avoids the use of synthetic chemicals and fertilizers, relying instead on natural processes and materials to maintain soil fertility and control pests.',
-  'Integrated': 'A sustainable approach to managing pests that combines biological, cultural, mechanical, and chemical methods to minimize environmental impact while effectively controlling pest populations.',
-  'Conventional': 'A traditional farming method that typically involves the use of synthetic chemicals, fertilizers, and pesticides to maximize crop yields.',
+  'Fully Organic': 'An agricultural practice that avoids synthetic chemicals and fertilizers, relying on natural processes and materials to maintain soil fertility, manage pests, and promote ecosystem health.',
+  'Integrated': 'A sustainable farming approach that combines biological, cultural, mechanical, and chemical methods in a balanced way to optimize crop production while minimizing environmental impact.',
+  'Conventional': 'A traditional farming method that typically relies on synthetic fertilizers, pesticides, and other chemicals to maximize crop yields, often with less emphasis on ecological sustainability.',
 }
 
 function getCultivationDefinition(practice) {
@@ -527,6 +527,13 @@ async function fetchLatestSampleDateForFarm(farmId) {
               <h3 class="text-h5 font-weight-bold mb-4">{{ titleCase(farm?.cultivation_practice) }}
                 Farming</h3>
               <p>{{ getCultivationDefinition(farm?.cultivation_practice) }}</p>
+              <div class="card-footer">
+                <a :href="`https://www.google.com/search?q=${encodeURIComponent((farm?.cultivation_practice) ? farm.cultivation_practice + ' cultivation practice' : 'cultivation practice')}`"
+                  target="_blank" rel="noopener noreferrer" class="learn-more">
+                  <VIcon size="small" class="mr-2">mdi-open-in-new</VIcon>
+                  Learn more
+                </a>
+              </div>
             </div>
           </VCol>
           <VCol cols="4">
@@ -696,5 +703,25 @@ async function fetchLatestSampleDateForFarm(farmId) {
 
 .subtitle {
   color: rgb(155, 155, 155);
+}
+
+.card-footer {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.learn-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #1976d2;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.learn-more:hover {
+  text-decoration: underline;
 }
 </style>
