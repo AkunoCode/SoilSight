@@ -9,12 +9,16 @@ import VueRouter from 'unplugin-vue-router/vite'
 // Utilities
 import { defineConfig } from 'vite'
 
+// Allow overriding the base path at build time using VITE_BASE_PATH
+// Example: set VITE_BASE_PATH=/SoilSight/ for GitHub Pages, otherwise default to '/'
+const basePath = process.env.VITE_BASE_PATH || '/'
+
 import Layouts from 'vite-plugin-vue-layouts-next'
 import Vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/SoilSight/',
+  base: basePath,
   plugins: [
     VueRouter(),
     Layouts(),
