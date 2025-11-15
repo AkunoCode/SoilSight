@@ -26,10 +26,24 @@ if (configuredUrl) {
       apiUrl = '/api/directus'
       useProxy = true
     }
-  } catch (err) {
+    } catch (err) {
     // If parsing fails, default to proxy
     apiUrl = '/api/directus'
     useProxy = true
+  }
+}
+
+// If we're using the proxy in a browser context, ensure the URL is absolute
+// because the Directus SDK constructs URLs with the base and requires a
+// valid absolute origin for URL construction.
+if (useProxy && typeof window !== 'undefined') {
+  try {
+    apiUrl = new URL(apiUrl, window.location.origin).toString()
+  } catch (e) {
+    // fallback to the relative path if constructing absolute URL fails
+    // (Directus SDK may still error; prefer to surface that error)
+    // eslint-disable-next-line no-console
+    console.warn('Could not build absolute proxy URL, using relative path:', e)
   }
 }
 
