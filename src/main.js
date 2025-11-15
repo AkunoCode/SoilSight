@@ -8,6 +8,7 @@
 import { createApp } from 'vue'
 
 import VueApexCharts from 'vue3-apexcharts'
+import { SpeedInsights } from '@vercel/speed-insights/vue'
 
 // Plugins
 import { registerPlugins } from '@/plugins'
@@ -20,6 +21,8 @@ import 'unfonts.css'
 const app = createApp(App)
 // vue3-apexcharts registers itself when used as a plugin. Only call use here to install it.
 app.use(VueApexCharts)
+// Register Vercel Speed Insights plugin
+app.use(SpeedInsights)
 
 registerPlugins(app)
 
