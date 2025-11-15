@@ -8,5 +8,5 @@
 </template>
 
 <script setup>
-  // SpeedInsights is registered globally via the plugin in `src/main.js`.
+// SpeedInsights is registered globally via the plugin in `src/main.js`.
 </script>
