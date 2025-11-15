@@ -741,9 +741,11 @@ async function fetchLatestSampleDateForFarm(farmId) {
 /* Ensure the leaflet/map component fills the wrapper
    (Leaflet's container usually uses .leaflet-container but the component
    may render a root element; this covers both cases) */
-.map-wrapper, .map-wrapper > * {
+.map-wrapper,
+.map-wrapper>* {
   height: 100%;
 }
+
 .map-wrapper .leaflet-container {
   height: 100% !important;
 }
