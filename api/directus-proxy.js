@@ -11,6 +11,7 @@
 
 export default async function handler(req, res) {
     try {
+        console.log(`Proxying request to Directus: ${req.method} ${req.url}`)
         const directusBase = process.env.DIRECTUS_INTERNAL_URL || process.env.VITE_DIRECTUS_API_URL
         if (!directusBase) {
             res.statusCode = 500
