@@ -511,7 +511,7 @@ async function fetchLatestSampleDateForFarm(farmId) {
         <div class="card">
           <h3 class="text-h5 font-weight-bold">Geographic Location</h3>
           <p class="mb-2">{{ farm?.latitude }}, {{ farm?.longitude }}</p>
-          <div v-if="farm?.latitude != null && farm?.longitude != null">
+          <div v-if="farm?.latitude != null && farm?.longitude != null" class="map-wrapper">
             <LeafletMap :lat="farm?.latitude != null ? Number(farm.latitude) : null"
               :lng="farm?.longitude != null ? Number(farm.longitude) : null" :zoom="13" />
           </div>
@@ -666,6 +666,12 @@ async function fetchLatestSampleDateForFarm(farmId) {
   height: 100%;
 }
 
+/* Make cards stack vertically and allow a map area to grow */
+.card {
+  display: flex;
+  flex-direction: column;
+}
+
 .horizontal-bar {
   height: 1px;
   background-color: #e0e0e0;
@@ -723,5 +729,22 @@ async function fetchLatestSampleDateForFarm(farmId) {
 
 .learn-more:hover {
   text-decoration: underline;
+}
+
+/* Map wrapper stretches to fill remaining card space */
+.map-wrapper {
+  flex: 1 1 auto;
+  min-height: 140px;
+  margin-top: 8px;
+}
+
+/* Ensure the leaflet/map component fills the wrapper
+   (Leaflet's container usually uses .leaflet-container but the component
+   may render a root element; this covers both cases) */
+.map-wrapper, .map-wrapper > * {
+  height: 100%;
+}
+.map-wrapper .leaflet-container {
+  height: 100% !important;
 }
 </style>
