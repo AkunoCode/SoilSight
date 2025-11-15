@@ -81,5 +81,17 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    proxy: {
+      '/api/directus': {
+        target: 'http://ec2-13-239-184-136.ap-southeast-2.compute.amazonaws.com',
+        changeOrigin: true,
+        secure: false,
+        // Add Authorization header for dev proxy so protected Directus endpoints work locally.
+        headers: {
+          authorization: `Bearer ${process.env.DIRECTUS_INTERNAL_TOKEN || process.env.VITE_DIRECTUS_BEARER_TOKEN || ''}`,
+        },
+        rewrite: (path) => path.replace(/^\/api\/directus/, ''),
+      },
+    },
   },
 })
