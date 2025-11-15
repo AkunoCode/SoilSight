@@ -14,19 +14,21 @@ let useProxy = true
 if (configuredUrl) {
   try {
     const lowered = configuredUrl.toLowerCase()
-    if (lowered.startsWith('https://')) {
+    // Prefer direct host when it's HTTPS.
+    // For development mode, allow HTTP direct hosts to avoid using the proxy locally.
+    const isDev = import.meta.env.MODE === 'development'
+    if (lowered.startsWith('https://') || (isDev && (lowered.startsWith('http://') || lowered.startsWith('https://')))) {
       apiUrl = configuredUrl
       useProxy = false
     } else {
-      // Insecure or non-https URL — warn and keep proxy fallback
+      // Insecure or non-https URL in production — warn and keep proxy fallback
       // This prevents mixed-content errors when the site is served over HTTPS.
-      // The proxy should be configured server-side to forward to the insecure backend.
       // eslint-disable-next-line no-console
       console.warn('VITE_DIRECTUS_API_URL is not HTTPS; using /api/directus proxy to avoid mixed-content.')
       apiUrl = '/api/directus'
       useProxy = true
     }
-    } catch (err) {
+  } catch (err) {
     // If parsing fails, default to proxy
     apiUrl = '/api/directus'
     useProxy = true
