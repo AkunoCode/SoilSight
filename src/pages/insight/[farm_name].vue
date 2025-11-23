@@ -25,12 +25,32 @@ const latestSampleDate = ref(null)
 const colorComparisonFetched = ref(null)
 const colorComparisonLoading = ref(false)
 
-// UI / static content
-const aiSummaryText = `Soil analysis from Green Valley’s high-value crop farms indicates that fragments are the dominant form of microplastics, followed by films. This pattern is likely linked to the widespread use of plastic mulching, as the color and texture of the detected films correspond to mulching sheets and seedling trays commonly used in the area. The farms’ clay loam soil structure may also contribute to microplastic retention, while irrigation water is a possible additional source of contamination.
+// --- AI SUMMARY LOGIC START ---
+const showDiagnosisDialog = ref(false) // State for the overlay
 
-These findings suggest heightened risks of soil degradation, reduced microbial activity, and potential transfer of microplastics into the food chain through crop uptake. Over time, this could undermine both soil health and agricultural productivity.
+// Parse the AI Markdown (convert **bold** to <strong>bold</strong>)
+const parsedAiSummary = computed(() => {
+  const raw = farm.value?.ai_summary
+  if (!raw) return 'No AI analysis available for this site yet.'
 
-It is recommended that farmers adopt more sustainable practices such as reducing reliance on single-use plastics, improving waste collection and disposal, and exploring biodegradable alternatives for mulching and seedling propagation. Regular monitoring of both soil and irrigation water quality is also advised to mitigate long-term risks.`
+  // 1. Basic escape to prevent breaking HTML
+  let text = raw
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+
+  // 2. Convert Markdown bold (**text**) to HTML strong
+  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+
+  return text
+})
+
+// Only show the expand button if text is long (> 200 chars for preview)
+const showReadMoreButton = computed(() => {
+  const len = farm.value?.ai_summary?.length || 0
+  return len > 200
+})
+// --- AI SUMMARY LOGIC END ---
 
 import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
 import { useAppStore } from '@/stores/app'
@@ -126,18 +146,6 @@ function titleCase(val) {
   return Array.isArray(val) ? val.map(v => titleCaseString(v)).join(', ') : titleCaseString(val)
 }
 
-function _findFarmByParam(param) {
-  if (!param) return null
-  const decoded = decodeURIComponent(String(param))
-  const key = slugify(decoded)
-  let found = sites.find(s => slugify(s.site_name) === key)
-  if (found) return found
-  found = sites.find(s => (s.site_name || '').toLowerCase() === decoded.toLowerCase())
-  if (found) return found
-  found = sites.find(s => (s.site_name || '').toLowerCase().includes(decoded.toLowerCase()))
-  return found || null
-}
-
 async function fetchSitesByPractice(practice) {
   if (!practice) return null
   try {
@@ -164,6 +172,7 @@ async function fetchFarmFromDirectus(param) {
     const allItems = Array.isArray(allResp) ? allResp : (allResp?.data || [])
     if (Array.isArray(allItems) && allItems.length > 0) {
       sites.splice(0, sites.length, ...allItems)
+      const key = slugify(decoded)
       let found = allItems.find(s => slugify(s.site_name) === key)
       if (found) return found
       found = allItems.find(s => (s.site_name || '').toLowerCase() === decoded.toLowerCase())
@@ -204,8 +213,6 @@ const mpColors = {
 }
 
 // Prefer comparing the current site to other sites with the same cultivation practice.
-// If the current farm has no recorded practice or no matches are found, fall back to
-// using all sites so the comparison still renders.
 const sitesOfSamePractice = computed(() => {
   if (comparisonSites.value && Array.isArray(comparisonSites.value) && comparisonSites.value.length > 0) {
     const arr = comparisonSites.value.slice()
@@ -291,7 +298,7 @@ async function fetchColorComparisonForFarm(farmId) {
       const norm = normKey(rawColor)
       if (!counts.has(norm)) counts.set(norm, { count: 0, raws: new Map(), drilldown: [0, 0, 0, 0, 0, 0] })
       const obj = counts.get(norm)
-      // support per-record numeric counts if present (e.g. particle_count, count, quantity)
+      // support per-record numeric counts
       const sampleCount = Number(it.count || it.particle_count || it.quantity || it.number || it.num_particles || it.particle_count_per_sample || 1)
       obj.count += sampleCount
       obj.raws.set(normalizeRaw(rawColor), (obj.raws.get(normalizeRaw(rawColor)) || 0) + sampleCount)
@@ -301,23 +308,14 @@ async function fetchColorComparisonForFarm(farmId) {
       if (idx >= 0) {
         obj.drilldown[idx] = (obj.drilldown[idx] || 0) + sampleCount
       } else {
-        // track unknown morphology cases for debugging
         obj.unknown = (obj.unknown || 0) + 1
-        obj.unknownSamples = obj.unknownSamples || []
-        try {
-          obj.unknownSamples.push({ id: it.id, shape: it.shape, morphology: morph, mp_category: it.mp_category, type: it.type, sampleCount })
-        } catch {
-          // ignore push errors
-        }
       }
     }
-
-    // (removed debug logging)
 
     const arr = Array.from(counts.entries()).map(([norm, v]) => {
       const topRaw = Array.from(v.raws.entries()).toSorted((a, b) => b[1] - a[1])[0]?.[0] || norm
       const display = String(topRaw).trim().startsWith('#') ? topRaw.trim() : topRaw.split(/\s+/).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')
-      return { norm, display, count: v.count, drilldown: v.drilldown, unknown: v.unknown || 0, unknownSamples: v.unknownSamples || [] }
+      return { norm, display, count: v.count, drilldown: v.drilldown, unknown: v.unknown || 0 }
     }).toSorted((a, b) => b.count - a.count)
 
     const topN = 6
@@ -346,10 +344,7 @@ async function fetchColorComparisonForFarm(farmId) {
       return `hsl(${h},60%,45%)`
     })
 
-    // Fallback: some color groups may have samples with missing/undefined morphology
-    // In that case, the drilldown array will sum to less than the color total. To avoid
-    // showing zeros for the drilldown, distribute the missing samples proportionally
-    // according to the farm's overall morphology distribution (microplasticData).
+    // Fallback: fill missing drilldown data proportionally
     try {
       const mp = microplasticData.value || { fragments: 0, fibers: 0, foams: 0, films: 0, sheets: 0, pellets: 0 }
       const mpVals = [mp.fragments || 0, mp.fibers || 0, mp.foams || 0, mp.films || 0, mp.sheets || 0, mp.pellets || 0]
@@ -360,7 +355,6 @@ async function fetchColorComparisonForFarm(farmId) {
           const sumDd = dd.reduce((a, b) => a + (Number(b) || 0), 0)
           if ((e.count || 0) > 0 && sumDd < e.count) {
             let missing = (e.count || 0) - sumDd
-            // distribute floor(missing * fraction) to each bucket, keep remainder
             for (let j = 0; j < 6 && missing > 0; j++) {
               const share = Math.floor(missing * ((mpVals[j] || 0) / mpTotal))
               if (share > 0) {
@@ -368,7 +362,6 @@ async function fetchColorComparisonForFarm(farmId) {
                 missing -= share
               }
             }
-            // if any remainder left, assign to the largest farm morphology bucket
             if (missing > 0) {
               let maxIdx = 0
               for (let k = 1; k < 6; k++) if ((mpVals[k] || 0) > (mpVals[maxIdx] || 0)) maxIdx = k
@@ -380,11 +373,8 @@ async function fetchColorComparisonForFarm(farmId) {
         }
       }
     } catch (error) {
-      // don't break on fallback failures
       console.warn('[fetchColorComparisonForFarm] morphology fallback failed', error)
     }
-
-    // (removed debug reporting)
 
     colorComparisonFetched.value = { categories, totals, drilldown, overviewColors: colorsArr }
     return colorComparisonFetched.value
@@ -423,25 +413,6 @@ const colorComparison = computed(() => {
   return { categories: colorBuckets, totals, drilldown, overviewColors }
 })
 
-const sizeRanges = ['1-20 µm', '20-100 µm', '100-500 µm', '500 µm-1 mm', '1-5 mm']
-const sizeRatios = [0.12, 0.28, 0.35, 0.15, 0.1]
-const _sizeComparison = computed(() => {
-  const totals = sizeRatios.map(r => Math.round((farmTotalMP.value || 0) * r))
-  const mp = microplasticData.value
-  const mpTotal = farmTotalMP.value || 0
-  const drilldown = totals.map(t => {
-    if (mpTotal === 0 || t === 0) return [0, 0, 0, 0, 0, 0]
-    const fragments = Math.round(t * ((mp.fragments || 0) / mpTotal))
-    const fibers = Math.round(t * ((mp.fibers || 0) / mpTotal))
-    const foams = Math.round(t * ((mp.foams || 0) / mpTotal))
-    const films = Math.round(t * ((mp.films || 0) / mpTotal))
-    const sheets = Math.round(t * ((mp.sheets || 0) / mpTotal))
-    const pellets = Math.max(0, t - (fragments + fibers + foams + films + sheets))
-    return [fragments, fibers, foams, films, sheets, pellets]
-  })
-  return { categories: sizeRanges, totals, drilldown }
-})
-
 watch(farmParam, async () => {
   farm.value = await fetchFarmFromDirectus(farmParam.value)
 }, { immediate: true })
@@ -466,8 +437,6 @@ watch(farm, async newFarm => {
     comparisonSites.value = null
   }
 }, { immediate: true })
-
-onMounted(() => { })
 
 function printReport() {
   window.print()
@@ -579,7 +548,6 @@ async function fetchLatestSampleDateForFarm(farmId) {
       <VCol cols="3">
         <div class="card">
           <h3 class="text-h5 font-weight-bold mb-4">Plastic-Related Activities</h3>
-          <!-- Template for each item in Plastic Activity List check if the farm does it -->
           <template v-for="activity in plasticActivityList" :key="activity">
             <div class="d-flex align-center justify-space-between mb-2">
               <p>{{ activity }}</p>
@@ -607,19 +575,29 @@ async function fetchLatestSampleDateForFarm(farmId) {
               :title="farm?.cultivation_practice ? `Contamination Comparison to Other ${titleCase(farm?.cultivation_practice)} Farms` : 'Contamination Comparison to Other Farms'"
               :totals="anonymizedComparison.totals" :filter-key="app.selectedMorphology" />
           </div>
+
           <div class="card">
             <div class="d-flex align-center mb-1"
               style="display:flex; justify-content:space-between; align-items:center;">
               <div style="display:flex; align-items:center;">
                 <h4 class="text-h6 font-weight-bold" style="line-height: 1.2em;">
-                  AI Summary
+                  AI Diagnosis
                 </h4>
-                <VIcon class="ml-2" color="primary" size="small">mdi-creation</VIcon>
+                <VIcon class="ml-2" color="primary" size="small">mdi-robot-outline</VIcon>
               </div>
-              <p class="subtitle mb-0">{{ displaySampleDate }}</p>
+              <p class="subtitle mb-0" style="font-size: 0.85rem">{{ displaySampleDate }}</p>
             </div>
-            <div class="summary-box">
-              <p class="preserve-newlines">{{ aiSummaryText }}</p>
+
+            <div class="summary-container">
+              <div class="summary-content collapsed preserve-newlines" v-html="parsedAiSummary"></div>
+
+              <div v-if="showReadMoreButton" class="expand-actions text-center mt-2">
+                <VBtn variant="text" density="compact" color="primary" class="text-none font-weight-bold"
+                  @click="showDiagnosisDialog = true">
+                  Read Full Diagnosis
+                  <VIcon end>mdi-open-in-new</VIcon>
+                </VBtn>
+              </div>
             </div>
           </div>
         </div>
@@ -649,6 +627,24 @@ async function fetchLatestSampleDateForFarm(farmId) {
         </div>
       </VCol>
     </VRow>
+
+    <VDialog v-model="showDiagnosisDialog" max-width="800" scrollable>
+      <VCard>
+        <VCardTitle class="d-flex justify-space-between align-center pa-4">
+          <span class="text-h5 font-weight-bold">Full AI Diagnosis</span>
+          <VBtn icon="mdi-close" variant="text" @click="showDiagnosisDialog = false"></VBtn>
+        </VCardTitle>
+        <VDivider></VDivider>
+        <VCardText class="pa-6" style="max-height: 70vh;">
+          <div class="preserve-newlines text-body-1" v-html="parsedAiSummary"></div>
+        </VCardText>
+        <VDivider></VDivider>
+        <VCardActions class="pa-4">
+          <VSpacer></VSpacer>
+          <VBtn color="primary" variant="elevated" @click="showDiagnosisDialog = false">Close</VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
   </div>
 </template>
 
@@ -664,10 +660,6 @@ async function fetchLatestSampleDateForFarm(farmId) {
   border-radius: 8px;
   box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
   height: 100%;
-}
-
-/* Make cards stack vertically and allow a map area to grow */
-.card {
   display: flex;
   flex-direction: column;
 }
@@ -694,14 +686,39 @@ async function fetchLatestSampleDateForFarm(farmId) {
   margin: 0 auto 0px auto;
 }
 
-.summary-box {
+/* Updated Summary Styles */
+.summary-container {
   background-color: #f9f9f9;
   padding: 15px;
   border-radius: 6px;
   margin-top: 10px;
-  max-height: 180px;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
+
+.summary-content {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #333;
+}
+
+/* Always collapsed on the card view */
+.summary-content.collapsed {
+  max-height: 120px;
+  /* Preview height */
+  overflow: hidden;
+  position: relative;
+  mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+}
+
+.expand-actions {
+  border-top: 1px solid #eee;
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+/* End Updated Summary Styles */
 
 .preserve-newlines {
   white-space: pre-wrap;
@@ -731,16 +748,12 @@ async function fetchLatestSampleDateForFarm(farmId) {
   text-decoration: underline;
 }
 
-/* Map wrapper stretches to fill remaining card space */
 .map-wrapper {
   flex: 1 1 auto;
   min-height: 140px;
   margin-top: 8px;
 }
 
-/* Ensure the leaflet/map component fills the wrapper
-   (Leaflet's container usually uses .leaflet-container but the component
-   may render a root element; this covers both cases) */
 .map-wrapper,
 .map-wrapper>* {
   height: 100%;
