@@ -140,7 +140,13 @@ function handleLegendClick(key) {
 }
 
 // --- CHARTS (Drilldowns) ---
-const inputTypes = ['Plastic mulching', 'Fertilizer sacks', 'Greenhouse plastic sheets/tunnels', 'Seedling trays (plastic)', 'Compost with visible plastics']
+const inputTypes = [
+  'Fertilizer Sacks',
+  'Plastic Mulching',
+  'Seedling Trays',
+  'Compost with Plastic',
+  'Greenhouse Plastic Sheet',
+]
 function siteHasActivity(site, expected) {
   if (!site || !site.plastic_activity) return false
   const raw = site.plastic_activity

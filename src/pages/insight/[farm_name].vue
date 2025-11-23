@@ -72,11 +72,11 @@ const displaySampleDate = computed(() => {
 })
 
 const plasticActivityList = [
-  'Plastic Fertilizer Sacks',
+  'Fertilizer Sacks',
   'Plastic Mulching',
-  'Seedling Trays (plastic)',
-  'Compost with visible plastics',
-  'Greenhouse plastic sheets/tunnels',
+  'Seedling Trays',
+  'Compost with Plastic',
+  'Greenhouse Plastic Sheet',
 ]
 
 const cultivationDefinitions = {
