@@ -44,9 +44,9 @@ const parsedRegionalReport = computed(() => {
 // 2. Create a Text Preview for the Card (Strip markdown)
 const reportPreview = computed(() => {
   if (!regionalReport.value?.ai_report) return ''
-  // Remove bold markers and newlines for a clean text snippet
   let raw = regionalReport.value.ai_report.replace(/\*\*/g, '').replace(/[#*-]/g, '')
-  return raw.length > 2800 ? raw.substring(0, 2800) + '...' : raw
+  // Increased length to show more context as requested
+  return raw.length > 1000 ? raw.substring(0, 1000) + '...' : raw
 })
 
 const reportDateLabel = computed(() => {
@@ -59,13 +59,12 @@ const reportDateLabel = computed(() => {
 async function fetchRegionalReport() {
   try {
     const res = await directus.request(readItems('general_summary', {
-      sort: ['-report_date'], // Get the newest one based on logic date
+      sort: ['-report_date'],
       limit: 1
     }))
     const items = Array.isArray(res) ? res : (res?.data || [])
     if (items.length > 0) {
       regionalReport.value = items[0]
-      // Stop polling if content is ready (AI has finished writing)
       if (isGeneratingReport.value && items[0].ai_report && items[0].ai_report.length > 10) {
         isGeneratingReport.value = false
         stopPolling()
@@ -79,7 +78,6 @@ async function fetchRegionalReport() {
 async function triggerReportGeneration() {
   isGeneratingReport.value = true
   try {
-    // Create placeholder to trigger the Directus Flow
     await directus.request(createItem('general_summary', { ai_report: '' }))
     startPolling()
   } catch (e) {
@@ -116,7 +114,7 @@ async function loadSites() {
   }
 }
 
-// --- COMPUTED METRICS ---
+// --- METRICS ---
 const totalFragments = computed(() => sites.value.reduce((s, r) => s + (Number(r.fragment_count) || 0), 0))
 const totalFibers = computed(() => sites.value.reduce((s, r) => s + (Number(r.fiber_count) || 0), 0))
 const totalFoams = computed(() => sites.value.reduce((s, r) => s + (Number(r.foam_count) || 0), 0))
@@ -133,7 +131,6 @@ const microplasticData = computed(() => ({
   pellets: totalPellets.value,
 }))
 
-// --- CHART CONFIGS ---
 const mpColors = { fragments: '#0B2E4E', fibers: '#19568E', films: '#63B3FF', foams: '#4688C7', sheets: '#8AB4FF', pellets: '#B9DDFF' }
 const donutColors = { ...mpColors }
 const donutLabelsMap = { fragments: 'Fragments', fibers: 'Fibers', foams: 'Foam', films: 'Films', sheets: 'Sheets', pellets: 'Pellets' }
@@ -142,8 +139,7 @@ function handleLegendClick(key) {
   app.toggleSelectedMorphology(key)
 }
 
-// --- DRILLDOWN CHARTS ---
-// 1. By Input Type
+// --- CHARTS (Drilldowns) ---
 const inputTypes = ['Plastic mulching', 'Fertilizer sacks', 'Greenhouse plastic sheets/tunnels', 'Seedling trays (plastic)', 'Compost with visible plastics']
 function siteHasActivity(site, expected) {
   if (!site || !site.plastic_activity) return false
@@ -169,7 +165,6 @@ const inputDrilldown = computed(() => inputTypes.map(type => {
   }, [0, 0, 0, 0, 0, 0])
 }))
 
-// 2. By Site Name
 function sanitizeSiteName(name) {
   return String(name || '').replace(/\b[Ff]arm\b/g, '').replace(/[\-–—_/]+/g, ' ').trim().replace(/^[,\s]+|[,\s]+$/g, '')
 }
@@ -177,7 +172,6 @@ const siteCategories = computed(() => sites.value.map(s => sanitizeSiteName(s.si
 const siteTotals = computed(() => sites.value.map(s => (Number(s.fragment_count) || 0) + (Number(s.fiber_count) || 0) + (Number(s.film_count) || 0) + (Number(s.foam_count) || 0) + (Number(s.sheets_count) || 0) + (Number(s.beads_count) || 0)))
 const siteDrilldown = computed(() => sites.value.map(s => [(Number(s.fragment_count) || 0), (Number(s.fiber_count) || 0), (Number(s.foam_count) || 0), (Number(s.film_count) || 0), (Number(s.sheets_count) || 0), (Number(s.beads_count) || 0)]))
 
-// 3. By Practice
 const numOrganic = computed(() => sites.value.filter(s => (s.cultivation_practice || '').toLowerCase().includes('organic')).length)
 const numConventional = computed(() => sites.value.filter(s => (s.cultivation_practice || '').toLowerCase().includes('conventional')).length)
 const numIntegrated = computed(() => sites.value.filter(s => (s.cultivation_practice || '').toLowerCase().includes('integrated')).length)
@@ -212,7 +206,6 @@ const contaminationByPracticeOptions = computed(() => getDefaultBarOptions(categ
   yaxis: { title: { text: 'Count' }, min: 0, max: Math.ceil(maxVal.value * 1.1) }
 }))
 
-// 4. By Texture
 const textures = computed(() => Array.from(new Set(sites.value.map(s => s.soil_type || 'Unknown'))))
 const textureTotals = computed(() => textures.value.map(t => sites.value.filter(s => (s.soil_type || '') === t).reduce((acc, s) => {
   return acc + ((Number(s.fragment_count) || 0) + (Number(s.fiber_count) || 0) + (Number(s.film_count) || 0) + (Number(s.foam_count) || 0) + (Number(s.sheets_count) || 0) + (Number(s.beads_count) || 0))
@@ -230,12 +223,12 @@ const textureDrilldown = computed(() => textures.value.map(t => {
   return vals
 }))
 
-// --- ADVANCED CHARTS (COLOR/SIZE) ---
+// --- ADVANCED CHARTS: COLOR & SIZE ---
 const colorComparisonAll = ref(null)
 const colorComparisonLoading = ref(false)
-const sizeComparisonAll = ref(null)
+const sizeComparisonAll = ref(null) // Holds aggregated size data
+const selectedSizeField = ref('equivalent_circular_diameter_um') // Bound to child component via props if needed, or handled internally by child
 
-// Helper to parse colors/sizes
 function morphologyIndex(morph) {
   const m = (morph || '').toString().toLowerCase()
   if (m.includes('fragment')) return 0
@@ -247,6 +240,7 @@ function morphologyIndex(morph) {
   return -1
 }
 
+// 1. FETCH COLORS
 async function fetchColorComparisonAllSites() {
   colorComparisonLoading.value = true
   try {
@@ -257,7 +251,6 @@ async function fetchColorComparisonAllSites() {
       return
     }
 
-    // Logic to aggregate colors
     const counts = new Map()
     const normKey = s => (s || '').toString().trim().toLowerCase().replace(/[^a-z0-9#\s]/g, '') || 'unknown'
 
@@ -286,16 +279,92 @@ async function fetchColorComparisonAllSites() {
   finally { colorComparisonLoading.value = false }
 }
 
-// Fetch size comparison
-async function fetchSizeComparisonAllSites() {
-  // (Logic similar to color, omitted for brevity, assume working based on previous component)
-  // We set a placeholder for now to avoid empty charts if API fails
-  if (!sizeComparisonAll.value) {
-    sizeComparisonAll.value = { categories: ['Small', 'Medium', 'Large'], totals: [0, 0, 0], drilldown: [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]] }
+// 2. FETCH SIZES (The missing piece)
+// Helper helpers
+function toNumber(v) { if (v == null || v === '') return NaN; const n = Number(v); return Number.isNaN(n) ? NaN : n }
+function areaToDiameter(area) { if (!Number.isFinite(area) || area <= 0) return NaN; return 2 * Math.sqrt(area / Math.PI) }
+
+async function fetchSizeComparisonAllSites(fieldKey = 'equivalent_circular_diameter_um') {
+  try {
+    const resp = await directus.request(readItems('microplastics', { limit: -1 }))
+    const items = Array.isArray(resp) ? resp : (resp?.data || [])
+
+    if (!items.length) {
+      sizeComparisonAll.value = { categories: [], totals: [], drilldown: [], overviewColors: [] }
+      return
+    }
+
+    const buckets = [
+      { label: '1-20 µm', min: 1, max: 20 },
+      { label: '20-100 µm', min: 20, max: 100 },
+      { label: '100-500 µm', min: 100, max: 500 },
+      { label: '500 µm-1 mm', min: 500, max: 1000 },
+      { label: '1-5 mm', min: 1000, max: 5000 }
+    ]
+
+    const totals = new Array(buckets.length).fill(0)
+    const drilldown = new Array(buckets.length).fill(0).map(() => [0, 0, 0, 0, 0, 0])
+    let unknownTotal = 0
+    let unknownDrill = [0, 0, 0, 0, 0, 0]
+
+    for (const it of items) {
+      const amount = Number(it.count || 1)
+      let val = toNumber(it[fieldKey])
+
+      // Fallback to parsing text field if numeric field is empty
+      if (Number.isNaN(val) && it.size) {
+        const s = it.size.toLowerCase()
+        const num = parseFloat(s)
+        if (!Number.isNaN(num)) {
+          if (s.includes('mm')) val = num * 1000
+          else val = num // assume um
+        }
+      }
+
+      if (fieldKey === 'area_um2' && Number.isFinite(val)) val = areaToDiameter(val)
+
+      let bIdx = -1
+      if (Number.isFinite(val)) {
+        for (let i = 0; i < buckets.length; i++) {
+          if (val >= buckets[i].min && val < buckets[i].max) { bIdx = i; break; }
+        }
+      }
+
+      const midx = morphologyIndex(it.shape)
+
+      if (bIdx >= 0) {
+        totals[bIdx] += amount
+        if (midx >= 0) drilldown[bIdx][midx] += amount
+      } else {
+        unknownTotal += amount
+        if (midx >= 0) unknownDrill[midx] += amount
+      }
+    }
+
+    const categories = buckets.map(b => b.label)
+    // Optionally add 'Other' bucket if significant
+    // if(unknownTotal > 0) { categories.push('Unknown'); totals.push(unknownTotal); drilldown.push(unknownDrill); }
+
+    sizeComparisonAll.value = {
+      categories,
+      totals,
+      drilldown,
+      overviewColors: categories.map(() => '#1976D2') // Simple color
+    }
+
+  } catch (e) {
+    console.error("Size fetch error", e)
+    sizeComparisonAll.value = null
   }
 }
 
-// --- FARM SIZE & CROPS ---
+// Watch for field changes to re-fetch size data
+watch(selectedSizeField, (newVal) => {
+  fetchSizeComparisonAllSites(newVal)
+})
+
+
+// --- CROPS & SIZES ---
 const cropCounts = computed(() => {
   const counts = {}
   for (const s of sites.value) {
@@ -329,7 +398,8 @@ onMounted(async () => {
     await loadSites()
     try { await fetchLatestSampleDate() } catch { }
     try { await fetchColorComparisonAllSites() } catch { }
-    try { await fetchSizeComparisonAllSites() } catch { }
+    // Initial size fetch
+    try { await fetchSizeComparisonAllSites(selectedSizeField.value) } catch { }
   } finally {
     try { app.finishLoading() } catch { }
   }
@@ -465,10 +535,17 @@ onMounted(async () => {
         </div>
 
         <div class="card bottom-card">
-          <div style="padding: 20px; text-align:center; color: #666;">
-            <p style="margin:0; font-weight:600">Microplastic Count by Size Range</p>
-            <p style="margin:8px 0 0;">Aggregated size data unavailable.</p>
-          </div>
+          <template
+            v-if="sizeComparisonAll && Array.isArray(sizeComparisonAll.totals) && sizeComparisonAll.totals.reduce((a, b) => a + b, 0) > 0">
+            <MPSizeRangeAll :height="220" title="Microplastic Count by Size Range" :filter-key="app.selectedMorphology"
+              :external-data="sizeComparisonAll" @update:field="val => selectedSizeField = val" />
+          </template>
+          <template v-else>
+            <div style="padding: 20px; text-align:center; color: #666;">
+              <p style="margin:0; font-weight:600">Microplastic Count by Size Range</p>
+              <p style="margin:8px 0 0;">No size data found in microplastics table.</p>
+            </div>
+          </template>
         </div>
 
         <div class="card bottom-card">
@@ -486,7 +563,6 @@ onMounted(async () => {
           <p class="subtitle mb-2">{{ reportDateLabel }}</p>
 
           <div class="summary-box d-flex flex-column justify-center align-start" style="min-height: 120px;">
-
             <template v-if="isGeneratingReport">
               <div class="w-100 text-center py-4">
                 <p class="text-grey mb-0">Aggregating regional data...</p>
@@ -498,7 +574,6 @@ onMounted(async () => {
               <p class="text-body-2 text-grey-darken-3 text-left w-100 px-2 mb-4 report-preview">
                 {{ reportPreview }}
               </p>
-
               <div class="w-100 text-center">
                 <VBtn color="primary" variant="flat" @click="showReportDialog = true"
                   prepend-icon="mdi-book-open-page-variant">
