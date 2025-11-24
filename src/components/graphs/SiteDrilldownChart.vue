@@ -40,6 +40,9 @@ const overviewOptions = ref({
   legend: { position: 'top' },
 })
 
+// Preserve the initial overview colors so we can restore them when a filter is cleared
+const initialOverviewColors = safeColorArray(overviewOptions.value.colors || [CHART_COLORS[2]])
+
 function getMorphIndexFromKey(key) {
   if (!key) return -1
   const k = String(key).toLowerCase()
@@ -94,7 +97,7 @@ watch(() => props.filterKey, async (newKey) => {
     if (!newKey || morphIdx < 0) {
       // restore totals
       overviewSeries.value = [{ name: 'Total MP', data: totalBySite.value }]
-      overviewOptions.value = Object.assign({}, overviewOptions.value, { xaxis: { categories: Array.isArray(siteNames.value) ? siteNames.value.slice() : siteNames.value } })
+      overviewOptions.value = Object.assign({}, overviewOptions.value, { xaxis: { categories: Array.isArray(siteNames.value) ? siteNames.value.slice() : siteNames.value }, colors: initialOverviewColors })
     } else {
       // build per-site values from drilldown
       const values = (siteNames.value || []).map((_, idx) => {

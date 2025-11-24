@@ -84,7 +84,8 @@ const donutChartOptions = ref({
     },
   },
   labels: ORDERED_KEYS.map(k => props.labelsMap[k]),
-  colors: safeColorArray(props.colors), // Assumes safeColorArray handles object->array conversion based on keys if needed, or passes array
+  // Build a colors array in the same order as `ORDERED_KEYS` so colors align with labels/series
+  colors: ORDERED_KEYS.map(k => (props.colors && props.colors[k]) || '#9e9e9e'),
   dataLabels: { enabled: false },
   legend: { show: false },
   plotOptions: {
@@ -131,7 +132,7 @@ function clearSelections() {
   donutChartOptions.value = {
     ...donutChartOptions.value,
     labels: ORDERED_KEYS.map(k => props.labelsMap[k]),
-    colors: safeColorArray(props.colors),
+    colors: ORDERED_KEYS.map(k => (props.colors && props.colors[k]) || '#9e9e9e'),
   }
 
   // Clear internal selection if method exists
@@ -162,7 +163,7 @@ function applySelection(key, emitEvent = true) {
   donutChartOptions.value = {
     ...donutChartOptions.value,
     labels: [props.labelsMap[key]],
-    colors: safeColorArray([props.colors[key]]),
+    colors: [(props.colors && props.colors[key]) || '#9e9e9e'],
   }
 
   triggerChartUpdate({

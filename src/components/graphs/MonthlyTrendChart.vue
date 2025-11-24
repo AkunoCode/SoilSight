@@ -36,8 +36,11 @@ const monthlyOptions = ref({
   chart: { ...(baseOptions.chart || {}), height: props.height }
 })
 
+// Keep a deterministic order for morphology colors so charts align with labels
+const ORDERED_KEYS = ['fragments', 'fibers', 'foams', 'films', 'sheets']
+
 if (props.colors && Object.keys(props.colors).length > 0) {
-  monthlyOptions.value.colors = safeColorArray(props.colors)
+  monthlyOptions.value.colors = ORDERED_KEYS.map(k => (props.colors && props.colors[k]) || '#9e9e9e')
 }
 
 // Computed Totals from Props
@@ -77,7 +80,7 @@ watch([totals, soilsampleMonthly, () => props.filterKey, () => app.selectedMorph
   }
 
   if (props.colors && Object.keys(props.colors).length > 0) {
-    monthlyOptions.value.colors = Object.values(props.colors)
+    monthlyOptions.value.colors = ORDERED_KEYS.map(k => (props.colors && props.colors[k]) || '#9e9e9e')
   }
 
   monthlyOptions.value = ensurePlotOptionsBar(monthlyOptions.value)
