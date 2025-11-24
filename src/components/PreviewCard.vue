@@ -1,14 +1,19 @@
 <script setup>
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+/* eslint-disable unicorn/no-array-callback-reference, unicorn/no-array-method-this-argument */
+import { computed, onMounted, ref, watch, onUnmounted } from 'vue'
 import { useAppStore } from '@/stores/app'
-import { readItems, createItem } from '@directus/sdk'
-import directus from '@/composables/useDirectus'
 import { useRouter } from 'vue-router'
-import { getDefaultBarOptions } from './graphs/defaultBarOptions.js'
-import MPDonutChart from './graphs/MPDonutChart.vue'
-import MPPracticeBar from './graphs/MPPracticeBar.vue'
-import SampledFarms from './SampledFarms.vue'
+import AISummary from '@/components/AISummary.vue'
 import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
+
+import ApexChartBase from '@/components/graphs/ApexChartBase.vue'
+import { getDefaultBarOptions } from '@/components/graphs/defaultBarOptions.js'
+import MonthlyTrendChart from '@/components/graphs/MonthlyTrendChart.vue'
+import MPDonutChart from '@/components/graphs/MPDonutChart.vue'
+import MPPracticeBar from '@/components/graphs/MPPracticeBar.vue'
+import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
+import MPSizeRangeAll from '@/components/graphs/MPSizeRangeAll.vue'
+import SampledFarms from '@/components/SampledFarms.vue'
 
 const props = defineProps({
   title: { type: String, required: false, default: 'SoilSight Analysis' },
@@ -22,91 +27,11 @@ const router = useRouter()
 const app = useAppStore()
 const { displayLatestSampleDate } = useLatestSampleDate()
 
-// --- REGIONAL REPORT LOGIC ---
-const regionalReport = ref(null)
-const isGenerating = ref(false)
-let pollInterval = null
-
-async function fetchRegionalReport() {
-  try {
-    const res = await directus.request(readItems('general_summary', {
-      sort: ['-report_date'],
-      limit: 1
-    }))
-    const items = Array.isArray(res) ? res : (res?.data || [])
-    if (items.length > 0) {
-      // If content exists, show it
-      if (items[0].ai_report && items[0].ai_report.length > 10) {
-        regionalReport.value = items[0]
-        if (isGenerating.value) {
-          isGenerating.value = false
-          stopPolling()
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Error fetching regional report:', error)
-  }
-}
-
-async function generateReport() {
-  isGenerating.value = true
-  try {
-    // Create placeholder to trigger flow
-    await directus.request(createItem('general_summary', {
-      ai_report: ''
-    }))
-    startPolling()
-  } catch (error) {
-    console.error('Failed to trigger report:', error)
-    isGenerating.value = false
-  }
-}
-
-function startPolling() {
-  if (pollInterval) clearInterval(pollInterval)
-  pollInterval = setInterval(() => {
-    fetchRegionalReport()
-  }, 5000) // Poll every 5s for faster feedback
-}
-
-function stopPolling() {
-  if (pollInterval) clearInterval(pollInterval)
-  pollInterval = null
-}
-
-onMounted(() => { fetchRegionalReport() })
-onUnmounted(() => { stopPolling() })
-
-watch(() => props.isOverview, (newVal) => {
-  if (newVal) fetchRegionalReport()
-})
-// --- END REGIONAL LOGIC ---
+// AISummary component handles AI summary fetching/generation UI
+// it provides preview + full report dialog and generation controls
 
 // --- DISPLAY FORMATTING ---
-const rawSummaryText = computed(() => {
-  if (props.isOverview) return regionalReport.value?.ai_report || null
-  return props.item?.ai_summary || null
-})
-
-const formattedSummary = computed(() => {
-  const raw = rawSummaryText.value
-  if (!raw) return null
-  return raw
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n/g, '<br>')
-    .replace(/- (.*?)(<br>|$)/g, '<li>$1</li>')
-})
-
-const summaryDateLabel = computed(() => {
-  if (props.isOverview && regionalReport.value) {
-    return `Regional Analysis as of ${new Date(regionalReport.value.report_date || Date.now()).toLocaleDateString()}`
-  } else if (!props.isOverview && props.item) {
-    return `Site Analysis generated on ${displayLatestSampleDate.value}`
-  }
-  return 'Analysis unavailable'
-})
+// local wrapper state if needed
 
 // --- EXISTING CHART LOGIC ---
 const computeOverviewTotals = computed(() => (
@@ -247,6 +172,7 @@ function buildBarOptions() {
 barChartOptions.value = buildBarOptions()
 watch(practiceMax, () => { barChartOptions.value = buildBarOptions() })
 
+// Dragging functionality
 const isDragging = ref(false)
 const cardPosition = ref(-80)
 const hasMoved = ref(false)
@@ -342,46 +268,7 @@ function expandInsight() {
 
       <div class="d-flex flex-column mt-4">
         <div class="d-flex flex-column">
-          <div class="d-flex align-center justify-space-between mb-1">
-            <div class="d-flex align-center">
-              <h4 class="text-h6 font-weight-bold" style="line-height: 1.2em;">
-                AI Diagnosis
-              </h4>
-              <VIcon class="ml-2" color="primary" size="small">mdi-creation</VIcon>
-            </div>
-
-            <div v-if="props.isOverview" class="d-flex align-center">
-              <div v-if="isGenerating" class="d-flex align-center">
-                <VProgressCircular indeterminate color="primary" size="16" width="2" class="mr-2" />
-                <span class="text-caption text-primary font-weight-bold mr-2">Updating...</span>
-              </div>
-
-              <VBtn v-else icon variant="text" density="compact" color="grey-darken-1" @click="generateReport"
-                title="Regenerate Regional Report">
-                <VIcon>mdi-refresh</VIcon>
-              </VBtn>
-            </div>
-          </div>
-
-          <p class="subtitle mb-2">{{ summaryDateLabel }}</p>
-
-          <div v-if="isGenerating && !formattedSummary"
-            class="summary-box d-flex flex-column align-center justify-center py-6">
-            <p class="text-body-2 text-grey-darken-1 mb-0">Consulting Gemini AI...</p>
-            <p class="text-caption text-grey">Analyzing regional data...</p>
-          </div>
-
-          <div v-else-if="formattedSummary" class="summary-box scrollable-summary">
-            <div class="preserve-newlines" v-html="formattedSummary"></div>
-          </div>
-
-          <div v-else class="summary-box d-flex flex-column align-center justify-center py-6">
-            <p class="text-body-1 mb-3">No regional analysis available.</p>
-            <VBtn color="primary" prepend-icon="mdi-creation" @click="generateReport">
-              Generate Analysis
-            </VBtn>
-          </div>
-
+          <AISummary :isOverview="props.isOverview" :item="props.item" :showGenerate="true" />
         </div>
       </div>
 
@@ -392,6 +279,9 @@ function expandInsight() {
         <SampledFarms :sampled-sites="allFarmsData" :show-map="false" />
       </div>
     </div>
+
+    <!-- Regional intelligence dialog removed; AISummary includes its own dialog -->
+
   </div>
 </template>
 
@@ -468,35 +358,23 @@ function expandInsight() {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* NEW: Scrollable Summary Area */
 .scrollable-summary {
-  max-height: 280px;
-  /* Limit height */
+  max-height: 200px;
   overflow-y: auto;
-  /* Enable vertical scroll */
-  padding-right: 8px;
-  /* Avoid text touching scrollbar */
-
-  /* Nice scrollbar styling for Webkit */
   scrollbar-width: thin;
-  scrollbar-color: #ccc #f9f9f9;
-}
-
-.scrollable-summary::-webkit-scrollbar {
-  width: 6px;
-}
-
-.scrollable-summary::-webkit-scrollbar-track {
-  background: #f9f9f9;
-}
-
-.scrollable-summary::-webkit-scrollbar-thumb {
-  background-color: #ccc;
-  border-radius: 3px;
 }
 
 /* Formatting for Lists inside Summary */
+.preserve-newlines {
+  white-space: pre-wrap;
+}
+
 .preserve-newlines :deep(li) {
+  margin-left: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.report-content :deep(li) {
   margin-left: 1.5em;
   margin-bottom: 0.5em;
 }

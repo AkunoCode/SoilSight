@@ -4,7 +4,7 @@ import { computed, onMounted, ref, watch, onUnmounted } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useRouter } from 'vue-router'
 import directus from '@/composables/useDirectus.js'
-import { readItems, createItem } from '@directus/sdk'
+import { readItems, createItem, customEndpoint } from '@directus/sdk'
 import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
 
 import ApexChartBase from '@/components/graphs/ApexChartBase.vue'
@@ -15,6 +15,7 @@ import MPPracticeBar from '@/components/graphs/MPPracticeBar.vue'
 import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
 import MPSizeRangeAll from '@/components/graphs/MPSizeRangeAll.vue'
 import SampledFarms from '@/components/SampledFarms.vue'
+import AISummary from '@/components/AISummary.vue'
 
 const router = useRouter()
 const app = useAppStore()
@@ -25,79 +26,7 @@ const sites = ref([])
 const loading = ref(false)
 const error = ref(null)
 
-// --- REGIONAL REPORT LOGIC START ---
-const showReportDialog = ref(false)
-const regionalReport = ref(null)
-const isGeneratingReport = ref(false)
-let pollInterval = null
-
-// 1. Parse Markdown for the FULL report (Dialog)
-const parsedRegionalReport = computed(() => {
-  if (!regionalReport.value?.ai_report) return ''
-  return regionalReport.value.ai_report
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
-    .replace(/\n/g, '<br>') // Newlines
-    .replace(/- (.*?)(<br>|$)/g, '<li>$1</li>') // Bullets
-})
-
-// 2. Create a Text Preview for the Card (Strip markdown)
-const reportPreview = computed(() => {
-  if (!regionalReport.value?.ai_report) return ''
-  let raw = regionalReport.value.ai_report.replace(/\*\*/g, '').replace(/[#*-]/g, '')
-  // Increased length to show more context as requested
-  return raw.length > 1000 ? raw.substring(0, 1000) + '...' : raw
-})
-
-const reportDateLabel = computed(() => {
-  if (regionalReport.value?.report_date) {
-    return new Date(regionalReport.value.report_date).toLocaleDateString()
-  }
-  return 'No report available'
-})
-
-async function fetchRegionalReport() {
-  try {
-    const res = await directus.request(readItems('general_summary', {
-      sort: ['-report_date'],
-      limit: 1
-    }))
-    const items = Array.isArray(res) ? res : (res?.data || [])
-    if (items.length > 0) {
-      regionalReport.value = items[0]
-      if (isGeneratingReport.value && items[0].ai_report && items[0].ai_report.length > 10) {
-        isGeneratingReport.value = false
-        stopPolling()
-      }
-    }
-  } catch (e) {
-    console.error('Error fetching regional report', e)
-  }
-}
-
-async function triggerReportGeneration() {
-  isGeneratingReport.value = true
-  try {
-    await directus.request(createItem('general_summary', { ai_report: '' }))
-    startPolling()
-  } catch (e) {
-    console.error('Failed to trigger generation', e)
-    isGeneratingReport.value = false
-  }
-}
-
-function startPolling() {
-  if (pollInterval) clearInterval(pollInterval)
-  pollInterval = setInterval(() => { fetchRegionalReport() }, 5000)
-}
-
-function stopPolling() {
-  if (pollInterval) clearInterval(pollInterval)
-  pollInterval = null
-}
-
-onUnmounted(() => { stopPolling() })
-// --- REGIONAL REPORT LOGIC END ---
+// AI summary handled by `AISummary` component
 
 async function loadSites() {
   loading.value = true
@@ -139,14 +68,8 @@ function handleLegendClick(key) {
   app.toggleSelectedMorphology(key)
 }
 
-// --- CHARTS (Drilldowns) ---
-const inputTypes = [
-  'Fertilizer Sacks',
-  'Plastic Mulching',
-  'Seedling Trays',
-  'Compost with Plastic',
-  'Greenhouse Plastic Sheet',
-]
+// --- CHARTS ---
+const inputTypes = ['Plastic mulching', 'Fertilizer sacks', 'Greenhouse plastic sheets/tunnels', 'Seedling trays (plastic)', 'Compost with visible plastics']
 function siteHasActivity(site, expected) {
   if (!site || !site.plastic_activity) return false
   const raw = site.plastic_activity
@@ -232,8 +155,8 @@ const textureDrilldown = computed(() => textures.value.map(t => {
 // --- ADVANCED CHARTS: COLOR & SIZE ---
 const colorComparisonAll = ref(null)
 const colorComparisonLoading = ref(false)
-const sizeComparisonAll = ref(null) // Holds aggregated size data
-const selectedSizeField = ref('equivalent_circular_diameter_um') // Bound to child component via props if needed, or handled internally by child
+const sizeComparisonAll = ref(null)
+const selectedSizeField = ref('equivalent_circular_diameter_um')
 
 function morphologyIndex(morph) {
   const m = (morph || '').toString().toLowerCase()
@@ -246,7 +169,6 @@ function morphologyIndex(morph) {
   return -1
 }
 
-// 1. FETCH COLORS
 async function fetchColorComparisonAllSites() {
   colorComparisonLoading.value = true
   try {
@@ -285,8 +207,7 @@ async function fetchColorComparisonAllSites() {
   finally { colorComparisonLoading.value = false }
 }
 
-// 2. FETCH SIZES (The missing piece)
-// Helper helpers
+// --- SIZE CHART FETCH ---
 function toNumber(v) { if (v == null || v === '') return NaN; const n = Number(v); return Number.isNaN(n) ? NaN : n }
 function areaToDiameter(area) { if (!Number.isFinite(area) || area <= 0) return NaN; return 2 * Math.sqrt(area / Math.PI) }
 
@@ -317,13 +238,12 @@ async function fetchSizeComparisonAllSites(fieldKey = 'equivalent_circular_diame
       const amount = Number(it.count || 1)
       let val = toNumber(it[fieldKey])
 
-      // Fallback to parsing text field if numeric field is empty
       if (Number.isNaN(val) && it.size) {
         const s = it.size.toLowerCase()
         const num = parseFloat(s)
         if (!Number.isNaN(num)) {
           if (s.includes('mm')) val = num * 1000
-          else val = num // assume um
+          else val = num
         }
       }
 
@@ -348,14 +268,11 @@ async function fetchSizeComparisonAllSites(fieldKey = 'equivalent_circular_diame
     }
 
     const categories = buckets.map(b => b.label)
-    // Optionally add 'Other' bucket if significant
-    // if(unknownTotal > 0) { categories.push('Unknown'); totals.push(unknownTotal); drilldown.push(unknownDrill); }
-
     sizeComparisonAll.value = {
       categories,
       totals,
       drilldown,
-      overviewColors: categories.map(() => '#1976D2') // Simple color
+      overviewColors: categories.map(() => '#1976D2')
     }
 
   } catch (e) {
@@ -364,13 +281,11 @@ async function fetchSizeComparisonAllSites(fieldKey = 'equivalent_circular_diame
   }
 }
 
-// Watch for field changes to re-fetch size data
 watch(selectedSizeField, (newVal) => {
   fetchSizeComparisonAllSites(newVal)
 })
 
-
-// --- CROPS & SIZES ---
+// --- CROPS ---
 const cropCounts = computed(() => {
   const counts = {}
   for (const s of sites.value) {
@@ -398,13 +313,12 @@ const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show:
 function printReport() { window.print() }
 
 onMounted(async () => {
-  fetchRegionalReport()
   try {
     app.startLoading()
     await loadSites()
     try { await fetchLatestSampleDate() } catch { }
     try { await fetchColorComparisonAllSites() } catch { }
-    // Initial size fetch
+    // THIS LINE WAS MISSING/BROKEN IN PREVIOUS SNIPPETS
     try { await fetchSizeComparisonAllSites(selectedSizeField.value) } catch { }
   } finally {
     try { app.finishLoading() } catch { }
@@ -549,54 +463,13 @@ onMounted(async () => {
           <template v-else>
             <div style="padding: 20px; text-align:center; color: #666;">
               <p style="margin:0; font-weight:600">Microplastic Count by Size Range</p>
-              <p style="margin:8px 0 0;">No size data found in microplastics table.</p>
+              <p style="margin:8px 0 0;">No size data found.</p>
             </div>
           </template>
         </div>
 
         <div class="card bottom-card">
-          <div class="d-flex align-center justify-space-between mb-2">
-            <div class="d-flex align-center">
-              <h3>AI Insights</h3>
-              <VIcon class="ml-2" color="blue">mdi-creation</VIcon>
-            </div>
-            <VChip v-if="isGeneratingReport" size="small" color="warning" variant="outlined">
-              <VProgressCircular indeterminate size="14" width="2" class="mr-2" />
-              Analyzing...
-            </VChip>
-          </div>
-
-          <p class="subtitle mb-2">{{ reportDateLabel }}</p>
-
-          <div class="summary-box d-flex flex-column justify-center align-start" style="min-height: 120px;">
-            <template v-if="isGeneratingReport">
-              <div class="w-100 text-center py-4">
-                <p class="text-grey mb-0">Aggregating regional data...</p>
-                <p class="text-caption text-grey-lighten-1">This takes about 20 seconds.</p>
-              </div>
-            </template>
-
-            <template v-else-if="regionalReport">
-              <p class="text-body-2 text-grey-darken-3 text-left w-100 px-2 mb-4 report-preview">
-                {{ reportPreview }}
-              </p>
-              <div class="w-100 text-center">
-                <VBtn color="primary" variant="flat" @click="showReportDialog = true"
-                  prepend-icon="mdi-book-open-page-variant">
-                  Read Full Report
-                </VBtn>
-              </div>
-            </template>
-
-            <template v-else>
-              <div class="w-100 text-center py-4">
-                <p class="text-body-2 text-grey mb-4">No regional analysis available.</p>
-                <VBtn color="primary" variant="outlined" @click="triggerReportGeneration">
-                  Generate Analysis
-                </VBtn>
-              </div>
-            </template>
-          </div>
+          <AISummary :isOverview="true" :showGenerate="true" />
         </div>
       </VCol>
 
@@ -608,38 +481,7 @@ onMounted(async () => {
       </VCol>
     </VRow>
 
-    <VDialog v-model="showReportDialog" max-width="800" scrollable>
-      <VCard>
-        <VCardTitle class="d-flex justify-space-between align-center pa-4 bg-grey-lighten-4">
-          <div class="d-flex align-center">
-            <VIcon color="primary" class="mr-2">mdi-google-analytics</VIcon>
-            <span class="text-h6 font-weight-bold">Regional Intelligence Report</span>
-          </div>
-          <VBtn icon="mdi-close" variant="text" @click="showReportDialog = false"></VBtn>
-        </VCardTitle>
-        <VDivider></VDivider>
-
-        <VCardText class="pa-6" style="min-height: 300px;">
-          <div v-if="regionalReport" class="text-body-1">
-            <div class="d-flex gap-4 mb-6">
-              <VChip color="primary" label>{{ new Date(regionalReport.report_date).toLocaleDateString() }}</VChip>
-              <VChip variant="outlined"><strong>{{ regionalReport.total_farms_analyzed }}</strong>&nbsp;Farms</VChip>
-              <VChip variant="outlined" color="red"><strong>{{ regionalReport.total_pollution_count
-              }}</strong>&nbsp;Particles</VChip>
-            </div>
-            <div class="report-content" v-html="parsedRegionalReport"></div>
-          </div>
-        </VCardText>
-
-        <VDivider></VDivider>
-        <VCardActions class="pa-4">
-          <VSpacer></VSpacer>
-          <VBtn variant="text" color="primary" prepend-icon="mdi-refresh" @click="triggerReportGeneration">Regenerate
-          </VBtn>
-          <VBtn color="primary" variant="elevated" @click="showReportDialog = false">Close</VBtn>
-        </VCardActions>
-      </VCard>
-    </VDialog>
+    <!-- Regional report dialog removed: `AISummary` provides its own dialog -->
 
   </div>
 </template>
