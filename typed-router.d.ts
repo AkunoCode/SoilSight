@@ -21,6 +21,7 @@ declare module 'vue-router/auto-routes' {
     '/': RouteRecordInfo<'/', '/', Record<never, never>, Record<never, never>>,
     '/insight/': RouteRecordInfo<'/insight/', '/insight', Record<never, never>, Record<never, never>>,
     '/insight/[farm_name]': RouteRecordInfo<'/insight/[farm_name]', '/insight/:farm_name', { farm_name: ParamValue<true> }, { farm_name: ParamValue<false> }>,
+    '/mobile-warning': RouteRecordInfo<'/mobile-warning', '/mobile-warning', Record<never, never>, Record<never, never>>,
   }
 
   /**
@@ -44,6 +45,10 @@ declare module 'vue-router/auto-routes' {
     }
     'src/pages/insight/[farm_name].vue': {
       routes: '/insight/[farm_name]'
+      views: never
+    }
+    'src/pages/mobile-warning.vue': {
+      routes: '/mobile-warning'
       views: never
     }
   }

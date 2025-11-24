@@ -9,9 +9,32 @@ import { setupLayouts } from 'virtual:generated-layouts'
 import { createRouter, createWebHistory } from 'vue-router'
 import { routes } from 'vue-router/auto-routes'
 
+// Add a guard to force small-screen users to the mobile-warning page (non-dismissible)
+function isSmallScreen() {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.matchMedia('(max-width: 900px)').matches
+  } catch {
+    return false
+  }
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: setupLayouts(routes),
+})
+
+// Global guard: on small screens redirect everything to the mobile warning page.
+router.beforeEach((to, from, next) => {
+  try {
+    if (isSmallScreen()) {
+      if (to.fullPath !== '/mobile-warning') return next({ path: '/mobile-warning' })
+    }
+  } catch (e) {
+    // if anything goes wrong, don't block navigation
+    console.error('mobile-warning guard error', e)
+  }
+  return next()
 })
 
 // Workaround for https://github.com/vitejs/vite/issues/11804
