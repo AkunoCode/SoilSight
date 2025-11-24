@@ -7,9 +7,7 @@ import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
 const props = defineProps({
     isOverview: { type: Boolean, default: true },
     item: { type: Object, default: null },
-    // showGenerate: allow consumer to enable/disable the generate button
     showGenerate: { type: Boolean, default: true },
-    // title for header
     title: { type: String, default: 'AI Diagnosis' },
 })
 
@@ -88,11 +86,18 @@ async function fetchRegionalReport() {
     }
 }
 
+// --- FIXED FUNCTION BELOW ---
 async function generateReport() {
     if (regionalReport.value?.id) previousReportId.value = regionalReport.value.id
     isGenerating.value = true
     try {
-        await directus.request(customEndpoint({ path: '/flows/trigger/914be7b3-e277-4de5-baa5-1724a964521b', method: 'POST' }))
+        // FIXED: Added body: JSON.stringify({}) to ensure Content-Type header is sent
+        await directus.request(customEndpoint({
+            path: '/flows/trigger/914be7b3-e277-4de5-baa5-1724a964521b',
+            method: 'POST',
+            body: JSON.stringify({})
+        }))
+
         startPolling()
         emit('generated')
     } catch (error) {
@@ -116,7 +121,6 @@ onUnmounted(() => { stopPolling() })
 
 watch(() => props.isOverview, (nv) => { if (nv) fetchRegionalReport() })
 
-// expose some state if parent wants to read it
 defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
 </script>
 
@@ -181,10 +185,10 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
                             <VChip color="primary" label>{{ new Date(regionalReport.report_date).toLocaleDateString() }}
                             </VChip>
                             <VChip variant="outlined"><strong>{{ regionalReport.total_farms_analyzed
-                                    }}</strong>&nbsp;Farms
+                            }}</strong>&nbsp;Farms
                             </VChip>
                             <VChip variant="outlined" color="red"><strong>{{ regionalReport.total_pollution_count
-                                    }}</strong>&nbsp;Particles</VChip>
+                            }}</strong>&nbsp;Particles</VChip>
                         </div>
                         <div class="report-content" v-html="parsedRegionalReport"></div>
                     </div>
