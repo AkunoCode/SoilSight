@@ -11,7 +11,7 @@ const props = defineProps({
   drilldown: { type: [Object, Array], required: true },
   filterKey: { type: [String, null], default: null },
   title: { type: String, default: 'Overview' },
-  categoryLabels: { type: Array, default: () => ['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets'] },
+  categoryLabels: { type: Array, default: () => ['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets'] },
   colors: { type: Object, default: () => ({}) },
   overviewColors: { type: Array, default: () => [] },
   useOverviewColors: { type: Boolean, default: false },
@@ -47,7 +47,6 @@ function getMorphIndexFromKey(key) {
   if (k.includes('foam')) return 2
   if (k.includes('film')) return 3
   if (k.includes('sheet')) return 4
-  if (k.includes('pellet') || k.includes('bead')) return 5
   return -1
 }
 
@@ -60,7 +59,7 @@ function extractMorphValueForSite(detail, morphIdx) {
     // try keyed fields
     const keys = Object.keys(detail || {})
     // try several common key names
-    const candidates = ['fragments', 'fibers', 'foam', 'films', 'sheets', 'pellets']
+    const candidates = ['fragments', 'fibers', 'foam', 'films', 'sheets']
     const key = candidates[morphIdx] || null
     if (key && detail[key] != null) return Number(detail[key] || 0)
     // fallback to first numeric value

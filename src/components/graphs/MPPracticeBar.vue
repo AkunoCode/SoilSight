@@ -20,7 +20,7 @@ const optionsRef = toRef(props, 'options')
 function getMorphIndexFromKey(key, labels) {
   if (!key) return -1
   const k = String(key).toLowerCase()
-  const normalizedLabels = (labels || ['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']).map(l => (l || '').toString().toLowerCase())
+  const normalizedLabels = (labels || ['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']).map(l => (l || '').toString().toLowerCase())
   // try exact match
   let idx = normalizedLabels.findIndex(l => l.includes(k) || k.includes(l))
   if (idx >= 0) return idx
@@ -30,7 +30,6 @@ function getMorphIndexFromKey(key, labels) {
   if (k.includes('foam')) return 2
   if (k.includes('film')) return 3
   if (k.includes('sheet')) return 4
-  if (k.includes('pellet') || k.includes('bead')) return 5
   return -1
 }
 
@@ -76,7 +75,7 @@ watch([seriesRef, mergedOptionsSafe, () => props.filterKey], _nv => {
   const opts = Object.assign({}, mergedOptionsSafe.value)
   let outSeries = seriesRef.value
   try {
-    const labels = opts.xaxis && Array.isArray(opts.xaxis.categories) ? opts.xaxis.categories : ['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']
+    const labels = opts.xaxis && Array.isArray(opts.xaxis.categories) ? opts.xaxis.categories : ['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']
     const idx = getMorphIndexFromKey(filter, labels)
     if (filter && idx >= 0) {
       // reduce each series to a single-value array for the selected morphology

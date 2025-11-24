@@ -77,7 +77,7 @@ async function fetchAndAggregateAll(fieldKey) {
     const resp = await directus.request(readItems('microplastics', { filter: { sample_source: { date_collected: { _gte: cutoffIso } } }, limit: -1 }))
     const items = Array.isArray(resp) ? resp : (resp?.data || [])
     const counts = Array.from({ length: sizeBuckets.length }).fill(0)
-    const drill = Array.from({ length: sizeBuckets.length }).fill(0).map(() => [0, 0, 0, 0, 0, 0])
+    const drill = Array.from({ length: sizeBuckets.length }).fill(0).map(() => [0, 0, 0, 0, 0])
 
     for (const it of items) {
       const raw = it[fieldKey]
@@ -98,7 +98,7 @@ async function fetchAndAggregateAll(fieldKey) {
         if (mm.includes('foam')) return 2
         if (mm.includes('film')) return 3
         if (mm.includes('sheet')) return 4
-        if (mm.includes('pellet') || mm.includes('bead')) return 5
+        return -1
         return -1
       })(morph)
 
@@ -110,7 +110,7 @@ async function fetchAndAggregateAll(fieldKey) {
     drilldown.value = drill
 
     // simple color palette (add sheets color)
-    overviewColors.value = ['#9e9e9e', '#1976d2', '#63B3FF', '#4688C7', '#8FD3C7', '#B9DDFF']
+    overviewColors.value = ['#9e9e9e', '#1976d2', '#63B3FF', '#4688C7', '#8FD3C7']
   } catch (error) {
     // Log the error object as-is for easier inspection (Directus returns structured error info)
     console.error('MPSizeRangeAll: fetch error', error)
@@ -145,9 +145,8 @@ onMounted(() => {
     </div>
 
     <div v-else>
-      <SiteDrilldownChart :categories="categories"
-        :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']"
-        :colors="{ fragments: '#0B2E4E', fibers: '#19568E', films: '#63B3FF', foams: '#4688C7', sheets: '#8FD3C7', pellets: '#B9DDFF' }"
+      <SiteDrilldownChart :categories="categories" :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']"
+        :colors="{ fragments: '#0B2E4E', fibers: '#19568E', films: '#63B3FF', foams: '#4688C7', sheets: '#8FD3C7' }"
         :date="props.date" :drilldown="drilldown" :height="props.height" :totals="totals"
         :filter-key="props.filterKey" />
       <!-- pass through optional filterKey from parent to allow cross-chart selection filtering -->

@@ -194,7 +194,7 @@ const microplasticData = computed(() => {
     foams: Number(f.foam_count || 0),
     films: Number(f.film_count || 0),
     sheets: Number(f.sheets_count || f.sheet_count || f.sheets || 0),
-    pellets: Number(f.beads_count || 0),
+    // pellets (beads_count) removed from display categories
   }
 })
 
@@ -209,7 +209,6 @@ const mpColors = {
   films: '#63B3FF',
   foams: '#4688C7',
   sheets: '#8FD3C7',
-  pellets: '#B9DDFF',
 }
 
 // Prefer comparing the current site to other sites with the same cultivation practice.
@@ -247,9 +246,9 @@ const anonymizedComparison = computed(() => {
   const drilldown = []
   let anonIdx = 0
   for (const s of list) {
-    const total = (s.fragment_count || 0) + (s.fiber_count || 0) + (s.foam_count || 0) + (s.film_count || 0) + (s.sheets_count || s.sheet_count || s.sheets || 0) + (s.beads_count || 0)
+    const total = (s.fragment_count || 0) + (s.fiber_count || 0) + (s.foam_count || 0) + (s.film_count || 0) + (s.sheets_count || s.sheet_count || s.sheets || 0)
     totals.push(total)
-    drilldown.push([s.fragment_count || 0, s.fiber_count || 0, s.foam_count || 0, s.film_count || 0, s.sheets_count || s.sheet_count || s.sheets || 0, s.beads_count || 0])
+    drilldown.push([s.fragment_count || 0, s.fiber_count || 0, s.foam_count || 0, s.film_count || 0, s.sheets_count || s.sheet_count || s.sheets || 0])
     if (s.id === farm.value?.id) {
       categories.push(s.site_name || 'This Site')
     } else {
@@ -266,7 +265,7 @@ const colorBucketRatios = [0.35, 0.3, 0.2, 0.15]
 
 const farmTotalMP = computed(() => {
   const d = microplasticData.value
-  return (d.fragments || 0) + (d.fibers || 0) + (d.foams || 0) + (d.films || 0) + (d.sheets || 0) + (d.pellets || 0)
+  return (d.fragments || 0) + (d.fibers || 0) + (d.foams || 0) + (d.films || 0) + (d.sheets || 0)
 })
 
 function morphologyIndex(morph) {
@@ -276,7 +275,7 @@ function morphologyIndex(morph) {
   if (m.includes('foam')) return 2
   if (m.includes('film')) return 3
   if (m.includes('sheet')) return 4
-  if (m.includes('pellet') || m.includes('bead')) return 5
+  // pellets/beads are no longer a displayed category
   return -1
 }
 
@@ -344,18 +343,18 @@ async function fetchColorComparisonForFarm(farmId) {
       return `hsl(${h},60%,45%)`
     })
 
-    // Fallback: fill missing drilldown data proportionally
+    // Fallback: fill missing drilldown data proportionally (pellets omitted)
     try {
-      const mp = microplasticData.value || { fragments: 0, fibers: 0, foams: 0, films: 0, sheets: 0, pellets: 0 }
-      const mpVals = [mp.fragments || 0, mp.fibers || 0, mp.foams || 0, mp.films || 0, mp.sheets || 0, mp.pellets || 0]
+      const mp = microplasticData.value || { fragments: 0, fibers: 0, foams: 0, films: 0, sheets: 0 }
+      const mpVals = [mp.fragments || 0, mp.fibers || 0, mp.foams || 0, mp.films || 0, mp.sheets || 0]
       const mpTotal = farmTotalMP.value || mpVals.reduce((a, b) => a + b, 0)
       if (mpTotal > 0) {
         for (const e of explicit) {
-          const dd = e.drilldown || [0, 0, 0, 0, 0, 0]
+          const dd = e.drilldown || [0, 0, 0, 0, 0]
           const sumDd = dd.reduce((a, b) => a + (Number(b) || 0), 0)
           if ((e.count || 0) > 0 && sumDd < e.count) {
             let missing = (e.count || 0) - sumDd
-            for (let j = 0; j < 6 && missing > 0; j++) {
+            for (let j = 0; j < 5 && missing > 0; j++) {
               const share = Math.floor(missing * ((mpVals[j] || 0) / mpTotal))
               if (share > 0) {
                 dd[j] = (dd[j] || 0) + share
@@ -364,7 +363,7 @@ async function fetchColorComparisonForFarm(farmId) {
             }
             if (missing > 0) {
               let maxIdx = 0
-              for (let k = 1; k < 6; k++) if ((mpVals[k] || 0) > (mpVals[maxIdx] || 0)) maxIdx = k
+              for (let k = 1; k < 5; k++) if ((mpVals[k] || 0) > (mpVals[maxIdx] || 0)) maxIdx = k
               dd[maxIdx] = (dd[maxIdx] || 0) + missing
               missing = 0
             }
@@ -393,14 +392,13 @@ const colorComparison = computed(() => {
   const mp = microplasticData.value
   const mpTotal = farmTotalMP.value || 0
   const drilldown = totals.map(t => {
-    if (mpTotal === 0 || t === 0) return [0, 0, 0, 0, 0, 0]
+    if (mpTotal === 0 || t === 0) return [0, 0, 0, 0, 0]
     const fragments = Math.round(t * ((mp.fragments || 0) / mpTotal))
     const fibers = Math.round(t * ((mp.fibers || 0) / mpTotal))
     const foams = Math.round(t * ((mp.foams || 0) / mpTotal))
     const films = Math.round(t * ((mp.films || 0) / mpTotal))
     const sheets = Math.round(t * ((mp.sheets || 0) / mpTotal))
-    const pellets = Math.max(0, t - (fragments + fibers + foams + films + sheets))
-    return [fragments, fibers, foams, films, sheets, pellets]
+    return [fragments, fibers, foams, films, sheets]
   })
   const known = { gray: '#9e9e9e', blue: '#1976d2', white: '#ffffff', transparent: '#cfd8dc', black: '#000000', green: '#2E7D32' }
   const overviewColors = colorBuckets.map(label => {
@@ -570,7 +568,7 @@ async function fetchLatestSampleDateForFarm(farmId) {
           </div>
           <div class="card">
             <SiteDrilldownChart :categories="anonymizedComparison.categories"
-              :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
+              :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
               :date="displaySampleDate" :drilldown="anonymizedComparison.drilldown" :height="320"
               :title="farm?.cultivation_practice ? `Contamination Comparison to Other ${titleCase(farm?.cultivation_practice)} Farms` : 'Contamination Comparison to Other Farms'"
               :totals="anonymizedComparison.totals" :filter-key="app.selectedMorphology" />
@@ -614,7 +612,7 @@ async function fetchLatestSampleDateForFarm(farmId) {
             </template>
             <template v-else>
               <SiteDrilldownChart :categories="colorComparison.categories"
-                :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
+                :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
                 :date="displaySampleDate" :drilldown="colorComparison.drilldown" :height="260"
                 title="Microplastic Count by Color" :totals="colorComparison.totals"
                 :filter-key="app.selectedMorphology" />

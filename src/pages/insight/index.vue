@@ -48,7 +48,6 @@ const totalFragments = computed(() => sites.value.reduce((s, r) => s + (Number(r
 const totalFibers = computed(() => sites.value.reduce((s, r) => s + (Number(r.fiber_count) || 0), 0))
 const totalFoams = computed(() => sites.value.reduce((s, r) => s + (Number(r.foam_count) || 0), 0))
 const totalFilms = computed(() => sites.value.reduce((s, r) => s + (Number(r.film_count) || 0), 0))
-const totalPellets = computed(() => sites.value.reduce((s, r) => s + (Number(r.beads_count) || 0), 0))
 const totalSheets = computed(() => sites.value.reduce((s, r) => s + (Number(r.sheets_count) || Number(r.sheet_count) || Number(r.sheets) || 0), 0))
 
 const microplasticData = computed(() => ({
@@ -57,19 +56,24 @@ const microplasticData = computed(() => ({
   foams: totalFoams.value,
   films: totalFilms.value,
   sheets: totalSheets.value,
-  pellets: totalPellets.value,
 }))
 
-const mpColors = { fragments: '#0B2E4E', fibers: '#19568E', films: '#63B3FF', foams: '#4688C7', sheets: '#8AB4FF', pellets: '#B9DDFF' }
+const mpColors = { fragments: '#0B2E4E', fibers: '#19568E', films: '#63B3FF', foams: '#4688C7', sheets: '#8AB4FF' }
 const donutColors = { ...mpColors }
-const donutLabelsMap = { fragments: 'Fragments', fibers: 'Fibers', foams: 'Foam', films: 'Films', sheets: 'Sheets', pellets: 'Pellets' }
+const donutLabelsMap = { fragments: 'Fragments', fibers: 'Fibers', foams: 'Foam', films: 'Films', sheets: 'Sheets' }
 
 function handleLegendClick(key) {
   app.toggleSelectedMorphology(key)
 }
 
 // --- CHARTS ---
-const inputTypes = ['Plastic mulching', 'Fertilizer sacks', 'Greenhouse plastic sheets/tunnels', 'Seedling trays (plastic)', 'Compost with visible plastics']
+const inputTypes = [
+  'Fertilizer Sacks',
+  'Plastic Mulching',
+  'Seedling Trays',
+  'Compost with Plastic',
+  'Greenhouse Plastic Sheet',
+]
 function siteHasActivity(site, expected) {
   if (!site || !site.plastic_activity) return false
   const raw = site.plastic_activity
@@ -79,7 +83,7 @@ function siteHasActivity(site, expected) {
 }
 const inputTotals = computed(() => inputTypes.map(type => sites.value.reduce((acc, s) => {
   if (!siteHasActivity(s, type)) return acc
-  return acc + ((Number(s.fragment_count) || 0) + (Number(s.fiber_count) || 0) + (Number(s.film_count) || 0) + (Number(s.foam_count) || 0) + (Number(s.beads_count) || 0) + (Number(s.sheets_count) || 0))
+  return acc + ((Number(s.fragment_count) || 0) + (Number(s.fiber_count) || 0) + (Number(s.film_count) || 0) + (Number(s.foam_count) || 0) + (Number(s.sheets_count) || 0))
 }, 0)))
 const inputDrilldown = computed(() => inputTypes.map(type => {
   return sites.value.reduce((acc, s) => {
@@ -89,23 +93,22 @@ const inputDrilldown = computed(() => inputTypes.map(type => {
     acc[2] += (Number(s.foam_count) || 0)
     acc[3] += (Number(s.film_count) || 0)
     acc[4] += (Number(s.sheets_count) || Number(s.sheet_count) || 0)
-    acc[5] += (Number(s.beads_count) || 0)
     return acc
-  }, [0, 0, 0, 0, 0, 0])
+  }, [0, 0, 0, 0, 0])
 }))
 
 function sanitizeSiteName(name) {
   return String(name || '').replace(/\b[Ff]arm\b/g, '').replace(/[\-–—_/]+/g, ' ').trim().replace(/^[,\s]+|[,\s]+$/g, '')
 }
 const siteCategories = computed(() => sites.value.map(s => sanitizeSiteName(s.site_name)))
-const siteTotals = computed(() => sites.value.map(s => (Number(s.fragment_count) || 0) + (Number(s.fiber_count) || 0) + (Number(s.film_count) || 0) + (Number(s.foam_count) || 0) + (Number(s.sheets_count) || 0) + (Number(s.beads_count) || 0)))
-const siteDrilldown = computed(() => sites.value.map(s => [(Number(s.fragment_count) || 0), (Number(s.fiber_count) || 0), (Number(s.foam_count) || 0), (Number(s.film_count) || 0), (Number(s.sheets_count) || 0), (Number(s.beads_count) || 0)]))
+const siteTotals = computed(() => sites.value.map(s => (Number(s.fragment_count) || 0) + (Number(s.fiber_count) || 0) + (Number(s.film_count) || 0) + (Number(s.foam_count) || 0) + (Number(s.sheets_count) || 0)))
+const siteDrilldown = computed(() => sites.value.map(s => [(Number(s.fragment_count) || 0), (Number(s.fiber_count) || 0), (Number(s.foam_count) || 0), (Number(s.film_count) || 0), (Number(s.sheets_count) || 0)]))
 
 const numOrganic = computed(() => sites.value.filter(s => (s.cultivation_practice || '').toLowerCase().includes('organic')).length)
 const numConventional = computed(() => sites.value.filter(s => (s.cultivation_practice || '').toLowerCase().includes('conventional')).length)
 const numIntegrated = computed(() => sites.value.filter(s => (s.cultivation_practice || '').toLowerCase().includes('integrated')).length)
 
-const categoriesForPracticeChart = ['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']
+const categoriesForPracticeChart = ['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']
 const practiceNames = ['Conventional Practice', 'Organic Practice', 'Integrated Practice']
 const practiceKeys = ['conventional', 'organic', 'integrated']
 
@@ -120,8 +123,7 @@ const contaminationByPracticeSeries = computed(() => {
         filteredSites.reduce((a, b) => a + (Number(b.fiber_count) || 0), 0),
         filteredSites.reduce((a, b) => a + (Number(b.foam_count) || 0), 0),
         filteredSites.reduce((a, b) => a + (Number(b.film_count) || 0), 0),
-        filteredSites.reduce((a, b) => a + (Number(b.sheets_count) || 0), 0),
-        filteredSites.reduce((a, b) => a + (Number(b.beads_count) || 0), 0)
+        filteredSites.reduce((a, b) => a + (Number(b.sheets_count) || 0), 0)
       ]
     }
   })
@@ -137,7 +139,7 @@ const contaminationByPracticeOptions = computed(() => getDefaultBarOptions(categ
 
 const textures = computed(() => Array.from(new Set(sites.value.map(s => s.soil_type || 'Unknown'))))
 const textureTotals = computed(() => textures.value.map(t => sites.value.filter(s => (s.soil_type || '') === t).reduce((acc, s) => {
-  return acc + ((Number(s.fragment_count) || 0) + (Number(s.fiber_count) || 0) + (Number(s.film_count) || 0) + (Number(s.foam_count) || 0) + (Number(s.sheets_count) || 0) + (Number(s.beads_count) || 0))
+  return acc + ((Number(s.fragment_count) || 0) + (Number(s.fiber_count) || 0) + (Number(s.film_count) || 0) + (Number(s.foam_count) || 0) + (Number(s.sheets_count) || 0))
 }, 0)))
 const textureDrilldown = computed(() => textures.value.map(t => {
   const vals = sites.value.filter(s => (s.soil_type || '') === t).reduce((acc, s) => {
@@ -146,9 +148,8 @@ const textureDrilldown = computed(() => textures.value.map(t => {
     acc[2] += (Number(s.foam_count) || 0)
     acc[3] += (Number(s.film_count) || 0)
     acc[4] += (Number(s.sheets_count) || 0)
-    acc[5] += (Number(s.beads_count) || 0)
     return acc
-  }, [0, 0, 0, 0, 0, 0])
+  }, [0, 0, 0, 0, 0])
   return vals
 }))
 
@@ -165,7 +166,6 @@ function morphologyIndex(morph) {
   if (m.includes('foam')) return 2
   if (m.includes('film')) return 3
   if (m.includes('sheet')) return 4
-  if (m.includes('pellet')) return 5
   return -1
 }
 
@@ -185,7 +185,7 @@ async function fetchColorComparisonAllSites() {
     for (const it of items) {
       const rawColor = it.color || 'unknown'
       const norm = normKey(rawColor)
-      if (!counts.has(norm)) counts.set(norm, { count: 0, display: rawColor, drilldown: [0, 0, 0, 0, 0, 0] })
+      if (!counts.has(norm)) counts.set(norm, { count: 0, display: rawColor, drilldown: [0, 0, 0, 0, 0] })
 
       const obj = counts.get(norm)
       const amount = Number(it.count || 1)
@@ -230,9 +230,9 @@ async function fetchSizeComparisonAllSites(fieldKey = 'equivalent_circular_diame
     ]
 
     const totals = new Array(buckets.length).fill(0)
-    const drilldown = new Array(buckets.length).fill(0).map(() => [0, 0, 0, 0, 0, 0])
+    const drilldown = new Array(buckets.length).fill(0).map(() => [0, 0, 0, 0, 0])
     let unknownTotal = 0
-    let unknownDrill = [0, 0, 0, 0, 0, 0]
+    let unknownDrill = [0, 0, 0, 0, 0]
 
     for (const it of items) {
       const amount = Number(it.count || 1)
@@ -392,7 +392,7 @@ onMounted(async () => {
       <VCol cols="5">
         <div class="card">
           <SiteDrilldownChart :categories="siteCategories"
-            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
+            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
             :drilldown="siteDrilldown" :height="425" title="Microplastic Count by Farm Site" :totals="siteTotals"
             :filter-key="app.selectedMorphology" />
         </div>
@@ -417,7 +417,7 @@ onMounted(async () => {
       <VCol cols="7">
         <div class="card">
           <SiteDrilldownChart :categories="inputTypes"
-            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
+            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
             :drilldown="inputDrilldown" title="Microplastic Counts by Plastic-Related Farm Inputs" :totals="inputTotals"
             :height="300" :filter-key="app.selectedMorphology" />
         </div>
@@ -425,7 +425,7 @@ onMounted(async () => {
       <VCol cols="5">
         <div class="card">
           <SiteDrilldownChart :categories="textures"
-            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
+            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
             :drilldown="textureDrilldown" title="Microplastic Count by Soil Texture" :totals="textureTotals"
             :filter-key="app.selectedMorphology" :height="300" />
         </div>
@@ -442,7 +442,7 @@ onMounted(async () => {
           </template>
           <template v-else-if="colorComparisonAll && colorComparisonAll.totals && colorComparisonAll.totals.length > 0">
             <SiteDrilldownChart :categories="colorComparisonAll.categories"
-              :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']" :colors="mpColors"
+              :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
               :drilldown="colorComparisonAll.drilldown" :height="250" title="Microplastic Count by Color"
               :totals="colorComparisonAll.totals" :filter-key="app.selectedMorphology" />
           </template>
@@ -567,6 +567,7 @@ onMounted(async () => {
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 7;
+  line-clamp: 7;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

@@ -7,62 +7,89 @@ import ApexChartBase from './ApexChartBase.vue'
 
 const props = defineProps({
   microplasticData: { type: Object, required: true },
-  labelsMap: { type: Object, default: () => ({ fragments: 'Fragments', fibers: 'Fibers', foams: 'Foam', films: 'Films', sheets: 'Sheets', pellets: 'Pellets' }) },
-  colors: { type: Object, default: () => ({ fibers: '#19568E', fragments: '#0B2E4E', films: '#63B3FF', foams: '#4688C7', sheets: '#8AB4FF', pellets: '#B9DDFF' }) },
+  // Define standard keys to ensure chart and legend order always match
+  labelsMap: {
+    type: Object,
+    default: () => ({
+      fragments: 'Fragments',
+      fibers: 'Fibers',
+      foams: 'Foam',
+      films: 'Films',
+      sheets: 'Sheets'
+    })
+  },
+  colors: {
+    type: Object,
+    default: () => ({
+      fibers: '#19568E',
+      fragments: '#0B2E4E',
+      films: '#63B3FF',
+      foams: '#4688C7',
+      sheets: '#8AB4FF'
+    })
+  },
   activeKey: { type: [String, null], default: null },
   date: { type: String, default: '' },
 })
 
 const emit = defineEmits(['selection'])
+const app = useAppStore()
+const { displayLatestSampleDate } = useLatestSampleDate()
 
-// Series and derived values
-const chartSeries = computed(() => [
-  props.microplasticData.fragments || 0,
-  props.microplasticData.fibers || 0,
-  props.microplasticData.foams || 0,
-  props.microplasticData.films || 0,
-  props.microplasticData.sheets || 0,
-  props.microplasticData.pellets || 0,
-])
+// Constants
+const ORDERED_KEYS = ['fragments', 'fibers', 'foams', 'films', 'sheets']
+const defaultDate = displayLatestSampleDate
+
+// Refs
+const donutChart = ref(null)
+const selectedKey = ref(null)
+
+// --- Computed Data ---
+
+const chartSeries = computed(() => {
+  return ORDERED_KEYS.map(key => props.microplasticData[key] || 0)
+})
 
 const total = computed(() => chartSeries.value.reduce((a, b) => a + b, 0))
 
+const hasData = computed(() => total.value > 0)
+
 const percentages = computed(() => {
-  const t = total.value
-  if (t === 0) return { fragments: 0, fibers: 0, foams: 0, films: 0, sheets: 0, pellets: 0 }
-  return {
-    fragments: Math.round(((props.microplasticData.fragments || 0) / t) * 100),
-    fibers: Math.round(((props.microplasticData.fibers || 0) / t) * 100),
-    foams: Math.round(((props.microplasticData.foams || 0) / t) * 100),
-    films: Math.round(((props.microplasticData.films || 0) / t) * 100),
-    sheets: Math.round(((props.microplasticData.sheets || 0) / t) * 100),
-    pellets: Math.round(((props.microplasticData.pellets || 0) / t) * 100),
-  }
+  if (!hasData.value) return {}
+  const result = {}
+  ORDERED_KEYS.forEach(key => {
+    const val = props.microplasticData[key] || 0
+    result[key] = Math.round((val / total.value) * 100)
+  })
+  return result
 })
 
-// State and chart refs
-const selectedKey = ref(null)
-const app = useAppStore()
-const donutChart = ref(null)
+// Initialize display series
 const displaySeries = ref([...chartSeries.value])
 
-watch(chartSeries, newSeries => {
-  if (selectedKey.value === null) displaySeries.value = newSeries
-}, { immediate: true })
+// --- Chart Configuration ---
+
+function defaultTotalFormatter(w) {
+  const t = w.globals.seriesTotals.reduce((a, b) => a + b, 0)
+  if (t >= 1_000_000) return (t / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
+  if (t >= 1000) return (t / 1000).toFixed(1).replace(/\.0$/, '') + 'K'
+  return t
+}
 
 const donutChartOptions = ref({
   chart: {
-    type: 'donut', height: 350, toolbar: { show: false },
+    type: 'donut',
+    height: 350,
+    toolbar: { show: false },
     events: {
       dataPointSelection(_, __, config) {
-        const indexToKey = ['fragments', 'fibers', 'foams', 'films', 'sheets', 'pellets']
-        const clickedKey = indexToKey[config.dataPointIndex]
+        const clickedKey = ORDERED_KEYS[config.dataPointIndex]
         if (selectedKey.value === null) handleLegendClick(clickedKey)
       },
     },
   },
-  labels: Object.values(props.labelsMap),
-  colors: safeColorArray(props.colors),
+  labels: ORDERED_KEYS.map(k => props.labelsMap[k]),
+  colors: safeColorArray(props.colors), // Assumes safeColorArray handles object->array conversion based on keys if needed, or passes array
   dataLabels: { enabled: false },
   legend: { show: false },
   plotOptions: {
@@ -73,47 +100,57 @@ const donutChartOptions = ref({
           show: true,
           name: { show: true, fontSize: '16px' },
           value: { show: true, fontSize: '22px', fontWeight: 'bold' },
-          total: { show: true, label: 'Total number\nof MP found', fontSize: '14px', formatter: defaultTotalFormatter },
+          total: {
+            show: true,
+            label: 'Total number\nof MP found',
+            fontSize: '14px',
+            formatter: defaultTotalFormatter
+          },
         },
       },
     },
   },
 })
 
-const { displayLatestSampleDate } = useLatestSampleDate()
-const defaultDate = displayLatestSampleDate
+// --- Interaction Logic ---
 
-function defaultTotalFormatter(w) {
-  const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0)
-  if (total >= 1_000_000) return (total / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
-  if (total >= 1000) return (total / 1000).toFixed(1).replace(/\.0$/, '') + 'K'
-  return total
+// Helper to safely update chart asynchronously
+function triggerChartUpdate(newOptions, newSeries) {
+  setTimeout(() => {
+    try {
+      const inner = donutChart.value?.chartRef
+      if (inner) {
+        updateApexChart(inner, newOptions, newSeries, true)
+      }
+    } catch (e) {
+      // chart instance might not be ready
+    }
+  }, 50)
 }
 
 function clearSelections() {
   selectedKey.value = null
   displaySeries.value = [...chartSeries.value]
 
-  // reset options and try to update the chart instance
+  // Reset options
   donutChartOptions.value = {
     ...donutChartOptions.value,
-    labels: Object.values(props.labelsMap),
+    labels: ORDERED_KEYS.map(k => props.labelsMap[k]),
     colors: safeColorArray(props.colors),
-    chart: { ...donutChartOptions.value.chart },
   }
-  // try updating chart via composable (safe)
-  setTimeout(() => {
-    try {
-      const inner = donutChart.value?.chartRef
-      if (donutChart.value && typeof donutChart.value.clearSelections === 'function') donutChart.value.clearSelections()
-      void updateApexChart(inner, { labels: donutChartOptions.value.labels, colors: donutChartOptions.value.colors }, displaySeries.value, true)
-    } catch {
-      // silent
-    }
-  }, 50)
+
+  // Clear internal selection if method exists
+  if (donutChart.value?.clearSelections) {
+    donutChart.value.clearSelections()
+  }
+
+  triggerChartUpdate({
+    labels: donutChartOptions.value.labels,
+    colors: donutChartOptions.value.colors
+  }, displaySeries.value)
 
   emit('selection', null)
-  try { app.clearSelectedMorphology() } catch { }
+  app.clearSelectedMorphology?.()
 }
 
 function applySelection(key, emitEvent = true) {
@@ -123,83 +160,113 @@ function applySelection(key, emitEvent = true) {
   }
 
   selectedKey.value = key
+  // Show only the selected value in the chart ring
   displaySeries.value = [props.microplasticData[key] || 0]
 
+  // Update options to show single label/color
   donutChartOptions.value = {
     ...donutChartOptions.value,
     labels: [props.labelsMap[key]],
     colors: safeColorArray([props.colors[key]]),
-    chart: { ...donutChartOptions.value.chart },
   }
-  setTimeout(() => {
-    try {
-      const inner = donutChart.value?.chartRef
-      void updateApexChart(inner, { labels: donutChartOptions.value.labels, colors: donutChartOptions.value.colors }, displaySeries.value, true)
-    } catch {
-      // silent
-    }
-  }, 50)
+
+  triggerChartUpdate({
+    labels: donutChartOptions.value.labels,
+    colors: donutChartOptions.value.colors
+  }, displaySeries.value)
 
   if (emitEvent) emit('selection', key)
-  try { app.setSelectedMorphology(key) } catch { }
+  app.setSelectedMorphology?.(key)
 }
 
-const handleLegendClick = key => applySelection(key, true)
+const handleLegendClick = (key) => applySelection(key, true)
 
-watch(() => props.activeKey, newKey => {
-  if (newKey === selectedKey.value) return
-  applySelection(newKey, false)
+// --- Watchers ---
+
+// Update series when props change (only if no active selection)
+watch(chartSeries, (newSeries) => {
+  if (selectedKey.value === null) {
+    displaySeries.value = newSeries
+  }
+}, { immediate: true })
+
+// Sync with activeKey prop
+watch(() => props.activeKey, (newKey) => {
+  if (newKey !== selectedKey.value) applySelection(newKey, false)
 })
 
-// keep in sync with global selection store
-watch(() => app.selectedMorphology, newKey => {
-  if (newKey === selectedKey.value) return
-  applySelection(newKey, false)
+// Sync with Store
+watch(() => app.selectedMorphology, (newKey) => {
+  if (newKey !== selectedKey.value) applySelection(newKey, false)
 })
 </script>
 
 <template>
-  <VRow>
-    <VCol cols="7">
-      <div class="d-flex flex-column">
-        <div class="d-flex flex-column">
-          <h4 class="text-h6 font-weight-bold mb-1" style="line-height: 1.2em;">Total Microplastic Waste
-            per Morphological
-            Category
-          </h4>
-          <p class="subtitle mb-2">{{ props.date || defaultDate }}</p>
-        </div>
+  <div class="card-container">
+    <div class="header-section">
+      <h4 class="text-h6 font-weight-bold mb-1" style="line-height: 1.2em;">
+        Total Microplastic Waste per Morphological Category
+      </h4>
+      <p class="subtitle mb-2">{{ props.date || defaultDate }}</p>
+    </div>
+
+    <div v-if="!hasData" class="no-data-container">
+      <span class="no-data-text">No data available</span>
+    </div>
+
+    <VRow v-else class="chart-row" no-gutters>
+      <VCol cols="7">
         <ApexChartBase ref="donutChart" :height="300" :options="donutChartOptions" :series="displaySeries"
           type="donut" />
-      </div>
-    </VCol>
+      </VCol>
 
-    <!-- Custom Legend -->
-    <VCol cols="5">
-      <div class="d-flex flex-column">
-        <template v-for="(value, key) in microplasticData" :key="key">
-          <div class="legend-item" :style="{
-            backgroundColor: props.colors[key],
-            opacity: selectedKey === null || selectedKey === key ? 1 : 0.4
-          }" @click="handleLegendClick(key)">
-            <p class="font-weight-bold" style="font-size: 1.5em;">
-              {{ percentages[key] }}%
-            </p>
-            <div class="separator" />
-            <div class="d-flex flex-column" style="line-height: 1.2em;">
-              <p>{{ key.charAt(0).toUpperCase() + key.slice(1) }}</p>
-              <p class="font-weight-bold" style="font-size: 1.2em;">
-                {{ value.toLocaleString() }}
+      <VCol cols="5">
+        <div class="d-flex flex-column">
+          <template v-for="key in ORDERED_KEYS" :key="key">
+            <div class="legend-item" :style="{
+              backgroundColor: props.colors[key],
+              opacity: selectedKey === null || selectedKey === key ? 1 : 0.4
+            }" @click="handleLegendClick(key)">
+              <p class="font-weight-bold" style="font-size: 1.5em;">
+                {{ percentages[key] }}%
               </p>
+              <div class="separator" />
+              <div class="d-flex flex-column" style="line-height: 1.2em;">
+                <p>{{ labelsMap[key] }}</p>
+                <p class="font-weight-bold" style="font-size: 1.2em;">
+                  {{ (microplasticData[key] || 0).toLocaleString() }}
+                </p>
+              </div>
             </div>
-          </div>
-        </template>
-      </div>
-    </VCol>
-  </VRow>
+          </template>
+        </div>
+      </VCol>
+    </VRow>
+  </div>
 </template>
 
 <style scoped>
+.card-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.no-data-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+  flex: 1;
+}
+
+.no-data-text {
+  color: rgb(155, 155, 155);
+  font-style: italic;
+  font-size: 1.1em;
+}
+
 .legend-item {
   display: flex;
   align-items: center;

@@ -36,7 +36,7 @@ const { displayLatestSampleDate } = useLatestSampleDate()
 // --- EXISTING CHART LOGIC ---
 const computeOverviewTotals = computed(() => (
   props.allFarmsData.length === 0
-    ? { fragments: 0, fibers: 0, foams: 0, films: 0, sheets: 0, pellets: 0 }
+    ? { fragments: 0, fibers: 0, foams: 0, films: 0, sheets: 0 }
     : (() => {
       return props.allFarmsData.reduce((acc, farm) => {
         acc.fragments += Number(farm.fragment_count) || 0
@@ -44,9 +44,9 @@ const computeOverviewTotals = computed(() => (
         acc.foams += Number(farm.foam_count) || 0
         acc.films += Number(farm.film_count) || 0
         acc.sheets += Number(farm.sheets_count || farm.sheet_count || farm.sheets) || 0
-        acc.pellets += Number(farm.beads_count) || 0
+        /* pellets/beads removed from UI charts; keep bead counts if needed separately */
         return acc
-      }, { fragments: 0, fibers: 0, foams: 0, films: 0, sheets: 0, pellets: 0 })
+      }, { fragments: 0, fibers: 0, foams: 0, films: 0, sheets: 0 })
     })()
 ))
 
@@ -58,7 +58,7 @@ const microplasticData = computed(() => (
       foams: props.item.foam_count || 0,
       films: props.item.film_count || 0,
       sheets: props.item.sheets_count || props.item.sheet_count || props.item.sheets || 0,
-      pellets: props.item.beads_count || 0,
+      /* pellets removed from microplastic vector used by charts */
     }
     : computeOverviewTotals.value
 ))
@@ -86,12 +86,12 @@ function coerceCount(v) {
 const originalBarChartDataComputed = computed(() => {
   if (!Array.isArray(props.allFarmsData) || props.allFarmsData.length === 0) {
     return [
-      { name: 'Conventional Practice', data: [0, 0, 0, 0, 0, 0] },
-      { name: 'Organic Practice', data: [0, 0, 0, 0, 0, 0] },
-      { name: 'Integrated Practice', data: [0, 0, 0, 0, 0, 0] },
+      { name: 'Conventional Practice', data: [0, 0, 0, 0, 0] },
+      { name: 'Organic Practice', data: [0, 0, 0, 0, 0] },
+      { name: 'Integrated Practice', data: [0, 0, 0, 0, 0] },
     ]
   }
-  const accum = practiceKeys.map(() => [0, 0, 0, 0, 0, 0])
+  const accum = practiceKeys.map(() => [0, 0, 0, 0, 0])
   for (const farm of props.allFarmsData) {
     const practice = (farm.cultivation_practice || '').toString().toLowerCase()
     let idx = -1
@@ -104,7 +104,6 @@ const originalBarChartDataComputed = computed(() => {
     accum[idx][2] += coerceCount(farm.foam_count)
     accum[idx][3] += coerceCount(farm.film_count)
     accum[idx][4] += coerceCount(farm.sheets_count || farm.sheet_count || farm.sheets)
-    accum[idx][5] += coerceCount(farm.beads_count)
   }
   return practiceNames.map((name, i) => ({ name, data: accum[i] }))
 })
@@ -114,10 +113,10 @@ watch(originalBarChartDataComputed, (nv) => { barChartDummySeries.value = nv })
 
 function onDonutSelection(key) {
   try { app.setSelectedMorphology(key) } catch { }
-  const keyToIndex = { fragments: 0, fibers: 1, foams: 2, films: 3, sheets: 4, pellets: 5 }
+  const keyToIndex = { fragments: 0, fibers: 1, foams: 2, films: 3, sheets: 4 }
   if (!key) {
     barChartDummySeries.value = originalBarChartDataComputed.value.slice()
-    barChartOptions.value = { ...barChartOptions.value, xaxis: { categories: ['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets'] } }
+    barChartOptions.value = { ...barChartOptions.value, xaxis: { categories: ['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets'] } }
     return
   }
   const selectedIndex = keyToIndex[key]
@@ -125,10 +124,10 @@ function onDonutSelection(key) {
   barChartOptions.value = { ...barChartOptions.value, xaxis: { categories: [labelsMap[key]] } }
 }
 
-const colors = { fibers: '#19568E', fragments: '#0B2E4E', films: '#63B3FF', foams: '#4688C7', sheets: '#8FD3C7', pellets: '#B9DDFF' }
-const labelsMap = { fragments: 'Fragments', fibers: 'Fibers', foams: 'Foams', films: 'Films', sheets: 'Sheets', pellets: 'Pellets' }
+const colors = { fibers: '#19568E', fragments: '#0B2E4E', films: '#63B3FF', foams: '#4688C7', sheets: '#8FD3C7' }
+const labelsMap = { fragments: 'Fragments', fibers: 'Fibers', foams: 'Foams', films: 'Films', sheets: 'Sheets' }
 
-const barChartOptions = ref(getDefaultBarOptions(['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets']))
+const barChartOptions = ref(getDefaultBarOptions(['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']))
 
 const practiceMax = computed(() => {
   const series = originalBarChartDataComputed.value || []
@@ -163,7 +162,7 @@ function niceMaxValue(n) {
 
 function buildBarOptions() {
   const ymax = niceMaxValue(practiceMax.value)
-  return getDefaultBarOptions(['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets', 'Pellets'], {
+  return getDefaultBarOptions(['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets'], {
     yaxis: { title: { text: 'Number of MP found' }, min: 0, max: ymax, labels: { formatter: (val) => formatNumberShort(val) } },
     tooltip: { y: { formatter: (val) => formatNumberShort(val) } },
   })

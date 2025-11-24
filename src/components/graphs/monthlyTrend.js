@@ -1,9 +1,9 @@
-// Small helper to produce a monthly trend series for all microplastic categories
-export function buildMonthlyChartData (totals = {}) {
+// Helper to produce a monthly trend series for all microplastic categories
+export function buildMonthlyChartData(totals = {}) {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
   // simple triangular weighting to create a seasonality-like shape
-  function distributeAcrossMonths (value) {
+  function distributeAcrossMonths(value) {
     const weights = [0.6, 0.7, 0.9, 1, 1.1, 1.2, 1.2, 1.1, 1, 0.9, 0.8, 0.7]
     const totalW = weights.reduce((a, b) => a + b, 0)
     // if value is falsy or zero, return zeros of same length
@@ -19,7 +19,6 @@ export function buildMonthlyChartData (totals = {}) {
     { name: 'Foam', data: distributeAcrossMonths(totals.foams || 0) },
     { name: 'Films', data: distributeAcrossMonths(totals.films || 0) },
     { name: 'Sheets', data: distributeAcrossMonths(totals.sheets || 0) },
-    { name: 'Pellets', data: distributeAcrossMonths(totals.pellets || 0) },
   ]
 
   const options = {

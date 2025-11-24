@@ -1,4 +1,4 @@
-export function getDefaultBarOptions (categories = [], overrides = {}) {
+export function getDefaultBarOptions(categories = [], overrides = {}) {
   const base = {
     chart: { type: 'bar', height: 300, toolbar: { show: false } },
     colors: ['#19568E', '#63B3FF', '#0B2E4E'],
@@ -18,14 +18,14 @@ export function getDefaultBarOptions (categories = [], overrides = {}) {
     fill: { opacity: 1 },
     tooltip: {
       y: {
-        formatter (val) {
+        formatter(val) {
           return val + ' thousands'
         },
       },
     },
   }
 
-  // shallow merge overrides into base
+  // merge overrides into base
   return Object.assign({}, base, overrides, {
     plotOptions: Object.assign({}, base.plotOptions, overrides.plotOptions || {}),
     xaxis: Object.assign({}, base.xaxis, overrides.xaxis || {}),
