@@ -40,6 +40,7 @@
 </template>
 
 <script setup>
+import { CHART_COLORS } from '@/config/chartPalette'
 import { readItems } from '@directus/sdk'
 import L from 'leaflet'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -340,10 +341,10 @@ onMounted(async () => {
 
       const geoLayer = L.geoJSON(tayabasGeo, {
         style: {
-          color: '#2264A2',
+          color: CHART_COLORS[0],
           weight: 3,
           dashArray: '5, 5',
-          fillColor: '#2264A2',
+          fillColor: CHART_COLORS[0],
           fillOpacity: 0.1,
         },
         interactive: false,
@@ -515,7 +516,7 @@ onMounted(async () => {
 
 .breadcrumb-link:hover {
   text-decoration: underline;
-  color: #1e88e5;
+  color: #1d50aa;
 }
 
 /* Legend styles */

@@ -58,8 +58,9 @@ const microplasticData = computed(() => ({
   sheets: totalSheets.value,
 }))
 
-const mpColors = { fragments: '#0B2E4E', fibers: '#19568E', films: '#63B3FF', foams: '#4688C7', sheets: '#8AB4FF' }
-const donutColors = { ...mpColors }
+import { MP_COLOR_MAP, CHART_COLORS } from '@/config/chartPalette.js'
+const mpColors = { ...MP_COLOR_MAP }
+const donutColors = { ...MP_COLOR_MAP }
 const donutLabelsMap = { fragments: 'Fragments', fibers: 'Fibers', foams: 'Foam', films: 'Films', sheets: 'Sheets' }
 
 function handleLegendClick(key) {
@@ -272,7 +273,7 @@ async function fetchSizeComparisonAllSites(fieldKey = 'equivalent_circular_diame
       categories,
       totals,
       drilldown,
-      overviewColors: categories.map(() => '#1976D2')
+      overviewColors: categories.map(() => CHART_COLORS[0])
     }
 
   } catch (e) {
@@ -308,7 +309,7 @@ const farmSizeCounts = computed(() => ({
   large: sites.value.filter(s => s.land_area_ha > 3).length,
 }))
 const farmSizeSeries = computed(() => ([{ name: 'Farms', data: [farmSizeCounts.value.small, farmSizeCounts.value.medium, farmSizeCounts.value.large] }]))
-const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show: false } }, xaxis: { categories: ['Small (<1ha)', 'Medium (1-3ha)', 'Large (>3ha)'] }, plotOptions: { bar: { horizontal: false, columnWidth: '70%' } }, legend: { show: false } }))
+const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show: false } }, xaxis: { categories: ['Small (<1ha)', 'Medium (1-3ha)', 'Large (>3ha)'] }, plotOptions: { bar: { horizontal: false, columnWidth: '70%' } }, legend: { show: false }, colors: [CHART_COLORS[2]] }))
 
 function printReport() { window.print() }
 
@@ -558,7 +559,7 @@ onMounted(async () => {
 
 .summary-box {
   background-color: #f9f9f9;
-  border-left: 4px solid #1976d2;
+  border-left: 4px solid #366ECE;
   padding: 12px 16px;
   margin-top: 8px;
 }

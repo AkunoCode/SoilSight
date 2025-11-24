@@ -8,6 +8,7 @@ const props = defineProps({
   type: { type: String, default: 'bar' },
   height: { type: [Number, String], default: 350 },
   remountKey: { type: [Number, String], default: 0 },
+  color: { type: [String, Array], default: null },
 })
 
 const chartRef = ref(null)
@@ -46,7 +47,7 @@ defineExpose({ chartRef, forceRemount, safeUpdate })
 
 <template>
   <apexchart :key="remountKey + internalKey" ref="chartRef" :height="height" :options="options" :series="series"
-    :type="type" />
+    :type="type" :color="color" />
 </template>
 
 <style scoped></style>

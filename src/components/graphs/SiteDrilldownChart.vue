@@ -4,6 +4,7 @@ import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
 import { VIcon } from 'vuetify/components'
 import { ensurePlotOptionsBar, safeColorArray, updateApexChart } from '@/composables/useApexChart'
 import ApexChartBase from './ApexChartBase.vue'
+import { CHART_COLORS } from '@/config/chartPalette.js'
 
 const props = defineProps({
   categories: { type: Array, required: true },
@@ -34,7 +35,7 @@ const overviewOptions = ref({
     type: 'category',
     labels: { rotate: -12, rotateAlways: false, hideOverlappingLabels: false, trim: false, style: { fontSize: '12px' } },
   },
-  colors: ['#1976d2'],
+  colors: [CHART_COLORS[2]],
   plotOptions: { bar: { horizontal: false } },
   legend: { position: 'top' },
 })
@@ -105,7 +106,7 @@ watch(() => props.filterKey, async (newKey) => {
       const label = (siteCategoryLabels.value && siteCategoryLabels.value[morphIdx]) || (newKey.charAt(0).toUpperCase() + newKey.slice(1))
       overviewSeries.value = [{ name: label, data: values }]
       // try to update options colors to use the single morphology color if provided
-      let colors = overviewOptions.value.colors || ['#1976d2']
+      let colors = overviewOptions.value.colors || [CHART_COLORS[2]]
       try {
         if (props.colors && Object.keys(props.colors).length > 0) {
           const keyNames = Object.keys(props.colors || {})

@@ -203,13 +203,8 @@ function handleDonutSelection(key) {
   app.toggleSelectedMorphology(key)
 }
 
-const mpColors = {
-  fragments: '#0B2E4E',
-  fibers: '#19568E',
-  films: '#63B3FF',
-  foams: '#4688C7',
-  sheets: '#8FD3C7',
-}
+import { MP_COLOR_MAP, CHART_COLORS } from '@/config/chartPalette.js'
+const mpColors = { ...MP_COLOR_MAP }
 
 // Prefer comparing the current site to other sites with the same cultivation practice.
 const sitesOfSamePractice = computed(() => {
@@ -333,7 +328,7 @@ async function fetchColorComparisonForFarm(farmId) {
       drilldown.push(otherDrill)
     }
 
-    const known = { gray: '#9e9e9e', grey: '#9e9e9e', blue: '#1976d2', white: '#ffffff', transparent: '#cfd8dc', black: '#000000', green: '#2E7D32' }
+    const known = { gray: '#9e9e9e', grey: '#9e9e9e', blue: CHART_COLORS[0], white: '#ffffff', transparent: '#cfd8dc', black: '#000000', green: CHART_COLORS[1] }
     const colorsArr = categories.map(label => {
       const key = (label || '').toString().toLowerCase()
       if (known[key]) return known[key]
@@ -400,7 +395,7 @@ const colorComparison = computed(() => {
     const sheets = Math.round(t * ((mp.sheets || 0) / mpTotal))
     return [fragments, fibers, foams, films, sheets]
   })
-  const known = { gray: '#9e9e9e', blue: '#1976d2', white: '#ffffff', transparent: '#cfd8dc', black: '#000000', green: '#2E7D32' }
+  const known = { gray: '#9e9e9e', blue: CHART_COLORS[0], white: '#ffffff', transparent: '#cfd8dc', black: '#000000', green: CHART_COLORS[1] }
   const overviewColors = colorBuckets.map(label => {
     const key = (label || '').toString().toLowerCase()
     if (known[key]) return known[key]
@@ -737,7 +732,7 @@ async function fetchLatestSampleDateForFarm(farmId) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #1976d2;
+  color: #366ECE;
   font-weight: 600;
   text-decoration: none;
 }

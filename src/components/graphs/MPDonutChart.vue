@@ -4,6 +4,7 @@ import { useAppStore } from '@/stores/app'
 import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
 import { safeColorArray, updateApexChart } from '@/composables/useApexChart'
 import ApexChartBase from './ApexChartBase.vue'
+import { MP_COLOR_MAP } from '@/config/chartPalette.js'
 
 const props = defineProps({
   microplasticData: { type: Object, required: true },
@@ -20,13 +21,7 @@ const props = defineProps({
   },
   colors: {
     type: Object,
-    default: () => ({
-      fibers: '#19568E',
-      fragments: '#0B2E4E',
-      films: '#63B3FF',
-      foams: '#4688C7',
-      sheets: '#8AB4FF'
-    })
+    default: () => ({ ...MP_COLOR_MAP })
   },
   activeKey: { type: [String, null], default: null },
   date: { type: String, default: '' },
@@ -103,13 +98,13 @@ const donutChartOptions = ref({
           total: {
             show: true,
             label: 'Total number\nof MP found',
-            fontSize: '14px',
             formatter: defaultTotalFormatter
-          },
-        },
-      },
-    },
+          }
+        }
+      }
+    }
   },
+
 })
 
 // --- Interaction Logic ---

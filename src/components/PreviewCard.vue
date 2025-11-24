@@ -124,7 +124,8 @@ function onDonutSelection(key) {
   barChartOptions.value = { ...barChartOptions.value, xaxis: { categories: [labelsMap[key]] } }
 }
 
-const colors = { fibers: '#19568E', fragments: '#0B2E4E', films: '#63B3FF', foams: '#4688C7', sheets: '#8FD3C7' }
+import { MP_COLOR_MAP } from '@/config/chartPalette.js'
+const colors = { ...MP_COLOR_MAP }
 const labelsMap = { fragments: 'Fragments', fibers: 'Fibers', foams: 'Foams', films: 'Films', sheets: 'Sheets' }
 
 const barChartOptions = ref(getDefaultBarOptions(['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']))
@@ -351,7 +352,7 @@ function expandInsight() {
 
 .summary-box {
   background-color: #f9f9f9;
-  border-left: 4px solid #19568E;
+  border-left: 4px solid #1d50aa;
   padding: 1em;
   border-radius: 0em;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);

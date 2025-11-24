@@ -1,6 +1,7 @@
 <script setup>
 /* eslint-disable unicorn/no-array-callback-reference, unicorn/no-array-method-this-argument */
 import L from 'leaflet'
+import { CHART_COLORS } from '@/config/chartPalette'
 import { computed, defineProps, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import 'leaflet/dist/leaflet.css'
@@ -60,7 +61,7 @@ function initMap() {
       .then(r => r.json())
       .then(geojson => {
         polygonLayer = L.geoJSON(geojson, {
-          style: () => ({ color: '#1976d2', weight: 2, fillColor: '#1976d2', fillOpacity: 0.06 }),
+          style: () => ({ color: CHART_COLORS[0], weight: 2, fillColor: CHART_COLORS[0], fillOpacity: 0.06 }),
         }).addTo(map)
         // if polygon added and no markers, fit bounds to polygon
         try {
@@ -349,15 +350,15 @@ const filteredSites = computed(() => {
 }
 
 .level-badge.high {
-  background: #d32f2f
+  background: #00153b
 }
 
 .level-badge.moderate {
-  background: #fb8c00
+  background: #0e377f
 }
 
 .level-badge.low {
-  background: #43a047
+  background: #1d50aa
 }
 
 .level-badge.zero {

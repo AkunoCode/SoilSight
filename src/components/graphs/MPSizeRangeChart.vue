@@ -4,6 +4,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 // Directus
 import directus from '@/composables/useDirectus'
 import SiteDrilldownChart from './SiteDrilldownChart.vue'
+import { MP_COLOR_MAP, CHART_COLORS } from '@/config/chartPalette.js'
 
 const props = defineProps({
   siteId: { type: [String, Number], required: false },
@@ -100,7 +101,6 @@ async function fetchAndAggregate(siteId, fieldKey) {
         if (mm.includes('film')) return 3
         if (mm.includes('sheet')) return 4
         return -1
-        return -1
       })(morph)
 
       counts[idx]++
@@ -110,8 +110,8 @@ async function fetchAndAggregate(siteId, fieldKey) {
     totals.value = counts
     drilldown.value = drill
 
-    // simple color palette (add sheets color)
-    overviewColors.value = ['#9e9e9e', '#1976d2', '#63B3FF', '#4688C7', '#8FD3C7']
+    // use central chart palette for overview colors
+    overviewColors.value = CHART_COLORS.slice()
   } catch (error) {
     console.error('MPSizeRangeChart: fetch error', error)
   } finally {
@@ -159,8 +159,7 @@ onMounted(() => {
 
     <div v-else>
       <SiteDrilldownChart :categories="categories" :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']"
-        :colors="{ fragments: '#0B2E4E', fibers: '#19568E', films: '#63B3FF', foams: '#4688C7', sheets: '#8FD3C7' }"
-        :date="props.date" :drilldown="drilldown" :height="props.height" :totals="totals"
+        :colors="MP_COLOR_MAP" :date="props.date" :drilldown="drilldown" :height="props.height" :totals="totals"
         :filter-key="props.filterKey" />
     </div>
   </div>

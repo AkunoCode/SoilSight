@@ -1,7 +1,9 @@
+import { CHART_COLORS } from '@/config/chartPalette.js'
+
 export function getDefaultBarOptions(categories = [], overrides = {}) {
   const base = {
     chart: { type: 'bar', height: 300, toolbar: { show: false } },
-    colors: ['#19568E', '#63B3FF', '#0B2E4E'],
+    colors: CHART_COLORS,
     plotOptions: {
       bar: {
         horizontal: false,

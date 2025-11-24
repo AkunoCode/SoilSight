@@ -185,10 +185,10 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
                             <VChip color="primary" label>{{ new Date(regionalReport.report_date).toLocaleDateString() }}
                             </VChip>
                             <VChip variant="outlined"><strong>{{ regionalReport.total_farms_analyzed
-                            }}</strong>&nbsp;Farms
+                                    }}</strong>&nbsp;Farms
                             </VChip>
                             <VChip variant="outlined" color="red"><strong>{{ regionalReport.total_pollution_count
-                            }}</strong>&nbsp;Particles</VChip>
+                                    }}</strong>&nbsp;Particles</VChip>
                         </div>
                         <div class="report-content" v-html="parsedRegionalReport"></div>
                     </div>
@@ -209,7 +209,7 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
 <style scoped>
 .summary-box {
     background-color: #f9f9f9;
-    border-left: 4px solid #19568E;
+    border-left: 4px solid #366ECE;
     padding: 1em;
     border-radius: 0em;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
