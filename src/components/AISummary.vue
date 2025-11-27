@@ -24,7 +24,6 @@ const showReportDialog = ref(false)
 
 // --- 1. CONFIGURE DOMPURIFY ---
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-    // Ensure all links open in a new tab
     if ('target' in node) {
         node.setAttribute('target', '_blank')
         node.setAttribute('rel', 'noopener noreferrer')
@@ -46,7 +45,15 @@ function purify(raw) {
     }
 }
 
-// --- 2. COMPUTED PROPERTIES ---
+// --- 2. SMART PARSING ---
+function parseMarkdown(text) {
+    if (!text) return ''
+    return text
+        .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+        .replace(/\*(.*?)\*/g, '<i>$1</i>')
+        .replace(/- (.*?)(<br>|\n|$)/g, '<li>$1</li>')
+        .replace(/\n/g, '<br>')
+}
 
 const formattedSummary = computed(() => {
     const raw = props.isOverview ? (regionalReport.value?.ai_report || null) : (props.item?.ai_summary || null)
@@ -55,16 +62,24 @@ const formattedSummary = computed(() => {
     if (/<\/?[a-z][\s\S]*>/i.test(raw)) {
         return purify(raw)
     }
-    return raw.replace(/\n/g, '<br>')
+    return parseMarkdown(raw)
 })
 
 const summaryDateLabel = computed(() => {
     if (props.isOverview && regionalReport.value) {
         return new Date(regionalReport.value.report_date || Date.now()).toLocaleDateString()
-    } else if (!props.isOverview && props.item) {
-        return displayLatestSampleDate.value
+    } else if (!props.isOverview) {
+        return displayLatestSampleDate.value || 'Recent'
     }
     return 'N/A'
+})
+
+const farmTotalMPs = computed(() => {
+    if (props.isOverview || !props.item) return 0
+    const f = props.item
+    const total = (f.fragment_count || 0) + (f.foam_count || 0) + (f.film_count || 0) +
+        (f.fiber_count || 0) + (f.beads_count || 0) + (f.sheets_count || 0)
+    return total > 0 ? total : (f.total_count || 0)
 })
 
 // --- 3. API & LOGIC ---
@@ -75,7 +90,6 @@ async function fetchRegionalReport() {
         const items = Array.isArray(res) ? res : (res?.data || [])
         if (items.length > 0) {
             const latestItem = items[0]
-
             if (isGenerating.value) {
                 if (latestItem.id !== previousReportId.value) {
                     regionalReport.value = latestItem
@@ -100,9 +114,8 @@ async function generateReport() {
         await directus.request(customEndpoint({
             path: '/flows/trigger/914be7b3-e277-4de5-baa5-1724a964521b',
             method: 'POST',
-            body: JSON.stringify({})
+            body: JSON.stringify(props.isOverview ? {} : { site_id: props.item?.id })
         }))
-
         startPolling()
         emit('generated')
     } catch (error) {
@@ -113,7 +126,11 @@ async function generateReport() {
 
 function startPolling() {
     if (pollInterval) clearInterval(pollInterval)
-    pollInterval = setInterval(() => { fetchRegionalReport() }, 5000)
+    if (props.isOverview) {
+        pollInterval = setInterval(() => { fetchRegionalReport() }, 5000)
+    } else {
+        setTimeout(() => { isGenerating.value = false; emit('generated') }, 4000)
+    }
 }
 
 function stopPolling() {
@@ -146,7 +163,7 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
             class="summary-card d-flex flex-column align-center justify-center py-8">
             <VIcon color="grey-lighten-1" size="large" class="mb-2">mdi-creation</VIcon>
             <p class="text-body-2 text-grey-darken-1 mb-0">Generating Smart Report...</p>
-            <p class="text-caption text-grey">Consolidating data from all farms</p>
+            <p class="text-caption text-grey">Analyzing soil morphometrics</p>
         </div>
 
         <div v-else-if="formattedSummary" class="summary-card">
@@ -155,12 +172,17 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
                 <div class="d-flex align-center">
                     <VIcon size="small" color="grey-darken-1" class="mr-1">mdi-calendar-check</VIcon>
                     <span class="text-caption text-grey-darken-2 font-weight-medium">
-                        As of {{ summaryDateLabel }}
+                        {{ summaryDateLabel }}
                     </span>
                 </div>
-                <div v-if="props.isOverview && regionalReport" class="d-flex align-center">
-                    <VChip size="x-small" color="red" variant="flat" class="font-weight-bold">
-                        {{ regionalReport.total_pollution_count }} MPs Found
+                <div class="d-flex align-center">
+                    <VChip v-if="props.isOverview && regionalReport" size="x-small" color="red" variant="flat"
+                        class="font-weight-bold">
+                        {{ regionalReport.total_pollution_count }} MPs Total
+                    </VChip>
+                    <VChip v-else-if="!props.isOverview && farmTotalMPs > 0" size="x-small" color="orange-darken-1"
+                        variant="flat" class="font-weight-bold">
+                        {{ farmTotalMPs }} MPs Found
                     </VChip>
                 </div>
             </div>
@@ -176,15 +198,16 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
                     Read Full Report
                 </VBtn>
                 <VSpacer></VSpacer>
-                <VBtn color="primary" variant="text" size="small" :loading="isGenerating" :disabled="isGenerating"
-                    @click="generateReport" prepend-icon="mdi-refresh">
+
+                <VBtn v-if="props.isOverview" color="primary" variant="text" size="small" :loading="isGenerating"
+                    :disabled="isGenerating" @click="generateReport" prepend-icon="mdi-refresh">
                     Regenerate
                 </VBtn>
             </div>
         </div>
 
         <div v-else class="summary-card d-flex flex-column align-center justify-center py-6">
-            <p class="text-body-2 text-grey mb-3">No analysis available yet.</p>
+            <p class="text-body-2 text-grey mb-3">No analysis available.</p>
             <VBtn v-if="showGenerate" color="primary" variant="tonal" size="small" prepend-icon="mdi-creation"
                 @click="generateReport">
                 Generate Analysis
@@ -196,43 +219,44 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
                 <VCardTitle class="d-flex justify-space-between align-center pa-4 bg-grey-lighten-4">
                     <div class="d-flex align-center">
                         <VIcon color="primary" class="mr-2">mdi-google-analytics</VIcon>
-                        <span class="text-h6 font-weight-bold">Regional Intelligence Report</span>
+                        <span class="text-h6 font-weight-bold">
+                            {{ props.isOverview ? 'Regional Intelligence Report' : 'Site Diagnostic Report' }}
+                        </span>
                     </div>
                     <VBtn icon="mdi-close" variant="text" @click="showReportDialog = false"></VBtn>
                 </VCardTitle>
                 <VDivider></VDivider>
 
                 <VCardText class="pa-6" style="min-height: 400px;">
-                    <div v-if="regionalReport" class="text-body-1">
+                    <div class="text-body-1">
 
                         <div class="stats-grid mb-6">
                             <div class="stat-card bg-blue-lighten-5">
                                 <div class="d-flex align-center text-primary mb-1">
                                     <VIcon size="small" class="mr-1">mdi-calendar-clock</VIcon>
-                                    <span class="text-caption font-weight-bold text-uppercase">Report Date</span>
+                                    <span class="text-caption font-weight-bold text-uppercase">Date</span>
                                 </div>
                                 <div class="text-h6 font-weight-bold text-primary">
-                                    {{ new Date(regionalReport.report_date).toLocaleDateString() }}
+                                    {{ summaryDateLabel }}
                                 </div>
                             </div>
-
                             <div class="stat-card bg-grey-lighten-4">
                                 <div class="d-flex align-center text-grey-darken-2 mb-1">
-                                    <VIcon size="small" class="mr-1">mdi-tractor</VIcon>
-                                    <span class="text-caption font-weight-bold text-uppercase">Coverage</span>
+                                    <VIcon size="small" class="mr-1">{{ isOverview ? 'mdi-map' : 'mdi-flower-tulip' }}
+                                    </VIcon>
+                                    <span class="text-caption font-weight-bold text-uppercase">Scope</span>
                                 </div>
                                 <div class="text-h6 font-weight-bold text-grey-darken-3">
-                                    {{ regionalReport.total_farms_analyzed }} Farms
+                                    {{ isOverview ? (regionalReport?.total_farms_analyzed + ' Farms') : 'Single Site' }}
                                 </div>
                             </div>
-
                             <div class="stat-card bg-red-lighten-5">
                                 <div class="d-flex align-center text-red-darken-2 mb-1">
                                     <VIcon size="small" class="mr-1">mdi-alert-circle-outline</VIcon>
-                                    <span class="text-caption font-weight-bold text-uppercase">Total Load</span>
+                                    <span class="text-caption font-weight-bold text-uppercase">Load</span>
                                 </div>
                                 <div class="text-h6 font-weight-bold text-red-darken-3">
-                                    {{ regionalReport.total_pollution_count }} MPs
+                                    {{ isOverview ? regionalReport?.total_pollution_count : farmTotalMPs }} MPs
                                 </div>
                             </div>
                         </div>
@@ -244,8 +268,10 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
                 <VDivider></VDivider>
                 <VCardActions class="pa-4 bg-grey-lighten-5">
                     <VSpacer></VSpacer>
-                    <VBtn color="primary" variant="outlined" :loading="isGenerating" :disabled="isGenerating"
-                        @click="generateReport" prepend-icon="mdi-refresh">Regenerate Analysis</VBtn>
+
+                    <VBtn v-if="props.isOverview" color="primary" variant="outlined" :loading="isGenerating"
+                        :disabled="isGenerating" @click="generateReport" prepend-icon="mdi-refresh">Regenerate</VBtn>
+
                     <VBtn color="primary" variant="elevated" @click="showReportDialog = false">Close</VBtn>
                 </VCardActions>
             </VCard>
@@ -254,12 +280,10 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
 </template>
 
 <style scoped>
-/* CARD CONTAINER STYLE */
 .summary-card {
     background-color: #ffffff;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
-    /* Softer corners */
     padding: 16px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     transition: box-shadow 0.2s ease;
@@ -273,11 +297,9 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
     border-top: 1px solid #f0f0f0;
 }
 
-/* PREVIEW FADE EFFECT */
 .preview-container {
     position: relative;
     max-height: 140px;
-    /* Limit height to approx 5-6 lines */
     overflow: hidden;
 }
 
@@ -291,7 +313,6 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
     pointer-events: none;
 }
 
-/* MODAL STATS GRID */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -313,7 +334,6 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
     justify-content: center;
 }
 
-/* REPORT CONTENT TYPOGRAPHY */
 .report-content :deep(h3) {
     font-size: 1.1rem;
     font-weight: 700;
