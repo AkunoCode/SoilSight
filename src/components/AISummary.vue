@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import DOMPurify from 'dompurify'
 import directus from '@/composables/useDirectus.js'
 import { readItems, customEndpoint } from '@directus/sdk'
 import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
@@ -21,47 +22,52 @@ const previousReportId = ref(null)
 let pollInterval = null
 const showReportDialog = ref(false)
 
-const parsedRegionalReport = computed(() => {
-    if (!regionalReport.value?.ai_report) return ''
-    return regionalReport.value.ai_report
-        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\n/g, '<br>')
-        .replace(/- (.*?)(<br>|$)/g, '<li>$1</li>')
-})
-
-const reportPreview = computed(() => {
-    if (props.isOverview) {
-        if (!regionalReport.value?.ai_report) return ''
-        let raw = regionalReport.value.ai_report.replace(/\*\*/g, '').replace(/[#*-]/g, '')
-        return raw.length > 350 ? raw.substring(0, 350) + '...' : raw
+// --- 1. CONFIGURE DOMPURIFY ---
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    // Ensure all links open in a new tab
+    if ('target' in node) {
+        node.setAttribute('target', '_blank')
+        node.setAttribute('rel', 'noopener noreferrer')
     }
-    return props.item?.ai_summary || ''
 })
 
-const rawSummaryText = computed(() => {
-    if (props.isOverview) return regionalReport.value?.ai_report || null
-    return props.item?.ai_summary || null
-})
+const sanitizeConfig = {
+    ALLOWED_TAGS: ['b', 'strong', 'i', 'em', 'u', 'br', 'p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'ul', 'ol', 'li', 'a', 'span'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style'],
+}
+
+function purify(raw) {
+    if (!raw) return ''
+    try {
+        return DOMPurify.sanitize(raw, sanitizeConfig)
+    } catch (e) {
+        console.error('DOMPurify failed', e)
+        return ''
+    }
+}
+
+// --- 2. COMPUTED PROPERTIES ---
 
 const formattedSummary = computed(() => {
-    const raw = rawSummaryText.value
+    const raw = props.isOverview ? (regionalReport.value?.ai_report || null) : (props.item?.ai_summary || null)
     if (!raw) return null
-    return raw
-        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\n/g, '<br>')
-        .replace(/- (.*?)(<br>|$)/g, '<li>$1</li>')
+
+    if (/<\/?[a-z][\s\S]*>/i.test(raw)) {
+        return purify(raw)
+    }
+    return raw.replace(/\n/g, '<br>')
 })
 
 const summaryDateLabel = computed(() => {
     if (props.isOverview && regionalReport.value) {
-        return `Regional Analysis as of ${new Date(regionalReport.value.report_date || Date.now()).toLocaleDateString()}`
+        return new Date(regionalReport.value.report_date || Date.now()).toLocaleDateString()
     } else if (!props.isOverview && props.item) {
-        return `Site Analysis generated on ${displayLatestSampleDate.value}`
+        return displayLatestSampleDate.value
     }
-    return 'Analysis unavailable'
+    return 'N/A'
 })
+
+// --- 3. API & LOGIC ---
 
 async function fetchRegionalReport() {
     try {
@@ -69,6 +75,7 @@ async function fetchRegionalReport() {
         const items = Array.isArray(res) ? res : (res?.data || [])
         if (items.length > 0) {
             const latestItem = items[0]
+
             if (isGenerating.value) {
                 if (latestItem.id !== previousReportId.value) {
                     regionalReport.value = latestItem
@@ -86,12 +93,10 @@ async function fetchRegionalReport() {
     }
 }
 
-// --- FIXED FUNCTION BELOW ---
 async function generateReport() {
     if (regionalReport.value?.id) previousReportId.value = regionalReport.value.id
     isGenerating.value = true
     try {
-        // FIXED: Added body: JSON.stringify({}) to ensure Content-Type header is sent
         await directus.request(customEndpoint({
             path: '/flows/trigger/914be7b3-e277-4de5-baa5-1724a964521b',
             method: 'POST',
@@ -126,49 +131,67 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
 
 <template>
     <div>
-        <div class="d-flex align-center justify-space-between mb-1">
+        <div class="d-flex align-center justify-space-between mb-3">
             <div class="d-flex align-center">
+                <VIcon color="primary" class="mr-2">mdi-brain</VIcon>
                 <h4 class="text-h6 font-weight-bold" style="line-height: 1.2em;">{{ props.title }}</h4>
             </div>
-            <div class="d-flex align-center">
-                <div v-if="isGenerating" class="d-flex align-center">
-                    <VProgressCircular indeterminate color="primary" size="16" width="2" class="mr-2" />
-                    <span class="text-caption text-primary font-weight-bold mr-2">Updating...</span>
-                </div>
+            <div v-if="isGenerating" class="d-flex align-center">
+                <VProgressCircular indeterminate color="primary" size="16" width="2" class="mr-2" />
+                <span class="text-caption text-primary font-weight-bold">Analyzing...</span>
             </div>
         </div>
 
-        <p class="subtitle mb-2">{{ summaryDateLabel }}</p>
-
         <div v-if="isGenerating && !formattedSummary"
-            class="summary-box d-flex flex-column align-center justify-center py-6">
+            class="summary-card d-flex flex-column align-center justify-center py-8">
+            <VIcon color="grey-lighten-1" size="large" class="mb-2">mdi-creation</VIcon>
             <p class="text-body-2 text-grey-darken-1 mb-0">Generating Smart Report...</p>
-            <p class="text-caption text-grey">This may take a few moments.</p>
+            <p class="text-caption text-grey">Consolidating data from all farms</p>
         </div>
 
-        <div v-else-if="formattedSummary" class="summary-box">
-            <template v-if="props.isOverview">
-                <div class="text-body-2 text-grey-darken-3 preserve-newlines mb-2">{{ reportPreview }}</div>
-                <div class="d-flex align-center mt-1" style="gap: 8px;">
-                    <VBtn color="primary" variant="text" @click="showReportDialog = true"
-                        prepend-icon="mdi-book-open-page-variant">Read Full Report</VBtn>
-                    <VBtn color="primary" variant="outlined" :loading="isGenerating" :disabled="isGenerating"
-                        @click="generateReport" prepend-icon="mdi-refresh">Regenerate</VBtn>
+        <div v-else-if="formattedSummary" class="summary-card">
+
+            <div class="d-flex justify-space-between align-center mb-3">
+                <div class="d-flex align-center">
+                    <VIcon size="small" color="grey-darken-1" class="mr-1">mdi-calendar-check</VIcon>
+                    <span class="text-caption text-grey-darken-2 font-weight-medium">
+                        As of {{ summaryDateLabel }}
+                    </span>
                 </div>
-            </template>
-            <template v-else>
-                <div class="preserve-newlines scrollable-summary" v-html="formattedSummary"></div>
-            </template>
+                <div v-if="props.isOverview && regionalReport" class="d-flex align-center">
+                    <VChip size="x-small" color="red" variant="flat" class="font-weight-bold">
+                        {{ regionalReport.total_pollution_count }} MPs Found
+                    </VChip>
+                </div>
+            </div>
+
+            <div class="preview-container" @click="showReportDialog = true" style="cursor: pointer;">
+                <div class="report-content" v-html="formattedSummary"></div>
+                <div class="preview-fade"></div>
+            </div>
+
+            <div class="d-flex align-center mt-3 pt-3 border-t">
+                <VBtn color="primary" variant="flat" size="small" @click="showReportDialog = true"
+                    prepend-icon="mdi-book-open-variant">
+                    Read Full Report
+                </VBtn>
+                <VSpacer></VSpacer>
+                <VBtn color="primary" variant="text" size="small" :loading="isGenerating" :disabled="isGenerating"
+                    @click="generateReport" prepend-icon="mdi-refresh">
+                    Regenerate
+                </VBtn>
+            </div>
         </div>
 
-        <div v-else class="summary-box d-flex flex-column align-center justify-center py-6">
-            <p class="text-body-1 mb-3">No regional analysis available.</p>
-            <VBtn v-if="showGenerate" color="primary" prepend-icon="mdi-creation" @click="generateReport">Generate
-                Analysis
+        <div v-else class="summary-card d-flex flex-column align-center justify-center py-6">
+            <p class="text-body-2 text-grey mb-3">No analysis available yet.</p>
+            <VBtn v-if="showGenerate" color="primary" variant="tonal" size="small" prepend-icon="mdi-creation"
+                @click="generateReport">
+                Generate Analysis
             </VBtn>
         </div>
 
-        <VDialog v-model="showReportDialog" max-width="800" scrollable>
+        <VDialog v-model="showReportDialog" max-width="850" scrollable>
             <VCard>
                 <VCardTitle class="d-flex justify-space-between align-center pa-4 bg-grey-lighten-4">
                     <div class="d-flex align-center">
@@ -179,26 +202,50 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
                 </VCardTitle>
                 <VDivider></VDivider>
 
-                <VCardText class="pa-6" style="min-height: 300px;">
+                <VCardText class="pa-6" style="min-height: 400px;">
                     <div v-if="regionalReport" class="text-body-1">
-                        <div class="d-flex gap-4 mb-6">
-                            <VChip color="primary" label>{{ new Date(regionalReport.report_date).toLocaleDateString() }}
-                            </VChip>
-                            <VChip variant="outlined"><strong>{{ regionalReport.total_farms_analyzed
-                                    }}</strong>&nbsp;Farms
-                            </VChip>
-                            <VChip variant="outlined" color="red"><strong>{{ regionalReport.total_pollution_count
-                                    }}</strong>&nbsp;Particles</VChip>
+
+                        <div class="stats-grid mb-6">
+                            <div class="stat-card bg-blue-lighten-5">
+                                <div class="d-flex align-center text-primary mb-1">
+                                    <VIcon size="small" class="mr-1">mdi-calendar-clock</VIcon>
+                                    <span class="text-caption font-weight-bold text-uppercase">Report Date</span>
+                                </div>
+                                <div class="text-h6 font-weight-bold text-primary">
+                                    {{ new Date(regionalReport.report_date).toLocaleDateString() }}
+                                </div>
+                            </div>
+
+                            <div class="stat-card bg-grey-lighten-4">
+                                <div class="d-flex align-center text-grey-darken-2 mb-1">
+                                    <VIcon size="small" class="mr-1">mdi-tractor</VIcon>
+                                    <span class="text-caption font-weight-bold text-uppercase">Coverage</span>
+                                </div>
+                                <div class="text-h6 font-weight-bold text-grey-darken-3">
+                                    {{ regionalReport.total_farms_analyzed }} Farms
+                                </div>
+                            </div>
+
+                            <div class="stat-card bg-red-lighten-5">
+                                <div class="d-flex align-center text-red-darken-2 mb-1">
+                                    <VIcon size="small" class="mr-1">mdi-alert-circle-outline</VIcon>
+                                    <span class="text-caption font-weight-bold text-uppercase">Total Load</span>
+                                </div>
+                                <div class="text-h6 font-weight-bold text-red-darken-3">
+                                    {{ regionalReport.total_pollution_count }} MPs
+                                </div>
+                            </div>
                         </div>
-                        <div class="report-content" v-html="parsedRegionalReport"></div>
+
+                        <div class="report-content" v-html="formattedSummary"></div>
                     </div>
                 </VCardText>
 
                 <VDivider></VDivider>
-                <VCardActions class="pa-4">
+                <VCardActions class="pa-4 bg-grey-lighten-5">
                     <VSpacer></VSpacer>
                     <VBtn color="primary" variant="outlined" :loading="isGenerating" :disabled="isGenerating"
-                        @click="generateReport" prepend-icon="mdi-refresh">Regenerate</VBtn>
+                        @click="generateReport" prepend-icon="mdi-refresh">Regenerate Analysis</VBtn>
                     <VBtn color="primary" variant="elevated" @click="showReportDialog = false">Close</VBtn>
                 </VCardActions>
             </VCard>
@@ -207,31 +254,100 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
 </template>
 
 <style scoped>
-.summary-box {
-    background-color: #f9f9f9;
-    border-left: 4px solid #366ECE;
-    padding: 1em;
-    border-radius: 0em;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+/* CARD CONTAINER STYLE */
+.summary-card {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    /* Softer corners */
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: box-shadow 0.2s ease;
 }
 
-.scrollable-summary {
-    max-height: 200px;
-    overflow-y: auto;
-    scrollbar-width: thin;
+.summary-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.preserve-newlines {
-    white-space: pre-wrap;
+.border-t {
+    border-top: 1px solid #f0f0f0;
 }
 
-.preserve-newlines :deep(li) {
-    margin-left: 1.5em;
+/* PREVIEW FADE EFFECT */
+.preview-container {
+    position: relative;
+    max-height: 140px;
+    /* Limit height to approx 5-6 lines */
+    overflow: hidden;
+}
+
+.preview-fade {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 1));
+    pointer-events: none;
+}
+
+/* MODAL STATS GRID */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+@media (max-width: 600px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.stat-card {
+    border-radius: 8px;
+    padding: 12px 16px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* REPORT CONTENT TYPOGRAPHY */
+.report-content :deep(h3) {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-top: 1.2em;
     margin-bottom: 0.5em;
+    color: #1a1a1a;
+    line-height: 1.3;
+}
+
+.report-content :deep(ul) {
+    padding-left: 1.2em;
+    margin-bottom: 0.8em;
 }
 
 .report-content :deep(li) {
-    margin-left: 1.5em;
-    margin-bottom: 0.5em;
+    margin-bottom: 0.4em;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: #424242;
+}
+
+.report-content :deep(strong),
+.report-content :deep(b) {
+    color: #000;
+    font-weight: 600;
+}
+
+.report-content :deep(a) {
+    color: #366ECE;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.report-content :deep(a):hover {
+    text-decoration: underline;
 }
 </style>

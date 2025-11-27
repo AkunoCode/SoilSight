@@ -13,10 +13,11 @@
   },
   "dependencies": {
     "@directus/sdk": "^20.1.1",
-    "@vercel/speed-insights": "^1.2.0",
     "@fontsource/roboto": "5.2.7",
     "@mdi/font": "7.4.47",
+    "@vercel/speed-insights": "^1.2.0",
     "apexcharts": "^5.3.5",
+    "dompurify": "^3.3.0",
     "leaflet": "^1.9.4",
     "pinia": "^3.0.3",
     "vue": "^3.5.21",
