@@ -19,6 +19,7 @@ import AISummary from '@/components/AISummary.vue'
 import KPI from '@/components/KPI.vue'
 import SourceIdentificationHeatmap from '@/components/graphs/SourceIdentificationHeatmap.vue'
 import SourceDegradationIndex from '@/components/graphs/SourceDegradationIndex.vue'
+import BiologicalRiskChart from '@/components/graphs/BiologicalRiskChart.vue'
 
 const router = useRouter()
 const app = useAppStore()
@@ -212,6 +213,27 @@ const textureDrilldown = computed(() => textures.value.map(t => {
   }, [0, 0, 0, 0, 0])
   return vals
 }))
+
+// Biological Risk data: map diameter buckets to 3 risk bins
+const biologicalRiskData = computed(() => {
+  const sizes = sizeComparisonAll.value
+  if (!sizes || !sizes.categories || !sizes.totals) return []
+
+  const findTotal = (label) => {
+    const idx = sizes.categories.findIndex(c => (c || '').toString().toLowerCase() === label)
+    return idx >= 0 ? (sizes.totals[idx] || 0) : 0
+  }
+
+  const lt100 = findTotal('1-20 µm'.toLowerCase()) + findTotal('20-100 µm'.toLowerCase())
+  const between100_500 = findTotal('100-500 µm'.toLowerCase())
+  const gt1mm = findTotal('1-5 mm'.toLowerCase())
+
+  return [
+    { category: '< 100 µm', count: lt100 },
+    { category: '100-500 µm', count: between100_500 },
+    { category: '> 1 mm', count: gt1mm }
+  ]
+})
 
 // --- ADVANCED CHARTS: COLOR & SIZE ---
 const colorComparisonAll = ref(null)
@@ -439,76 +461,37 @@ onMounted(async () => {
         <div class="card">
           <h3>Source Identification Heatmap</h3>
           <p class="subtitle mb-2">Microplastic Counts by Source and Plastic Type</p>
-          <SourceIdentificationHeatmap :sites="sites" height="300" />
+          <SourceIdentificationHeatmap :sites="sites" height="400" />
         </div>
       </VCol>
       <VCol cols="4">
         <!-- Source Degradation Index Gauge Chart -->
         <div class="card">
-          <SourceDegradationIndex :sites="sites" height="300" />
+          <SourceDegradationIndex :sites="sites" height="400" />
         </div>
       </VCol>
     </VRow>
 
     <VRow class="mt-2">
-      <VCol class="d-flex flex-column justify-space-between" cols="3">
-        <div class="card crops-card" style="height: 38%;">
-          <h3>Most Common Crops Grown</h3>
-          <ul class="crop-list">
-            <li v-for="c in topCrops" :key="c.crop">
-              <div style="display:flex; justify-content:space-between; gap:8px;">
-                <span class="crop-name">{{ c.crop }}</span>
-              </div>
-            </li>
-          </ul>
-        </div>
-        <div class="card" style="height: 58%;">
-          <h3>Size Distribution of Sampled Farms</h3>
-          <ApexChartBase :height="230" :options="farmSizeOptions" :series="farmSizeSeries" type="bar" />
-        </div>
-      </VCol>
-
-      <VCol cols="4">
+      <VCol cols="5">
         <div class="card">
           <MPDonutChart :height="360" :active-key="app.selectedMorphology" :colors="donutColors"
-            :labels-map="donutLabelsMap" :microplastic-data="microplasticData" @selection="handleLegendClick" />
+            :labels-map="donutLabelsMap" :microplastic-data="microplasticData" @selection="handleLegendClick"
+            :subtitle="`Data as of ${displayLatestSampleDate}`" />
         </div>
       </VCol>
 
-      <VCol cols="5">
-        <div class="card">
-          <SiteDrilldownChart :categories="siteCategories"
-            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
-            :drilldown="siteDrilldown" :height="425" title="Microplastic Count by Farm Site" :totals="siteTotals"
-            :filter-key="app.selectedMorphology" />
-        </div>
-      </VCol>
-    </VRow>
-
-    <VRow class="mt-2">
-      <VCol cols="6">
-        <div class="card">
-          <MPPracticeBar :height="400" :options="contaminationByPracticeOptions" :series="contaminationByPracticeSeries"
-            :subtitle="`Data as of ${displayLatestSampleDate}`" title="Contamination Comparison by Farm Practices"
-            :filter-key="app.selectedMorphology" />
-        </div>
-      </VCol>
-      <VCol cols="6">
-        <MonthlyTrendChart :height="340" :colors="mpColors" :microplastic-data="microplasticData"
-          :subtitle="`Data as of ${displayLatestSampleDate}`" :filter-key="app.selectedMorphology" />
-      </VCol>
-    </VRow>
-
-    <VRow class="mt-2">
       <VCol cols="7">
         <div class="card">
-          <SiteDrilldownChart :categories="inputTypes"
-            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
-            :drilldown="inputDrilldown" title="Microplastic Counts by Plastic-Related Farm Inputs" :totals="inputTotals"
-            :height="300" :filter-key="app.selectedMorphology" />
+          <BiologicalRiskChart :height="360" :data="biologicalRiskData"
+            :loading="!sizeComparisonAll || !sizeComparisonAll.categories?.length"
+            :subtitle="`Data as of ${displayLatestSampleDate}`" />
         </div>
       </VCol>
-      <VCol cols="5">
+    </VRow>
+
+    <VRow class="mt-2">
+      <VCol cols="6">
         <div class="card">
           <SiteDrilldownChart :categories="textures"
             :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
@@ -516,11 +499,8 @@ onMounted(async () => {
             :filter-key="app.selectedMorphology" :height="300" />
         </div>
       </VCol>
-    </VRow>
-
-    <VRow class="mt-2">
-      <VCol class="d-flex flex-column justify-space-between" cols="6">
-        <div class="card bottom-card">
+      <VCol cols="6">
+        <div class="card">
           <template v-if="colorComparisonLoading">
             <div :style="{ minHeight: '250px', display: 'flex', justifyContent: 'center', alignItems: 'center' }">
               <VProgressCircular color="primary" indeterminate size="28" />
@@ -529,7 +509,7 @@ onMounted(async () => {
           <template v-else-if="colorComparisonAll && colorComparisonAll.totals && colorComparisonAll.totals.length > 0">
             <SiteDrilldownChart :categories="colorComparisonAll.categories"
               :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
-              :drilldown="colorComparisonAll.drilldown" :height="250" title="Microplastic Count by Color"
+              :drilldown="colorComparisonAll.drilldown" :height="300" title="Microplastic Count by Color"
               :totals="colorComparisonAll.totals" :filter-key="app.selectedMorphology" />
           </template>
           <template v-else>
@@ -539,36 +519,15 @@ onMounted(async () => {
             </div>
           </template>
         </div>
-
-        <div class="card bottom-card">
-          <template
-            v-if="sizeComparisonAll && Array.isArray(sizeComparisonAll.totals) && sizeComparisonAll.totals.reduce((a, b) => a + b, 0) > 0">
-            <MPSizeRangeAll :height="220" title="Microplastic Count by Size Range" :filter-key="app.selectedMorphology"
-              :external-data="sizeComparisonAll" @update:field="val => selectedSizeField = val" />
-          </template>
-          <template v-else>
-            <div style="padding: 20px; text-align:center; color: #666;">
-              <p style="margin:0; font-weight:600">Microplastic Count by Size Range</p>
-              <p style="margin:8px 0 0;">No size data found.</p>
-            </div>
-          </template>
-        </div>
-
-        <div class="card bottom-card">
-          <AISummary :isOverview="true" :showGenerate="true" />
-        </div>
-      </VCol>
-
-      <VCol cols="6">
-        <div class="card list-card map-card">
-          <h3 class="mb-2">Contamination Density by Farm Practice</h3>
-          <SampledFarms :sampled-sites="sites" />
-        </div>
       </VCol>
     </VRow>
 
-    <!-- Regional report dialog removed: `AISummary` provides its own dialog -->
-
+    <VRow class="mt-2">
+      <VCol cols="12">
+        <MonthlyTrendChart :height="340" :colors="mpColors" :microplastic-data="microplasticData"
+          :subtitle="`Data as of ${displayLatestSampleDate}`" :filter-key="app.selectedMorphology" />
+      </VCol>
+    </VRow>
   </div>
 </template>
 

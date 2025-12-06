@@ -90,15 +90,15 @@ const chartOptions = computed(() => ({
                     show: true,
                     fontSize: '13px',
                     color: '#64748B',
-                    offsetY: -10,
+                    offsetY: -40,
                     fontWeight: 600
                 },
                 value: {
                     show: true,
                     fontSize: '32px',
                     fontWeight: 800,
-                    offsetY: 5,
                     color: severityInfo.value.color,
+                    offsetY: -20,
                     formatter: (val) => val + '%'
                 }
             }
@@ -188,9 +188,10 @@ const chartOptions = computed(() => ({
 }
 
 .subtitle {
-    font-size: 0.8rem;
-    color: #64748b;
-    margin: 0;
+    font-size: 0.9rem;
+    color: #9ca3af;
+    /* Tailwind gray-400 */
+    margin-bottom: 8px;
 }
 
 .badge {
@@ -219,6 +220,7 @@ const chartOptions = computed(() => ({
     margin-bottom: 16px;
     background: #f8fafc;
     border-radius: 8px;
+    margin-top: 24px;
 }
 
 .stat-item {

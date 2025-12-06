@@ -1,292 +1,262 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
-import { useAppStore } from '@/stores/app'
-import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
-import { safeColorArray, updateApexChart } from '@/composables/useApexChart'
+import { computed } from 'vue'
 import ApexChartBase from './ApexChartBase.vue'
 import { MP_COLOR_MAP } from '@/config/chartPalette.js'
 
 const props = defineProps({
   microplasticData: { type: Object, required: true },
-  // Define standard keys to ensure chart and legend order always match
+  activeKey: { type: String, default: null },
+  title: { type: String, default: 'Total Microplastic Waste per Morphological Category' },
+  subtitle: { type: String, default: '' },
+  // CHANGE: Default height to '100%' to fill container
+  height: { type: [Number, String], default: '100%' },
+
   labelsMap: {
     type: Object,
     default: () => ({
-      fragments: 'Fragments',
-      fibers: 'Fibers',
-      foams: 'Foam',
-      films: 'Films',
-      sheets: 'Sheets'
+      fragments: 'Fragments', fibers: 'Fibers', foams: 'Foam', films: 'Films', sheets: 'Sheets'
     })
   },
   colors: {
     type: Object,
     default: () => ({ ...MP_COLOR_MAP })
-  },
-  activeKey: { type: [String, null], default: null },
-  date: { type: String, default: '' },
+  }
 })
 
 const emit = defineEmits(['selection'])
-const app = useAppStore()
-const { displayLatestSampleDate } = useLatestSampleDate()
-
-// Constants
 const ORDERED_KEYS = ['fragments', 'fibers', 'foams', 'films', 'sheets']
-const defaultDate = displayLatestSampleDate
 
-// Refs
-const donutChart = ref(null)
-const selectedKey = ref(null)
-
-// --- Computed Data ---
-
-const chartSeries = computed(() => {
-  return ORDERED_KEYS.map(key => props.microplasticData[key] || 0)
-})
-
-const total = computed(() => chartSeries.value.reduce((a, b) => a + b, 0))
-
+// --- Data Logic ---
+const rawValues = computed(() => ORDERED_KEYS.map(k => props.microplasticData[k] || 0))
+const total = computed(() => rawValues.value.reduce((a, b) => a + b, 0))
 const hasData = computed(() => total.value > 0)
 
 const percentages = computed(() => {
-  if (!hasData.value) return {}
-  const result = {}
-  ORDERED_KEYS.forEach(key => {
-    const val = props.microplasticData[key] || 0
-    result[key] = Math.round((val / total.value) * 100)
+  const res = {}
+  ORDERED_KEYS.forEach(k => {
+    const val = props.microplasticData[k] || 0
+    res[k] = total.value ? Math.round((val / total.value) * 100) : 0
   })
-  return result
+  return res
 })
 
-// Initialize display series
-const displaySeries = ref([...chartSeries.value])
+// --- Chart Logic ---
+const chartSeries = computed(() => {
+  if (props.activeKey) {
+    return [props.microplasticData[props.activeKey] || 0]
+  }
+  return rawValues.value
+})
 
-// --- Chart Configuration ---
+const chartOptions = computed(() => {
+  const currentKeys = props.activeKey ? [props.activeKey] : ORDERED_KEYS
 
-function defaultTotalFormatter(w) {
-  const t = w.globals.seriesTotals.reduce((a, b) => a + b, 0)
-  if (t >= 1_000_000) return (t / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
-  if (t >= 1000) return (t / 1000).toFixed(1).replace(/\.0$/, '') + 'K'
-  return t
-}
-
-const donutChartOptions = ref({
-  chart: {
-    type: 'donut',
-    height: 350,
-    toolbar: { show: false },
-    events: {
-      dataPointSelection(_, __, config) {
-        const clickedKey = ORDERED_KEYS[config.dataPointIndex]
-        if (selectedKey.value === null) handleLegendClick(clickedKey)
-      },
-    },
-  },
-  labels: ORDERED_KEYS.map(k => props.labelsMap[k]),
-  // Build a colors array in the same order as `ORDERED_KEYS` so colors align with labels/series
-  colors: ORDERED_KEYS.map(k => (props.colors && props.colors[k]) || '#9e9e9e'),
-  dataLabels: { enabled: false },
-  legend: { show: false },
-  plotOptions: {
-    pie: {
-      donut: {
-        size: '70%',
-        labels: {
-          show: true,
-          name: { show: true, fontSize: '16px' },
-          value: { show: true, fontSize: '22px', fontWeight: 'bold' },
-          total: {
-            show: true,
-            label: 'Total number\nof MP found',
-            formatter: defaultTotalFormatter
+  return {
+    chart: {
+      type: 'donut',
+      // CHANGE: Use prop height (likely '100%')
+      height: props.height,
+      fontFamily: 'inherit',
+      toolbar: { show: false },
+      // CHANGE: Remove strict parentHeightOffset to allow better flex filling
+      parentHeightOffset: 0,
+      events: {
+        dataPointSelection: (e, chart, config) => {
+          if (!props.activeKey) {
+            const key = ORDERED_KEYS[config.dataPointIndex]
+            emit('selection', key)
+          } else {
+            emit('selection', null)
           }
         }
       }
-    }
-  },
+    },
+    labels: currentKeys.map(k => props.labelsMap[k]),
+    colors: currentKeys.map(k => props.colors[k] || '#ccc'),
+    dataLabels: { enabled: false },
+    legend: { show: false },
+    plotOptions: {
+      pie: {
+        donut: {
+          size: '70%',
+          labels: {
+            show: true,
+            name: { show: true, fontSize: '14px', color: '#6b7280' },
+            value: { show: true, fontSize: '24px', fontWeight: 700 },
+            total: {
+              show: true,
+              showAlways: true,
+              label: props.activeKey ? props.labelsMap[props.activeKey] : 'Total MP',
+              formatter: () => {
+                const val = props.activeKey
+                  ? (props.microplasticData[props.activeKey] || 0)
+                  : total.value
 
-})
-
-// --- Interaction Logic ---
-
-// Helper to safely update chart asynchronously
-function triggerChartUpdate(newOptions, newSeries) {
-  setTimeout(() => {
-    try {
-      const inner = donutChart.value?.chartRef
-      if (inner) {
-        updateApexChart(inner, newOptions, newSeries, true)
+                if (val >= 1e6) return (val / 1e6).toFixed(1) + 'M'
+                if (val >= 1e3) return (val / 1e3).toFixed(1) + 'K'
+                return val.toLocaleString()
+              }
+            }
+          }
+        }
       }
-    } catch (e) {
-      // chart instance might not be ready
-    }
-  }, 50)
-}
-
-function clearSelections() {
-  selectedKey.value = null
-  displaySeries.value = [...chartSeries.value]
-
-  // Reset options
-  donutChartOptions.value = {
-    ...donutChartOptions.value,
-    labels: ORDERED_KEYS.map(k => props.labelsMap[k]),
-    colors: ORDERED_KEYS.map(k => (props.colors && props.colors[k]) || '#9e9e9e'),
+    },
+    stroke: { show: false }
   }
-
-  // Clear internal selection if method exists
-  if (donutChart.value?.clearSelections) {
-    donutChart.value.clearSelections()
-  }
-
-  triggerChartUpdate({
-    labels: donutChartOptions.value.labels,
-    colors: donutChartOptions.value.colors
-  }, displaySeries.value)
-
-  emit('selection', null)
-  app.clearSelectedMorphology?.()
-}
-
-function applySelection(key, emitEvent = true) {
-  if (!key || selectedKey.value === key) {
-    clearSelections()
-    return
-  }
-
-  selectedKey.value = key
-  // Show only the selected value in the chart ring
-  displaySeries.value = [props.microplasticData[key] || 0]
-
-  // Update options to show single label/color
-  donutChartOptions.value = {
-    ...donutChartOptions.value,
-    labels: [props.labelsMap[key]],
-    colors: [(props.colors && props.colors[key]) || '#9e9e9e'],
-  }
-
-  triggerChartUpdate({
-    labels: donutChartOptions.value.labels,
-    colors: donutChartOptions.value.colors
-  }, displaySeries.value)
-
-  if (emitEvent) emit('selection', key)
-  app.setSelectedMorphology?.(key)
-}
-
-const handleLegendClick = (key) => applySelection(key, true)
-
-// --- Watchers ---
-
-// Update series when props change (only if no active selection)
-watch(chartSeries, (newSeries) => {
-  if (selectedKey.value === null) {
-    displaySeries.value = newSeries
-  }
-}, { immediate: true })
-
-// Sync with activeKey prop
-watch(() => props.activeKey, (newKey) => {
-  if (newKey !== selectedKey.value) applySelection(newKey, false)
 })
 
-// Sync with Store
-watch(() => app.selectedMorphology, (newKey) => {
-  if (newKey !== selectedKey.value) applySelection(newKey, false)
-})
+const handleLegendClick = (key) => {
+  emit('selection', props.activeKey === key ? null : key)
+}
 </script>
 
 <template>
-  <div class="card-container">
-    <div class="header-section">
-      <h4 class="text-h6 font-weight-bold mb-1" style="line-height: 1.2em;">
-        Total Microplastic Waste per Morphological Category
-      </h4>
-      <p class="subtitle mb-2">{{ props.date || defaultDate }}</p>
+  <div class="donut-card">
+    <div class="header">
+      <h4 class="title">{{ title }}</h4>
+      <p v-if="subtitle" class="subtitle">{{ subtitle }}</p>
     </div>
 
-    <div v-if="!hasData" class="no-data-container">
-      <span class="no-data-text">No data available</span>
+    <div v-if="!hasData" class="no-data">
+      <span>No data available</span>
     </div>
 
-    <VRow v-else class="chart-row" no-gutters>
-      <VCol cols="7">
-        <ApexChartBase ref="donutChart" :height="300" :options="donutChartOptions" :series="displaySeries"
-          type="donut" />
-      </VCol>
+    <div v-else class="content-row">
+      <div class="chart-col">
+        <ApexChartBase :height="height" :options="chartOptions" :series="chartSeries" type="donut" />
+      </div>
 
-      <VCol cols="5">
-        <div class="d-flex flex-column">
-          <template v-for="key in ORDERED_KEYS" :key="key">
-            <div class="legend-item" :style="{
-              backgroundColor: props.colors[key],
-              opacity: selectedKey === null || selectedKey === key ? 1 : 0.4
-            }" @click="handleLegendClick(key)">
-              <p class="font-weight-bold" style="font-size: 1.5em;">
-                {{ percentages[key] }}%
-              </p>
-              <div class="separator" />
-              <div class="d-flex flex-column" style="line-height: 1.2em;">
-                <p>{{ labelsMap[key] }}</p>
-                <p class="font-weight-bold" style="font-size: 1.2em;">
-                  {{ (microplasticData[key] || 0).toLocaleString() }}
-                </p>
-              </div>
-            </div>
-          </template>
+      <div class="legend-col">
+        <div v-for="key in ORDERED_KEYS" :key="key" class="legend-item"
+          :class="{ 'inactive': activeKey && activeKey !== key }" :style="{ backgroundColor: colors[key] }"
+          @click="handleLegendClick(key)">
+          <div class="percent">{{ percentages[key] }}%</div>
+          <div class="divider"></div>
+          <div class="info">
+            <span class="label">{{ labelsMap[key] }}</span>
+            <span class="count">{{ (microplasticData[key] || 0).toLocaleString() }}</span>
+          </div>
         </div>
-      </VCol>
-    </VRow>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.card-container {
+.donut-card {
   display: flex;
   flex-direction: column;
-  height: 100%;
   width: 100%;
+  height: 100%;
+  /* Ensure root takes full height */
 }
 
-.no-data-container {
+.header {
+  margin-bottom: 16px;
+  flex-shrink: 0;
+  /* Don't shrink header */
+}
+
+.title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: #9ca3af;
+}
+
+.no-data {
   display: flex;
-  justify-content: center;
   align-items: center;
-  min-height: 300px;
+  justify-content: center;
   flex: 1;
+  /* Fill remaining space */
+  color: #9ca3af;
+  font-style: italic;
 }
 
-.no-data-text {
-  color: rgb(155, 155, 155);
-  font-style: italic;
-  font-size: 1.1em;
+.content-row {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+  /* Stretch items to match height */
+  flex: 1;
+  /* Crucial: Fill all remaining vertical space */
+  min-height: 0;
+  /* Prevent flex overflow bug */
+}
+
+.chart-col {
+  flex: 7;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* Center chart vertically */
+  /* Ensure inner chart container takes full size */
+  min-width: 0;
+}
+
+.legend-col {
+  flex: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  /* Allow scrolling if chart gets too big */
+  padding-right: 4px;
+  /* Space for scrollbar */
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  margin-bottom: 1em;
-  padding: 0.7em 1em;
-  border-radius: 0.5em;
+  padding: 12px 16px;
+  border-radius: 8px;
   color: white;
   cursor: pointer;
-  transition: opacity 0.3s;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+  /* Prevent legend items from squishing */
 }
 
-.legend-item p {
-  margin: 0;
-  font-size: 1em;
+.legend-item:hover {
+  filter: brightness(110%);
 }
 
-.separator {
-  width: 2px;
-  height: 2.5em;
-  background-color: #ffffff;
-  margin: 0 1em;
+.legend-item.inactive {
+  opacity: 0.3;
 }
 
-.subtitle {
-  color: rgb(155, 155, 155);
+.percent {
+  font-size: 1.5rem;
+  font-weight: 700;
+  min-width: 60px;
+}
+
+.divider {
+  width: 1px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.4);
+  margin: 0 16px;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.label {
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
+.count {
+  font-size: 1.1rem;
+  font-weight: 700;
 }
 </style>

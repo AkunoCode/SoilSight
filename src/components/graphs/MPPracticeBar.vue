@@ -1,115 +1,135 @@
 <script setup>
-import { computed, ref, toRef, watch } from 'vue'
-import { ensurePlotOptionsBar, updateApexChart } from '@/composables/useApexChart'
+import { computed } from 'vue'
 import ApexChartBase from './ApexChartBase.vue'
 
 const props = defineProps({
   series: { type: Array, required: true },
   options: { type: Object, required: true },
-  filterKey: { type: [String, null], default: null },
-  title: { type: String, required: false, default: '' },
-  subtitle: { type: String, required: false, default: '' },
-  // optional human-readable date string to display
+  filterKey: { type: String, default: null },
+  title: { type: String, default: '' },
+  subtitle: { type: String, default: '' },
   date: { type: String, default: '' },
-  height: { type: Number, default: 400 },
+  height: { type: Number, default: 500 },
 })
 
-const seriesRef = toRef(props, 'series')
-const optionsRef = toRef(props, 'options')
 
-function getMorphIndexFromKey(key, labels) {
+// Helper to match filterKey (e.g., "Fragments") to the correct index
+const getCategoryIndex = (key, categories) => {
   if (!key) return -1
-  const k = String(key).toLowerCase()
-  const normalizedLabels = (labels || ['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']).map(l => (l || '').toString().toLowerCase())
-  // try exact match
-  let idx = normalizedLabels.findIndex(l => l.includes(k) || k.includes(l))
-  if (idx >= 0) return idx
-  // fallback to simple mapping
-  if (k.includes('fragment')) return 0
-  if (k.includes('fiber') || k.includes('fibre')) return 1
-  if (k.includes('foam')) return 2
-  if (k.includes('film')) return 3
-  if (k.includes('sheet')) return 4
-  return -1
+  const k = key.toLowerCase()
+  const normCats = categories.map(c => String(c).toLowerCase())
+
+  // Try finding strict match or substring match
+  let idx = normCats.findIndex(c => c.includes(k) || k.includes(c))
+
+  // Fallback for common domain mappings if exact name differs
+  if (idx === -1) {
+    if (k.includes('fragment')) idx = 0
+    else if (k.includes('fiber') || k.includes('fibre')) idx = 1
+    else if (k.includes('foam')) idx = 2
+    else if (k.includes('film')) idx = 3
+    else if (k.includes('sheet')) idx = 4
+  }
+  return idx
 }
 
-// wrapper ref (exposes inner chartRef)
-const chartRef = ref(null)
+// Compute the final data to display (Filtered or Full)
+const chartData = computed(() => {
+  const defaultCats = ['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']
+  const categories = props.options.xaxis?.categories || defaultCats
 
-// ensure plotOptions.bar exists to avoid Apex errors
-const mergedOptionsSafe = computed(() => ensurePlotOptionsBar(mergedOptions.value))
-
-// Apply a conservative default: if caller didn't specify bar dataLabel position
-// we'll set it to 'top' and enable a small offset; otherwise respect caller options.
-const mergedOptions = computed(() => {
-  const base = optionsRef.value || {}
-
-  // shallow copy of plotOptions so we can safely modify bar/dataLabels without deep merging
-  const plotOptions = Object.assign({}, base.plotOptions || {})
-  plotOptions.bar = Object.assign({}, plotOptions.bar || {})
-
-  // If caller did not set a dataLabels position for bar, default to 'top'
-  const callerBarDLPos = plotOptions.bar.dataLabels && plotOptions.bar.dataLabels.position
-  if (!callerBarDLPos) {
-    plotOptions.bar.dataLabels = Object.assign({}, plotOptions.bar.dataLabels || {}, { position: 'top' })
+  // If no filter, return data as-is
+  if (!props.filterKey) {
+    return { series: props.series, categories }
   }
 
-  // If caller didn't provide a top-level dataLabels config, provide a sensible default
-  const callerDL = base.dataLabels
-  const dataLabels = callerDL || { enabled: true, style: { colors: ['#1f2937'], fontWeight: '600' } }
+  // If filter exists, try to slice the data
+  const idx = getCategoryIndex(props.filterKey, categories)
 
-  // Return a shallow-merged options object; don't deep-merge caller's internals beyond the bar/dataLabels defaults above
-  // Ensure toolbar is hidden by default unless caller explicitly sets it
-  const chart = Object.assign({}, base.chart || {})
-  if (!chart.toolbar) chart.toolbar = { show: false }
-  // Ensure the options chart height follows the component `height` prop unless caller explicitly set height
-  if (chart.height == null) chart.height = props.height
+  if (idx >= 0) {
+    return {
+      // Map series to only include the specific data point
+      series: props.series.map(s => ({
+        ...s,
+        data: [Array.isArray(s.data) ? (s.data[idx] || 0) : 0]
+      })),
+      // Update Category label to match
+      categories: [categories[idx]]
+    }
+  }
 
-  return Object.assign({}, base, { chart, plotOptions, dataLabels })
+  // Fallback if filter not found
+  return { series: props.series, categories }
 })
 
-// keep chart in sync without remounting
-watch([seriesRef, mergedOptionsSafe, () => props.filterKey], _nv => {
-  // compute filtered series and options depending on filterKey
-  const filter = props.filterKey
-  const opts = Object.assign({}, mergedOptionsSafe.value)
-  let outSeries = seriesRef.value
-  try {
-    const labels = opts.xaxis && Array.isArray(opts.xaxis.categories) ? opts.xaxis.categories : ['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']
-    const idx = getMorphIndexFromKey(filter, labels)
-    if (filter && idx >= 0) {
-      // reduce each series to a single-value array for the selected morphology
-      outSeries = seriesRef.value.map(s => ({ name: s.name, data: [(Array.isArray(s.data) ? (s.data[idx] || 0) : 0)] }))
-      // update x-axis categories to the selected morphology label
-      const label = (labels[idx] || filter)
-      opts.xaxis = Object.assign({}, opts.xaxis || {}, { categories: [label] })
+
+const chartOptions = computed(() => {
+  // 1. Define safe defaults
+  const defaults = {
+    chart: {
+      height: props.height,
+      toolbar: { show: false },
+      fontFamily: 'inherit'
+    },
+    plotOptions: {
+      bar: {
+        dataLabels: { position: 'top' } // Default to top if not specified
+      }
+    },
+    dataLabels: {
+      enabled: true,
+      style: { colors: ['#1f2937'], fontWeight: 600 },
+      offsetY: -20 // Slight lift for top labels
+    },
+    xaxis: {
+      categories: chartData.value.categories // Inject dynamic categories
     }
-  } catch {
-    // fallback to original
-    outSeries = seriesRef.value
   }
 
-  const inner = chartRef.value?.chartRef
-  if (inner) {
-    void updateApexChart(inner, opts, outSeries, true)
+  return {
+    ...defaults,
+    ...props.options,
+    chart: { ...defaults.chart, ...(props.options.chart || {}) },
+    plotOptions: {
+      bar: { ...defaults.plotOptions.bar, ...(props.options.plotOptions?.bar || {}) }
+    },
+    xaxis: {
+      ...props.options.xaxis,
+      categories: chartData.value.categories // Force override categories based on filter
+    }
   }
-}, { immediate: true })
+})
 </script>
 
 <template>
-  <div class="d-flex flex-column">
-    <h4 v-if="title" class="text-h6 font-weight-bold mb-1" style="line-height: 1.2em;">{{ title }}</h4>
-    <p v-if="subtitle || props.date" class="subtitle mb-2">{{ subtitle || props.date }}</p>
-    <div>
-      <ApexChartBase ref="chartRef" :height="height" :options="mergedOptionsSafe" :series="seriesRef" type="bar" />
+  <div class="chart-container">
+    <div class="header" v-if="title || subtitle || date">
+      <h4 v-if="title" class="title">{{ title }}</h4>
+      <p v-if="subtitle || date" class="subtitle">{{ subtitle || date }}</p>
     </div>
+
+    <ApexChartBase :height="height" :options="chartOptions" :series="chartData.series" type="bar" />
   </div>
 </template>
 
 <style scoped>
-/* Minimal styles — previewCard supplies shared styles for consistency */
+.chart-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
 
 .subtitle {
-  color: rgb(155, 155, 155);
+  font-size: 0.875rem;
+  color: #9ca3af;
+  /* Tailwind gray-400 */
+  margin-bottom: 8px;
 }
 </style>
