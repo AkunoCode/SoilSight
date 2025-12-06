@@ -188,7 +188,8 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
                 </div>
             </div>
 
-            <div class="preview-container" @click="showReportDialog = true" style="cursor: pointer;" :style="{ maxHeight: props.maxHeight }">
+            <div class="preview-container" @click="showReportDialog = true" style="cursor: pointer;"
+                :style="{ maxHeight: props.maxHeight }">
                 <div class="report-content" v-html="formattedSummary"></div>
                 <div class="preview-fade"></div>
             </div>
