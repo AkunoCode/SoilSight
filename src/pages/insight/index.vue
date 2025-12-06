@@ -523,7 +523,7 @@ onMounted(async () => {
 
       <VCol cols="6">
         <div class="card list-card map-card">
-          <h3 class="mb-2">Sampled Farms</h3>
+          <h3 class="mb-2">Contamination Density by Farm Practice</h3>
           <SampledFarms :sampled-sites="sites" />
         </div>
       </VCol>
