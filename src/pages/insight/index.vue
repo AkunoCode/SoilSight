@@ -16,6 +16,7 @@ import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
 import MPSizeRangeAll from '@/components/graphs/MPSizeRangeAll.vue'
 import SampledFarms from '@/components/SampledFarms.vue'
 import AISummary from '@/components/AISummary.vue'
+import KPI from '@/components/KPI.vue'
 
 const router = useRouter()
 const app = useAppStore()
@@ -32,7 +33,7 @@ async function loadSites() {
   loading.value = true
   error.value = null
   try {
-    const resp = await directus.request(readItems('sites', { fields: ['*'], limit: -1 }))
+    const resp = await directus.request(readItems('sites', { fields: ['*', { soilsamples: ['*'] }], limit: -1 }))
     const items = Array.isArray(resp) ? resp : (resp?.data || [])
     sites.value = items || []
   } catch (err) {
@@ -57,6 +58,62 @@ const microplasticData = computed(() => ({
   films: totalFilms.value,
   sheets: totalSheets.value,
 }))
+
+// --- KPI COMPUTATIONS ---
+const avgContaminationDensity = computed(() => {
+  if (sites.value.length === 0) return '0'
+
+  // Calculate contamination density per site, then average
+  const densitiesPerSite = sites.value.map(s => {
+    const totalMP = (Number(s.fragment_count) || 0) + (Number(s.fiber_count) || 0) + (Number(s.foam_count) || 0) + (Number(s.film_count) || 0) + (Number(s.sheets_count) || 0)
+
+    // Sum mass from all soilsamples for this site
+    const totalMassKg = (Array.isArray(s.soilsamples) ? s.soilsamples : []).reduce((sum, sample) => sum + (Number(sample.mass_kg) || 0), 0)
+
+    return totalMassKg > 0 ? totalMP / totalMassKg : 0
+  })
+
+  const avgDensity = densitiesPerSite.reduce((sum, d) => sum + d, 0) / sites.value.length
+  return avgDensity.toFixed(2)
+})
+
+const dominantPollutant = computed(() => {
+  // Find the dominant shape first
+  const morphologies = { fragments: totalFragments.value, fibers: totalFibers.value, foams: totalFoams.value, films: totalFilms.value, sheets: totalSheets.value }
+  const dominantShape = Object.entries(morphologies).reduce((a, b) => (b[1] > a[1] ? b : a))[0]
+
+  // Map shape name to lowercase for matching
+  const shapeQuery = dominantShape.toLowerCase()
+
+  // Find most common color for the dominant shape from colorComparisonAll if available
+  if (colorComparisonAll.value && colorComparisonAll.value.drilldown && colorComparisonAll.value.drilldown.length > 0) {
+    const morphIndex = morphologyIndex(dominantShape)
+    let maxColorCount = 0
+    let mostCommonColor = 'Unknown'
+
+    for (let i = 0; i < colorComparisonAll.value.drilldown.length; i++) {
+      const colorCount = colorComparisonAll.value.drilldown[i][morphIndex] || 0
+      if (colorCount > maxColorCount) {
+        maxColorCount = colorCount
+        mostCommonColor = colorComparisonAll.value.categories[i]
+      }
+    }
+
+    return `${mostCommonColor} ${dominantShape}`
+  }
+
+  return dominantShape.charAt(0).toUpperCase() + dominantShape.slice(1)
+})
+
+const highestRiskSite = computed(() => {
+  if (sites.value.length === 0) return { name: 'N/A', density: '0' }
+  const siteRisks = sites.value.map(s => ({
+    name: sanitizeSiteName(s.site_name),
+    density: (Number(s.fragment_count) || 0) + (Number(s.fiber_count) || 0) + (Number(s.foam_count) || 0) + (Number(s.film_count) || 0) + (Number(s.sheets_count) || 0)
+  }))
+  const highest = siteRisks.reduce((a, b) => (b.density > a.density ? b : a))
+  return highest
+})
 
 import { MP_COLOR_MAP, CHART_COLORS } from '@/config/chartPalette.js'
 const mpColors = { ...MP_COLOR_MAP }
@@ -338,26 +395,16 @@ onMounted(async () => {
     </header>
 
     <div class="columns">
-      <div class="kpi">
-        <div class="kpi-num">{{ sites.length }}</div>
-        <div class="v-separator" />
-        <div class="kpi-body">Number of Sampled Farms</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-num">{{ numOrganic }}</div>
-        <div class="v-separator" />
-        <div class="kpi-body">Organic Farms</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-num">{{ numConventional }}</div>
-        <div class="v-separator" />
-        <div class="kpi-body">Conventional Farms</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-num">{{ numIntegrated }}</div>
-        <div class="v-separator" />
-        <div class="kpi-body">Integrated Farms</div>
-      </div>
+      <!-- [Number] Farms-->
+      <KPI title="Number of Sites Sampled" :value="`${sites.length} Farms`" subtitle="Within Tayabas, Quezon" />
+      <!-- [Number] MP/kg -->
+      <KPI title="Avg. Contamination Density" :value="`${avgContaminationDensity} MP/kg`"
+        subtitle="Averaged across all sites" />
+      <!-- Highest shape and its most common color -->
+      <KPI title="Dominant Pollutant" :value="dominantPollutant" subtitle="Among 5 shapes detected" />
+      <!-- subtitle should be the density of the highest risk site -->
+      <KPI title="Highest Risk Site" :value="`${highestRiskSite.name} Farm`"
+        :subtitle="`${highestRiskSite.density} MP`" />
       <div class="d-flex align-center justify-center bg-blue ga-2 rounded-lg cursor-pointer"
         style="box-shadow: 0 1px 6px rgba(0, 0, 0, .06);" @click="printReport">
         <VIcon color="white" size="x-large">mdi-note-text-outline</VIcon>

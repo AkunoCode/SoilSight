@@ -10,6 +10,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     AISummary: typeof import('./src/components/AISummary.vue')['default']
     ApexChartBase: typeof import('./src/components/graphs/ApexChartBase.vue')['default']
+    KPI: typeof import('./src/components/KPI.vue')['default']
     LeafletMap: typeof import('./src/components/LeafletMap.vue')['default']
     LoadingOverlay: typeof import('./src/components/LoadingOverlay.vue')['default']
     MonthlyTrendChart: typeof import('./src/components/graphs/MonthlyTrendChart.vue')['default']
