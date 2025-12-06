@@ -18,6 +18,7 @@ import SampledFarms from '@/components/SampledFarms.vue'
 import AISummary from '@/components/AISummary.vue'
 import KPI from '@/components/KPI.vue'
 import SourceIdentificationHeatmap from '@/components/graphs/SourceIdentificationHeatmap.vue'
+import SourceDegradationIndex from '@/components/graphs/SourceDegradationIndex.vue'
 
 const router = useRouter()
 const app = useAppStore()
@@ -443,6 +444,9 @@ onMounted(async () => {
       </VCol>
       <VCol cols="4">
         <!-- Source Degradation Index Gauge Chart -->
+        <div class="card">
+          <SourceDegradationIndex :sites="sites" height="300" />
+        </div>
       </VCol>
     </VRow>
 
