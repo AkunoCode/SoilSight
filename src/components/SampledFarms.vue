@@ -284,7 +284,7 @@ watch(processedSites, updateMapMarkers, { deep: true })
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 570px;
+  max-height: 250px;
   overflow: auto;
 }
 

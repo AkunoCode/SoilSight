@@ -299,7 +299,7 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
 
 .preview-container {
     position: relative;
-    max-height: 140px;
+    max-height: 550px;
     overflow: hidden;
 }
 

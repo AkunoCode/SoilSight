@@ -17,6 +17,7 @@ import MPSizeRangeAll from '@/components/graphs/MPSizeRangeAll.vue'
 import SampledFarms from '@/components/SampledFarms.vue'
 import AISummary from '@/components/AISummary.vue'
 import KPI from '@/components/KPI.vue'
+import SourceIdentificationHeatmap from '@/components/graphs/SourceIdentificationHeatmap.vue'
 
 const router = useRouter()
 const app = useAppStore()
@@ -411,6 +412,39 @@ onMounted(async () => {
         <p class="text-h4 text-white font-weight-bold">Print Report</p>
       </div>
     </div>
+    <VRow class="mt-2">
+      <VCol cols="6">
+        <div class="card">
+          <AISummary />
+        </div>
+      </VCol>
+      <VCol cols="6">
+        <div class="card list-card map-card">
+          <h3 class="mb-2">Contamination Density by Farm Practice</h3>
+          <SampledFarms :sampled-sites="sites" />
+        </div>
+      </VCol>
+    </VRow>
+    <VRow class="mt-2">
+      <VCol cols="4">
+        <div class="card">
+          <MPPracticeBar :height="400" :options="contaminationByPracticeOptions" :series="contaminationByPracticeSeries"
+            :subtitle="`Data as of ${displayLatestSampleDate}`" title="Contamination Comparison by Farm Practices"
+            :filter-key="app.selectedMorphology" />
+        </div>
+      </VCol>
+      <VCol cols="4">
+        <!-- Source Identification Heatmap -->
+        <div class="card">
+          <h3>Source Identification Heatmap</h3>
+          <p class="subtitle mb-2">Microplastic Counts by Source and Plastic Type</p>
+          <SourceIdentificationHeatmap :sites="sites" height="300" />
+        </div>
+      </VCol>
+      <VCol cols="4">
+        <!-- Source Degradation Index Gauge Chart -->
+      </VCol>
+    </VRow>
 
     <VRow class="mt-2">
       <VCol class="d-flex flex-column justify-space-between" cols="3">
