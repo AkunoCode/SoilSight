@@ -493,10 +493,7 @@ onMounted(async () => {
     <VRow class="mt-2">
       <VCol cols="6">
         <div class="card">
-          <SiteDrilldownChart :categories="textures"
-            :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
-            :drilldown="textureDrilldown" title="Microplastic Count by Soil Texture" :totals="textureTotals"
-            :filter-key="app.selectedMorphology" :height="300" />
+          <SoilTrapEfficiencyBoxplot :sites="sites" height="360" />
         </div>
       </VCol>
       <VCol cols="6">
@@ -509,7 +506,7 @@ onMounted(async () => {
           <template v-else-if="colorComparisonAll && colorComparisonAll.totals && colorComparisonAll.totals.length > 0">
             <SiteDrilldownChart :categories="colorComparisonAll.categories"
               :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
-              :drilldown="colorComparisonAll.drilldown" :height="300" title="Microplastic Count by Color"
+              :drilldown="colorComparisonAll.drilldown" :height="360" title="Microplastic Count by Color"
               :totals="colorComparisonAll.totals" :filter-key="app.selectedMorphology" />
           </template>
           <template v-else>

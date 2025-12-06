@@ -24,6 +24,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     SampledFarms: typeof import('./src/components/SampledFarms.vue')['default']
     SiteDrilldownChart: typeof import('./src/components/graphs/SiteDrilldownChart.vue')['default']
+    SoilTrapEfficiencyBoxplot: typeof import('./src/components/graphs/SoilTrapEfficiencyBoxplot.vue')['default']
     SourceDegradationIndex: typeof import('./src/components/graphs/SourceDegradationIndex.vue')['default']
     SourceIdentificationHeatmap: typeof import('./src/components/graphs/SourceIdentificationHeatmap.vue')['default']
   }
