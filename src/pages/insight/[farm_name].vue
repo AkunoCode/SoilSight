@@ -7,6 +7,8 @@ import MPDonutChart from '@/components/graphs/MPDonutChart.vue'
 import MPSizeRangeChart from '@/components/graphs/MPSizeRangeChart.vue'
 import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
 import AISummary from '@/components/AISummary.vue'
+import SourceDegradationIndex from '@/components/graphs/SourceDegradationIndex.vue'
+import BiologicalRiskChart from '@/components/graphs/BiologicalRiskChart.vue'
 
 // Directus helper
 import directus from '@/composables/useDirectus'
@@ -25,6 +27,8 @@ const farm = ref(null)
 const latestSampleDate = ref(null)
 const colorComparisonFetched = ref(null)
 const colorComparisonLoading = ref(false)
+const sizeComparisonData = ref(null)
+const sizeComparisonLoading = ref(false)
 
 
 
@@ -392,6 +396,7 @@ watch(farm, async newFarm => {
     try {
       await fetchLatestSampleDateForFarm(newFarm.id)
       await fetchColorComparisonForFarm(newFarm.id)
+      await fetchSizeComparisonForFarm(newFarm.id)
       try {
         comparisonSites.value = await fetchSitesByPractice(newFarm.cultivation_practice)
       } catch {
@@ -403,6 +408,7 @@ watch(farm, async newFarm => {
   } else {
     latestSampleDate.value = null
     colorComparisonFetched.value = null
+    sizeComparisonData.value = null
     comparisonSites.value = null
   }
 }, { immediate: true })
@@ -425,6 +431,101 @@ async function fetchLatestSampleDateForFarm(farmId) {
   }
   return latestSampleDate.value
 }
+
+function bucketForDiameter(val) {
+  if (!Number.isFinite(val)) return -1
+  if (val >= 1 && val < 20) return 0 // '1-20 µm'
+  if (val >= 20 && val < 100) return 1 // '20-100 µm'
+  if (val >= 100 && val < 500) return 2 // '100-500 µm'
+  if (val >= 500 && val < 1000) return 3 // '500 µm-1 mm'
+  if (val >= 1000 && val <= 5000) return 4 // '1-5 mm'
+  return -1
+}
+
+async function fetchSizeComparisonForFarm(farmId) {
+  sizeComparisonData.value = null
+  if (!farmId) return null
+  sizeComparisonLoading.value = true
+  try {
+    const cutoff = new Date()
+    cutoff.setMonth(cutoff.getMonth() - 24)
+    const cutoffIso = cutoff.toISOString()
+    const resp = await directus.request(readItems('microplastics', {
+      filter: {
+        sample_source: {
+          site: { _eq: farmId },
+          date_collected: { _gte: cutoffIso }
+        }
+      },
+      limit: -1
+    }))
+    const items = Array.isArray(resp) ? resp : (resp?.data || [])
+
+    const sizeBuckets = [
+      { label: '1-20 µm', min: 1, max: 20 },
+      { label: '20-100 µm', min: 20, max: 100 },
+      { label: '100-500 µm', min: 100, max: 500 },
+      { label: '500 µm-1 mm', min: 500, max: 1000 },
+      { label: '1-5 mm', min: 1000, max: 5000 },
+    ]
+
+    const counts = Array.from({ length: sizeBuckets.length }, () => 0)
+    const drilldown = Array.from({ length: sizeBuckets.length }, () => [0, 0, 0, 0, 0])
+
+    for (const item of items) {
+      const diameter = Number(item.equivalent_circular_diameter_um)
+      if (!Number.isFinite(diameter)) continue
+
+      const bucketIdx = bucketForDiameter(diameter)
+      if (bucketIdx < 0) continue
+
+      const sampleCount = Number(item.count || item.particle_count || item.quantity || 1)
+      counts[bucketIdx] += sampleCount
+
+      const morph = item.shape || item.morphology || item.mp_category || item.type
+      const morphIdx = morphologyIndex(morph)
+      if (morphIdx >= 0) {
+        drilldown[bucketIdx][morphIdx] += sampleCount
+      }
+    }
+
+    sizeComparisonData.value = {
+      categories: sizeBuckets.map(b => b.label),
+      totals: counts,
+      drilldown: drilldown
+    }
+
+    return sizeComparisonData.value
+  } catch (error) {
+    console.error('Error fetching size comparison for farm', farmId, error)
+    sizeComparisonData.value = null
+    return null
+  } finally {
+    sizeComparisonLoading.value = false
+  }
+}
+
+const biologicalRiskData = computed(() => {
+  const sizes = sizeComparisonData.value
+  if (!sizes || !sizes.categories || !sizes.totals) return []
+
+  const findTotal = (label) => {
+    const idx = sizes.categories.findIndex(c => (c || '').toString().toLowerCase() === label)
+    return idx >= 0 ? (sizes.totals[idx] || 0) : 0
+  }
+
+  const lt100 = findTotal('1-20 µm'.toLowerCase()) + findTotal('20-100 µm'.toLowerCase())
+  const between100_500 = findTotal('100-500 µm'.toLowerCase())
+  const gt1mm = findTotal('1-5 mm'.toLowerCase())
+
+  return [
+    { category: '< 100 µm', count: lt100 },
+    { category: '100-500 µm', count: between100_500 },
+    { category: '> 1 mm', count: gt1mm }
+  ]
+})
+
+const farmAsArray = computed(() => farm.value ? [farm.value] : [])
 </script>
 
 <template>
@@ -531,7 +632,7 @@ async function fetchLatestSampleDateForFarm(farmId) {
       </VCol>
     </VRow>
     <VRow>
-      <VCol cols="5">
+      <VCol cols="4">
         <div class="d-flex flex-column ga-4">
           <div class="card">
             <MPDonutChart :date="displaySampleDate" :microplastic-data="microplasticData"
@@ -540,37 +641,37 @@ async function fetchLatestSampleDateForFarm(farmId) {
           <div class="card">
             <SiteDrilldownChart :categories="anonymizedComparison.categories"
               :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
-              :date="displaySampleDate" :drilldown="anonymizedComparison.drilldown" :height="320"
+              :date="displaySampleDate" :drilldown="anonymizedComparison.drilldown" :height="250"
               :title="farm?.cultivation_practice ? `Contamination Comparison to Other ${titleCase(farm?.cultivation_practice)} Farms` : 'Contamination Comparison to Other Farms'"
               :totals="anonymizedComparison.totals" :filter-key="app.selectedMorphology" />
           </div>
-          <div class="card">
-            <AISummary :is-overview="false" :item="farm" :title="'AI Diagnosis'" :max-height="'120px'" />
-          </div>
         </div>
       </VCol>
-      <VCol cols="7">
+      <VCol cols="8">
         <div class="d-flex flex-column ga-4">
           <MonthlyTrendChart :date="displaySampleDate" :height="320" :site-id="farm?.id"
             :title="`Monthly Microplastic Trend for ${farm?.site_name}`" :filter-key="app.selectedMorphology" />
-          <div class="card">
-            <template v-if="colorComparisonLoading">
-              <div :style="{ minHeight: '260px', display: 'flex', justifyContent: 'center', alignItems: 'center' }">
-                <VProgressCircular color="primary" indeterminate size="28" />
+
+          <VRow>
+            <VCol cols="5">
+              <div class="card">
+                <SourceDegradationIndex :sites="farmAsArray" :height="260" />
               </div>
-            </template>
-            <template v-else>
-              <SiteDrilldownChart :categories="colorComparison.categories"
-                :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
-                :date="displaySampleDate" :drilldown="colorComparison.drilldown" :height="260"
-                title="Microplastic Count by Color" :totals="colorComparison.totals"
-                :filter-key="app.selectedMorphology" />
-            </template>
-          </div>
-          <div class="card">
-            <MPSizeRangeChart :date="displaySampleDate" :height="260" :site-id="farm?.id"
-              title="Microplastic Count by Size Range" :filter-key="app.selectedMorphology" />
-          </div>
+            </VCol>
+            <VCol cols="7">
+              <div class="card">
+                <BiologicalRiskChart :height="260" :data="biologicalRiskData" :loading="sizeComparisonLoading" />
+              </div>
+            </VCol>
+          </VRow>
+
+        </div>
+      </VCol>
+    </VRow>
+    <VRow>
+      <VCol cols="12">
+        <div class="card">
+          <AISummary :is-overview="false" :item="farm" :title="'AI Diagnosis'" :max-height="'200px'" />
         </div>
       </VCol>
     </VRow>
