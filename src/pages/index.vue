@@ -156,19 +156,45 @@ function createMarker(item, map) {
 
   const color = getMarkerColor(item.cultivation_practice)
 
-  // Create custom icon
+  // Calculate total microplastic count for pollution density
+  const totalMP = (Number(item.fragment_count) || 0) + 
+                  (Number(item.fiber_count) || 0) + 
+                  (Number(item.foam_count) || 0) + 
+                  (Number(item.film_count) || 0) + 
+                  (Number(item.sheets_count || item.sheet_count || item.sheets) || 0)
+
+  // Get all farms' total MPs to calculate relative density
+  const allMPs = allFarmsData.value.map(f => 
+    (Number(f.fragment_count) || 0) + 
+    (Number(f.fiber_count) || 0) + 
+    (Number(f.foam_count) || 0) + 
+    (Number(f.film_count) || 0) + 
+    (Number(f.sheets_count || f.sheet_count || f.sheets) || 0)
+  ).filter(n => n > 0)
+
+  const minMP = Math.min(...allMPs, 1)
+  const maxMP = Math.max(...allMPs, 1)
+
+  // Scale marker size between 15px (min) and 35px (max) based on pollution density
+  const minSize = 15
+  const maxSize = 35
+  const markerSize = totalMP > 0 
+    ? minSize + ((totalMP - minMP) / (maxMP - minMP)) * (maxSize - minSize)
+    : minSize
+
+  // Create custom icon with scaled size
   const customIcon = L.divIcon({
     className: 'custom-marker',
     html: `<div style="
       background-color: ${color};
-      width: 20px;
-      height: 20px;
+      width: ${markerSize}px;
+      height: ${markerSize}px;
       border-radius: 50%;
       border: 3px solid white;
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     "></div>`,
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
+    iconSize: [markerSize, markerSize],
+    iconAnchor: [markerSize / 2, markerSize / 2],
   })
 
   const marker = L.marker([item.latitude, item.longitude], { icon: customIcon }).addTo(map)
@@ -183,6 +209,7 @@ function createMarker(item, map) {
       <strong>Owner:</strong> ${item.owner ?? 'N/A'}<br/>
       <strong>Area:</strong> ${item.land_area_ha ?? '?'} hectares<br/>
       <strong>Practice:</strong> ${item.cultivation_practice ?? 'N/A'}<br/>
+      ${totalMP > 0 ? `<strong>Microplastics:</strong> ${totalMP} particles<br/>` : ''}
       ${item.address ? `<strong>Address:</strong> ${item.address}<br/>` : ''}
       ${item.soil_type ? `<strong>Soil Type:</strong> ${item.soil_type}<br/>` : ''}
       ${item.crops ? `<strong>Crops:</strong> ${item.crops.join(', ')}<br/>` : ''}
