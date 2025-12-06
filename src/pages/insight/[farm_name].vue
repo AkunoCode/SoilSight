@@ -6,6 +6,7 @@ import MonthlyTrendChart from '@/components/graphs/MonthlyTrendChart.vue'
 import MPDonutChart from '@/components/graphs/MPDonutChart.vue'
 import MPSizeRangeChart from '@/components/graphs/MPSizeRangeChart.vue'
 import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
+import AISummary from '@/components/AISummary.vue'
 
 // Directus helper
 import directus from '@/composables/useDirectus'
@@ -25,32 +26,7 @@ const latestSampleDate = ref(null)
 const colorComparisonFetched = ref(null)
 const colorComparisonLoading = ref(false)
 
-// --- AI SUMMARY LOGIC START ---
-const showDiagnosisDialog = ref(false) // State for the overlay
 
-// Parse the AI Markdown (convert **bold** to <strong>bold</strong>)
-const parsedAiSummary = computed(() => {
-  const raw = farm.value?.ai_summary
-  if (!raw) return 'No AI analysis available for this site yet.'
-
-  // 1. Basic escape to prevent breaking HTML
-  let text = raw
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-
-  // 2. Convert Markdown bold (**text**) to HTML strong
-  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-
-  return text
-})
-
-// Only show the expand button if text is long (> 200 chars for preview)
-const showReadMoreButton = computed(() => {
-  const len = farm.value?.ai_summary?.length || 0
-  return len > 200
-})
-// --- AI SUMMARY LOGIC END ---
 
 import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
 import { useAppStore } from '@/stores/app'
@@ -568,30 +544,8 @@ async function fetchLatestSampleDateForFarm(farmId) {
               :title="farm?.cultivation_practice ? `Contamination Comparison to Other ${titleCase(farm?.cultivation_practice)} Farms` : 'Contamination Comparison to Other Farms'"
               :totals="anonymizedComparison.totals" :filter-key="app.selectedMorphology" />
           </div>
-
           <div class="card">
-            <div class="d-flex align-center mb-1"
-              style="display:flex; justify-content:space-between; align-items:center;">
-              <div style="display:flex; align-items:center;">
-                <h4 class="text-h6 font-weight-bold" style="line-height: 1.2em;">
-                  AI Diagnosis
-                </h4>
-                <VIcon class="ml-2" color="primary" size="small">mdi-robot-outline</VIcon>
-              </div>
-              <p class="subtitle mb-0" style="font-size: 0.85rem">{{ displaySampleDate }}</p>
-            </div>
-
-            <div class="summary-container">
-              <div class="summary-content collapsed preserve-newlines" v-html="parsedAiSummary"></div>
-
-              <div v-if="showReadMoreButton" class="expand-actions text-center mt-2">
-                <VBtn variant="text" density="compact" color="primary" class="text-none font-weight-bold"
-                  @click="showDiagnosisDialog = true">
-                  Read Full Diagnosis
-                  <VIcon end>mdi-open-in-new</VIcon>
-                </VBtn>
-              </div>
-            </div>
+            <AISummary :is-overview="false" :item="farm" :title="'AI Diagnosis'" :max-height="'120px'" />
           </div>
         </div>
       </VCol>
@@ -620,24 +574,6 @@ async function fetchLatestSampleDateForFarm(farmId) {
         </div>
       </VCol>
     </VRow>
-
-    <VDialog v-model="showDiagnosisDialog" max-width="800" scrollable>
-      <VCard>
-        <VCardTitle class="d-flex justify-space-between align-center pa-4">
-          <span class="text-h5 font-weight-bold">Full AI Diagnosis</span>
-          <VBtn icon="mdi-close" variant="text" @click="showDiagnosisDialog = false"></VBtn>
-        </VCardTitle>
-        <VDivider></VDivider>
-        <VCardText class="pa-6" style="max-height: 70vh;">
-          <div class="preserve-newlines text-body-1" v-html="parsedAiSummary"></div>
-        </VCardText>
-        <VDivider></VDivider>
-        <VCardActions class="pa-4">
-          <VSpacer></VSpacer>
-          <VBtn color="primary" variant="elevated" @click="showDiagnosisDialog = false">Close</VBtn>
-        </VCardActions>
-      </VCard>
-    </VDialog>
   </div>
 </template>
 
@@ -677,48 +613,6 @@ async function fetchLatestSampleDateForFarm(farmId) {
   width: 50px;
   height: 50px;
   margin: 0 auto 0px auto;
-}
-
-/* Updated Summary Styles */
-.summary-container {
-  background-color: #f9f9f9;
-  padding: 15px;
-  border-radius: 6px;
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-}
-
-.summary-content {
-  font-size: 0.95rem;
-  line-height: 1.6;
-  color: #333;
-}
-
-/* Always collapsed on the card view */
-.summary-content.collapsed {
-  max-height: 120px;
-  /* Preview height */
-  overflow: hidden;
-  position: relative;
-  mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
-}
-
-.expand-actions {
-  border-top: 1px solid #eee;
-  padding-top: 8px;
-  margin-top: 8px;
-}
-
-/* End Updated Summary Styles */
-
-.preserve-newlines {
-  white-space: pre-wrap;
-}
-
-.subtitle {
-  color: rgb(155, 155, 155);
 }
 
 .card-footer {

@@ -10,6 +10,7 @@ const props = defineProps({
     item: { type: Object, default: null },
     showGenerate: { type: Boolean, default: true },
     title: { type: String, default: 'AI Diagnosis' },
+    maxHeight: { type: String, default: '550px' },
 })
 
 const emit = defineEmits(['generated'])
@@ -187,7 +188,7 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
                 </div>
             </div>
 
-            <div class="preview-container" @click="showReportDialog = true" style="cursor: pointer;">
+            <div class="preview-container" @click="showReportDialog = true" style="cursor: pointer;" :style="{ maxHeight: props.maxHeight }">
                 <div class="report-content" v-html="formattedSummary"></div>
                 <div class="preview-fade"></div>
             </div>
@@ -299,7 +300,6 @@ defineExpose({ regionalReport, isGenerating, fetchRegionalReport })
 
 .preview-container {
     position: relative;
-    max-height: 550px;
     overflow: hidden;
 }
 
