@@ -157,18 +157,18 @@ function createMarker(item, map) {
   const color = getMarkerColor(item.cultivation_practice)
 
   // Calculate total microplastic count for pollution density
-  const totalMP = (Number(item.fragment_count) || 0) + 
-                  (Number(item.fiber_count) || 0) + 
-                  (Number(item.foam_count) || 0) + 
-                  (Number(item.film_count) || 0) + 
-                  (Number(item.sheets_count || item.sheet_count || item.sheets) || 0)
+  const totalMP = (Number(item.fragment_count) || 0) +
+    (Number(item.fiber_count) || 0) +
+    (Number(item.foam_count) || 0) +
+    (Number(item.film_count) || 0) +
+    (Number(item.sheets_count || item.sheet_count || item.sheets) || 0)
 
   // Get all farms' total MPs to calculate relative density
-  const allMPs = allFarmsData.value.map(f => 
-    (Number(f.fragment_count) || 0) + 
-    (Number(f.fiber_count) || 0) + 
-    (Number(f.foam_count) || 0) + 
-    (Number(f.film_count) || 0) + 
+  const allMPs = allFarmsData.value.map(f =>
+    (Number(f.fragment_count) || 0) +
+    (Number(f.fiber_count) || 0) +
+    (Number(f.foam_count) || 0) +
+    (Number(f.film_count) || 0) +
     (Number(f.sheets_count || f.sheet_count || f.sheets) || 0)
   ).filter(n => n > 0)
 
@@ -178,7 +178,7 @@ function createMarker(item, map) {
   // Scale marker size between 15px (min) and 35px (max) based on pollution density
   const minSize = 15
   const maxSize = 35
-  const markerSize = totalMP > 0 
+  const markerSize = totalMP > 0
     ? minSize + ((totalMP - minMP) / (maxMP - minMP)) * (maxSize - minSize)
     : minSize
 
