@@ -6,12 +6,36 @@
         <div class="breadcrumb-container">
           <div class="breadcrumb-subtitle">Plastic Contamination Map</div>
           <div class="breadcrumb-title">
-            <span class="breadcrumb-region breadcrumb-link" @click="gotoRegion">{{ regionName }}</span>
+            <span
+              class="breadcrumb-region breadcrumb-link"
+              role="button"
+              tabindex="0"
+              :aria-label="`Zoom to ${regionName}`"
+              @click="gotoRegion"
+              @keydown.enter="gotoRegion"
+              @keydown.space.prevent="gotoRegion"
+            >{{ regionName }}</span>
             <span class="breadcrumb-sep">&nbsp;›&nbsp;</span>
-            <span class="breadcrumb-city breadcrumb-link" @click="gotoCity">{{ cityName }}</span>
+            <span
+              class="breadcrumb-city breadcrumb-link"
+              role="button"
+              tabindex="0"
+              :aria-label="`Zoom to ${cityName}`"
+              @click="gotoCity"
+              @keydown.enter="gotoCity"
+              @keydown.space.prevent="gotoCity"
+            >{{ cityName }}</span>
             <template v-if="selectedItem">
               <span class="breadcrumb-sep">&nbsp;›&nbsp;</span>
-              <span class="breadcrumb-farm breadcrumb-link" @click="gotoFarm">{{ selectedItem.site_name }}</span>
+              <span
+                class="breadcrumb-farm breadcrumb-link"
+                role="button"
+                tabindex="0"
+                :aria-label="`Zoom to ${selectedItem.site_name}`"
+                @click="gotoFarm"
+                @keydown.enter="gotoFarm"
+                @keydown.space.prevent="gotoFarm"
+              >{{ selectedItem.site_name }}</span>
             </template>
           </div>
         </div>
