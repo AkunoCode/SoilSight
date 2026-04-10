@@ -25,7 +25,12 @@
       "Bash(ls -1 /Users/kodecraft-carlo-rabe/SoilSight/src/composables/*.js)",
       "Bash(ls -la /Users/kodecraft-carlo-rabe/SoilSight/src/stores/microplastics*)",
       "Bash(curl -s http://localhost:3000)",
-      "Bash(node --input-type=module -e \"import './src/stores/microplastics.js'; console.log\\('✓ microplastics store loads'\\)\")"
+      "Bash(node --input-type=module -e \"import './src/stores/microplastics.js'; console.log\\('✓ microplastics store loads'\\)\")",
+      "Read(//Users/kodecraft-carlo-rabe/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/**)",
+      "Bash(bash scripts/start-server.sh --project-dir /Users/kodecraft-carlo-rabe/SoilSight)",
+      "Bash(git pull:*)",
+      "Bash(bash /Users/kodecraft-carlo-rabe/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh --project-dir /Users/kodecraft-carlo-rabe/SoilSight)",
+      "Bash(git cherry-pick:*)"
     ]
   }
 }
