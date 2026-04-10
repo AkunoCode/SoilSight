@@ -40,7 +40,7 @@ export function useInsightCharts(sites, sizeData) {
         acc[1] += Number(s.fiber_count)    || 0
         acc[2] += Number(s.foam_count)     || 0
         acc[3] += Number(s.film_count)     || 0
-        acc[4] += (Number(s.sheets_count) || Number(s.sheet_count) || 0)
+        acc[4] += (Number(s.sheets_count) || Number(s.sheet_count) || Number(s.sheets) || 0)
         return acc
       }, [0, 0, 0, 0, 0])
     )

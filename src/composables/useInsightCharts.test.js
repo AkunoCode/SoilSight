@@ -98,6 +98,20 @@ describe('useInsightCharts', () => {
     })
   })
 
+  describe('inputDrilldown', () => {
+    it('falls back to sheet_count variant in sheets column', () => {
+      const sites = ref([makeSite({
+        plastic_activity: ['Plastic Mulching'],
+        sheets_count: undefined,
+        sheet_count: 6,
+        sheets: undefined,
+      })])
+      const { inputDrilldown } = useInsightCharts(sites, ref(null))
+      // index 1 = Plastic Mulching
+      expect(inputDrilldown.value[1][4]).toBe(6)
+    })
+  })
+
   describe('contaminationByPracticeSeries', () => {
     it('handles sheets variant in sheets column', () => {
       const sites = ref([makeSite({
