@@ -79,6 +79,10 @@ export default defineConfig({
       '.vue',
     ],
   },
+  test: {
+    environment: 'happy-dom',
+    globals: true,
+  },
   server: {
     port: 3000,
     proxy: {
