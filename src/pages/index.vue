@@ -35,6 +35,17 @@
           :title="selectedItem ? selectedItem.site_name : 'Tayabas City'" />
       </div>
       <div id="map" />
+      <VSnackbar
+        v-model="dataError"
+        color="warning"
+        timeout="8000"
+        location="top"
+      >
+        {{ dataErrorMsg }}
+        <template #actions>
+          <VBtn variant="text" @click="dataError = false">Dismiss</VBtn>
+        </template>
+      </VSnackbar>
     </v-main>
   </v-app>
 </template>
@@ -63,6 +74,8 @@ const cityName      = ref('Tayabas City')
 const TAYABAS       = [13.9649, 121.5923]
 const mapRef        = ref(null)
 let debounceTimer   = null
+const dataError     = ref(false)
+const dataErrorMsg  = ref('')
 
 const { markersRef, addMarkers, clearMarkers, getMarkerColor } = useMapMarkers(allFarmsData, mapRef)
 
@@ -74,6 +87,8 @@ async function fetchDataFromDirectus() {
     return items
   } catch (error) {
     console.error('Error fetching farms data from Directus:', error)
+    dataErrorMsg.value = error?.message || 'Failed to load farm data. Check your connection.'
+    dataError.value = true
     throw error
   }
 }
