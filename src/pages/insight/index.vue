@@ -7,6 +7,7 @@ import { useInsightData } from '@/composables/useInsightData.js'
 import { useInsightKPIs } from '@/composables/useInsightKPIs.js'
 import { useInsightCharts } from '@/composables/useInsightCharts.js'
 import { MP_COLOR_MAP } from '@/config/chartPalette.js'
+import Skeleton from 'boneyard-js/vue'
 
 const router = useRouter()
 const app    = useAppStore()
@@ -74,6 +75,12 @@ onMounted(async () => {
       </div>
     </header>
 
+    <ErrorBanner
+      v-if="error"
+      :message="error?.message || 'Failed to load data. Please check your connection or try again.'"
+      @retry="loadAll"
+    />
+
     <div class="columns">
       <!-- [Number] Farms-->
       <KPI title="Number of Sites Sampled" :value="`${sites.length} Farms`" subtitle="Within Tayabas, Quezon" />
@@ -94,13 +101,17 @@ onMounted(async () => {
     <VRow class="mt-2">
       <VCol cols="6">
         <div class="card">
-          <AISummary />
+          <Skeleton name="ai-summary" :loading="loading">
+            <AISummary />
+          </Skeleton>
         </div>
       </VCol>
       <VCol cols="6">
         <div class="card list-card map-card">
           <h3 class="mb-2">Contamination Density by Farm Practice</h3>
-          <SampledFarms :sampled-sites="sites" />
+          <Skeleton name="sampled-farms" :loading="loading">
+            <SampledFarms :sampled-sites="sites" />
+          </Skeleton>
         </div>
       </VCol>
     </VRow>
