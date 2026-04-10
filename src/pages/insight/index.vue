@@ -1,409 +1,65 @@
 <script setup>
-/* eslint-disable unicorn/no-array-callback-reference, unicorn/no-array-method-this-argument */
-import { computed, onMounted, ref, watch, onUnmounted } from 'vue'
+import { onMounted, watch } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useRouter } from 'vue-router'
-import directus from '@/composables/useDirectus.js'
-import { readItems, createItem, customEndpoint } from '@directus/sdk'
 import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
-
-import ApexChartBase from '@/components/graphs/ApexChartBase.vue'
-import { getDefaultBarOptions } from '@/components/graphs/defaultBarOptions.js'
-import MonthlyTrendChart from '@/components/graphs/MonthlyTrendChart.vue'
-import MPDonutChart from '@/components/graphs/MPDonutChart.vue'
-import MPPracticeBar from '@/components/graphs/MPPracticeBar.vue'
-import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
-import MPSizeRangeAll from '@/components/graphs/MPSizeRangeAll.vue'
-import SampledFarms from '@/components/SampledFarms.vue'
-import AISummary from '@/components/AISummary.vue'
-import KPI from '@/components/KPI.vue'
-import SourceIdentificationHeatmap from '@/components/graphs/SourceIdentificationHeatmap.vue'
-import SourceDegradationIndex from '@/components/graphs/SourceDegradationIndex.vue'
-import BiologicalRiskChart from '@/components/graphs/BiologicalRiskChart.vue'
+import { useInsightData } from '@/composables/useInsightData.js'
+import { useInsightKPIs } from '@/composables/useInsightKPIs.js'
+import { useInsightCharts } from '@/composables/useInsightCharts.js'
+import { MP_COLOR_MAP } from '@/config/chartPalette.js'
 
 const router = useRouter()
-const app = useAppStore()
+const app    = useAppStore()
 const { displayLatestSampleDate, fetchLatestSampleDate } = useLatestSampleDate()
 
-// --- STATE ---
-const sites = ref([])
-const loading = ref(false)
-const error = ref(null)
+const {
+  sites, loading, error,
+  colorData, colorLoading,
+  sizeData, selectedSizeField,
+  loadAll, fetchSizeData,
+} = useInsightData()
 
-// AI summary handled by `AISummary` component
+const {
+  microplasticTotals,
+  avgContaminationDensity,
+  dominantPollutant,
+  highestRiskSite,
+} = useInsightKPIs(sites, colorData)
 
-async function loadSites() {
-  loading.value = true
-  error.value = null
-  try {
-    const resp = await directus.request(readItems('sites', { fields: ['*', { soilsamples: ['*'] }], limit: -1 }))
-    const items = Array.isArray(resp) ? resp : (resp?.data || [])
-    sites.value = items || []
-  } catch (err) {
-    error.value = err
-    console.error('Failed to load sites from Directus', err)
-  } finally {
-    loading.value = false
-  }
-}
+const {
+  siteCategories, siteTotals, siteDrilldown,
+  inputTotals, inputDrilldown,
+  textures, textureTotals, textureDrilldown,
+  contaminationByPracticeSeries, contaminationByPracticeOptions,
+  biologicalRiskData,
+  farmSizeSeries, farmSizeOptions,
+  topCrops,
+} = useInsightCharts(sites, sizeData)
 
-// --- METRICS ---
-const totalFragments = computed(() => sites.value.reduce((s, r) => s + (Number(r.fragment_count) || 0), 0))
-const totalFibers = computed(() => sites.value.reduce((s, r) => s + (Number(r.fiber_count) || 0), 0))
-const totalFoams = computed(() => sites.value.reduce((s, r) => s + (Number(r.foam_count) || 0), 0))
-const totalFilms = computed(() => sites.value.reduce((s, r) => s + (Number(r.film_count) || 0), 0))
-const totalSheets = computed(() => sites.value.reduce((s, r) => s + (Number(r.sheets_count) || Number(r.sheet_count) || Number(r.sheets) || 0), 0))
-
-const microplasticData = computed(() => ({
-  fragments: totalFragments.value,
-  fibers: totalFibers.value,
-  foams: totalFoams.value,
-  films: totalFilms.value,
-  sheets: totalSheets.value,
-}))
-
-// --- KPI COMPUTATIONS ---
-const avgContaminationDensity = computed(() => {
-  if (sites.value.length === 0) return '0'
-
-  // Calculate contamination density per site, then average
-  const densitiesPerSite = sites.value.map(s => {
-    const totalMP = (Number(s.fragment_count) || 0) + (Number(s.fiber_count) || 0) + (Number(s.foam_count) || 0) + (Number(s.film_count) || 0) + (Number(s.sheets_count) || 0)
-
-    // Sum mass from all soilsamples for this site
-    const totalMassKg = (Array.isArray(s.soilsamples) ? s.soilsamples : []).reduce((sum, sample) => sum + (Number(sample.mass_kg) || 0), 0)
-
-    return totalMassKg > 0 ? totalMP / totalMassKg : 0
-  })
-
-  const avgDensity = densitiesPerSite.reduce((sum, d) => sum + d, 0) / sites.value.length
-  return avgDensity.toFixed(2)
-})
-
-const dominantPollutant = computed(() => {
-  // Find the dominant shape first
-  const morphologies = { fragments: totalFragments.value, fibers: totalFibers.value, foams: totalFoams.value, films: totalFilms.value, sheets: totalSheets.value }
-  const dominantShape = Object.entries(morphologies).reduce((a, b) => (b[1] > a[1] ? b : a))[0]
-
-  // Map shape name to lowercase for matching
-  const shapeQuery = dominantShape.toLowerCase()
-
-  // Find most common color for the dominant shape from colorComparisonAll if available
-  if (colorComparisonAll.value && colorComparisonAll.value.drilldown && colorComparisonAll.value.drilldown.length > 0) {
-    const morphIndex = morphologyIndex(dominantShape)
-    let maxColorCount = 0
-    let mostCommonColor = 'Unknown'
-
-    for (let i = 0; i < colorComparisonAll.value.drilldown.length; i++) {
-      const colorCount = colorComparisonAll.value.drilldown[i][morphIndex] || 0
-      if (colorCount > maxColorCount) {
-        maxColorCount = colorCount
-        mostCommonColor = colorComparisonAll.value.categories[i]
-      }
-    }
-
-    return `${mostCommonColor} ${dominantShape}`
-  }
-
-  return dominantShape.charAt(0).toUpperCase() + dominantShape.slice(1)
-})
-
-const highestRiskSite = computed(() => {
-  if (sites.value.length === 0) return { name: 'N/A', density: '0' }
-  const siteRisks = sites.value.map(s => ({
-    name: sanitizeSiteName(s.site_name),
-    density: (Number(s.fragment_count) || 0) + (Number(s.fiber_count) || 0) + (Number(s.foam_count) || 0) + (Number(s.film_count) || 0) + (Number(s.sheets_count) || 0)
-  }))
-  const highest = siteRisks.reduce((a, b) => (b.density > a.density ? b : a))
-  return highest
-})
-
-import { MP_COLOR_MAP, CHART_COLORS } from '@/config/chartPalette.js'
-const mpColors = { ...MP_COLOR_MAP }
-const donutColors = { ...MP_COLOR_MAP }
+const mpColors       = { ...MP_COLOR_MAP }
+const donutColors    = { ...MP_COLOR_MAP }
 const donutLabelsMap = { fragments: 'Fragments', fibers: 'Fibers', foams: 'Foam', films: 'Films', sheets: 'Sheets' }
 
-function handleLegendClick(key) {
-  app.toggleSelectedMorphology(key)
-}
+// microplasticData shape expected by MPDonutChart
+const microplasticData = microplasticTotals
 
-// --- CHARTS ---
-const inputTypes = [
-  'Fertilizer Sacks',
-  'Plastic Mulching',
-  'Seedling Trays',
-  'Compost with Plastic',
-  'Greenhouse Plastic Sheet',
-]
-function siteHasActivity(site, expected) {
-  if (!site || !site.plastic_activity) return false
-  const raw = site.plastic_activity
-  const expectedNorm = (expected || '').toString().toLowerCase().trim()
-  if (Array.isArray(raw)) return raw.some(x => String(x).toLowerCase().includes(expectedNorm))
-  return String(raw).toLowerCase().includes(expectedNorm)
-}
-const inputTotals = computed(() => inputTypes.map(type => sites.value.reduce((acc, s) => {
-  if (!siteHasActivity(s, type)) return acc
-  return acc + ((Number(s.fragment_count) || 0) + (Number(s.fiber_count) || 0) + (Number(s.film_count) || 0) + (Number(s.foam_count) || 0) + (Number(s.sheets_count) || 0))
-}, 0)))
-const inputDrilldown = computed(() => inputTypes.map(type => {
-  return sites.value.reduce((acc, s) => {
-    if (!siteHasActivity(s, type)) return acc
-    acc[0] += (Number(s.fragment_count) || 0)
-    acc[1] += (Number(s.fiber_count) || 0)
-    acc[2] += (Number(s.foam_count) || 0)
-    acc[3] += (Number(s.film_count) || 0)
-    acc[4] += (Number(s.sheets_count) || Number(s.sheet_count) || 0)
-    return acc
-  }, [0, 0, 0, 0, 0])
-}))
+// Aliases — template uses these original variable names; renaming would require template changes
+const colorComparisonLoading = colorLoading
+const colorComparisonAll     = colorData
+const sizeComparisonAll      = sizeData
 
-function sanitizeSiteName(name) {
-  return String(name || '').replace(/\b[Ff]arm\b/g, '').replace(/[\-–—_/]+/g, ' ').trim().replace(/^[,\s]+|[,\s]+$/g, '')
-}
-const siteCategories = computed(() => sites.value.map(s => sanitizeSiteName(s.site_name)))
-const siteTotals = computed(() => sites.value.map(s => (Number(s.fragment_count) || 0) + (Number(s.fiber_count) || 0) + (Number(s.film_count) || 0) + (Number(s.foam_count) || 0) + (Number(s.sheets_count) || 0)))
-const siteDrilldown = computed(() => sites.value.map(s => [(Number(s.fragment_count) || 0), (Number(s.fiber_count) || 0), (Number(s.foam_count) || 0), (Number(s.film_count) || 0), (Number(s.sheets_count) || 0)]))
-
-const numOrganic = computed(() => sites.value.filter(s => (s.cultivation_practice || '').toLowerCase().includes('organic')).length)
-const numConventional = computed(() => sites.value.filter(s => (s.cultivation_practice || '').toLowerCase().includes('conventional')).length)
-const numIntegrated = computed(() => sites.value.filter(s => (s.cultivation_practice || '').toLowerCase().includes('integrated')).length)
-
-const categoriesForPracticeChart = ['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']
-const practiceNames = ['Conventional Practice', 'Organic Practice', 'Integrated Practice']
-const practiceKeys = ['conventional', 'organic', 'integrated']
-
-const contaminationByPracticeSeries = computed(() => {
-  return practiceNames.map((name, i) => {
-    const key = practiceKeys[i]
-    const filteredSites = sites.value.filter(s => (s.cultivation_practice || '').toLowerCase().includes(key))
-    return {
-      name,
-      data: [
-        filteredSites.reduce((a, b) => a + (Number(b.fragment_count) || 0), 0),
-        filteredSites.reduce((a, b) => a + (Number(b.fiber_count) || 0), 0),
-        filteredSites.reduce((a, b) => a + (Number(b.foam_count) || 0), 0),
-        filteredSites.reduce((a, b) => a + (Number(b.film_count) || 0), 0),
-        filteredSites.reduce((a, b) => a + (Number(b.sheets_count) || 0), 0)
-      ]
-    }
-  })
-})
-
-const allVals = computed(() => contaminationByPracticeSeries.value.flatMap(s => s.data))
-const maxVal = computed(() => (allVals.value.length > 0 ? Math.max(...allVals.value) : 700))
-const contaminationByPracticeOptions = computed(() => getDefaultBarOptions(categoriesForPracticeChart, {
-  chart: { type: 'bar' },
-  legend: { position: 'bottom' },
-  yaxis: { title: { text: 'Count' }, min: 0, max: Math.ceil(maxVal.value * 1.1) }
-}))
-
-const textures = computed(() => Array.from(new Set(sites.value.map(s => s.soil_type || 'Unknown'))))
-const textureTotals = computed(() => textures.value.map(t => sites.value.filter(s => (s.soil_type || '') === t).reduce((acc, s) => {
-  return acc + ((Number(s.fragment_count) || 0) + (Number(s.fiber_count) || 0) + (Number(s.film_count) || 0) + (Number(s.foam_count) || 0) + (Number(s.sheets_count) || 0))
-}, 0)))
-const textureDrilldown = computed(() => textures.value.map(t => {
-  const vals = sites.value.filter(s => (s.soil_type || '') === t).reduce((acc, s) => {
-    acc[0] += (Number(s.fragment_count) || 0)
-    acc[1] += (Number(s.fiber_count) || 0)
-    acc[2] += (Number(s.foam_count) || 0)
-    acc[3] += (Number(s.film_count) || 0)
-    acc[4] += (Number(s.sheets_count) || 0)
-    return acc
-  }, [0, 0, 0, 0, 0])
-  return vals
-}))
-
-// Biological Risk data: map diameter buckets to 3 risk bins
-const biologicalRiskData = computed(() => {
-  const sizes = sizeComparisonAll.value
-  if (!sizes || !sizes.categories || !sizes.totals) return []
-
-  const findTotal = (label) => {
-    const idx = sizes.categories.findIndex(c => (c || '').toString().toLowerCase() === label)
-    return idx >= 0 ? (sizes.totals[idx] || 0) : 0
-  }
-
-  const lt100 = findTotal('1-20 µm'.toLowerCase()) + findTotal('20-100 µm'.toLowerCase())
-  const between100_500 = findTotal('100-500 µm'.toLowerCase())
-  const gt1mm = findTotal('1-5 mm'.toLowerCase())
-
-  return [
-    { category: '< 100 µm', count: lt100 },
-    { category: '100-500 µm', count: between100_500 },
-    { category: '> 1 mm', count: gt1mm }
-  ]
-})
-
-// --- ADVANCED CHARTS: COLOR & SIZE ---
-const colorComparisonAll = ref(null)
-const colorComparisonLoading = ref(false)
-const sizeComparisonAll = ref(null)
-const selectedSizeField = ref('equivalent_circular_diameter_um')
-
-function morphologyIndex(morph) {
-  const m = (morph || '').toString().toLowerCase()
-  if (m.includes('fragment')) return 0
-  if (m.includes('fiber')) return 1
-  if (m.includes('foam')) return 2
-  if (m.includes('film')) return 3
-  if (m.includes('sheet')) return 4
-  return -1
-}
-
-async function fetchColorComparisonAllSites() {
-  colorComparisonLoading.value = true
-  try {
-    const resp = await directus.request(readItems('microplastics', { limit: -1 }))
-    const items = Array.isArray(resp) ? resp : (resp?.data || [])
-    if (!items.length) {
-      colorComparisonAll.value = { categories: [], totals: [], drilldown: [], overviewColors: [] }
-      return
-    }
-
-    const counts = new Map()
-    const normKey = s => (s || '').toString().trim().toLowerCase().replace(/[^a-z0-9#\s]/g, '') || 'unknown'
-
-    for (const it of items) {
-      const rawColor = it.color || 'unknown'
-      const norm = normKey(rawColor)
-      if (!counts.has(norm)) counts.set(norm, { count: 0, display: rawColor, drilldown: [0, 0, 0, 0, 0] })
-
-      const obj = counts.get(norm)
-      const amount = Number(it.count || 1)
-      obj.count += amount
-
-      const midx = morphologyIndex(it.shape)
-      if (midx >= 0) obj.drilldown[midx] += amount
-    }
-
-    const arr = Array.from(counts.values()).sort((a, b) => b.count - a.count).slice(0, 12)
-
-    colorComparisonAll.value = {
-      categories: arr.map(x => x.display),
-      totals: arr.map(x => x.count),
-      drilldown: arr.map(x => x.drilldown),
-      overviewColors: arr.map((_, i) => `hsl(${220 - (i * 20)}, 60%, 45%)`)
-    }
-  } catch (e) { console.error(e) }
-  finally { colorComparisonLoading.value = false }
-}
-
-// --- SIZE CHART FETCH ---
-function toNumber(v) { if (v == null || v === '') return NaN; const n = Number(v); return Number.isNaN(n) ? NaN : n }
-function areaToDiameter(area) { if (!Number.isFinite(area) || area <= 0) return NaN; return 2 * Math.sqrt(area / Math.PI) }
-
-async function fetchSizeComparisonAllSites(fieldKey = 'equivalent_circular_diameter_um') {
-  try {
-    const resp = await directus.request(readItems('microplastics', { limit: -1 }))
-    const items = Array.isArray(resp) ? resp : (resp?.data || [])
-
-    if (!items.length) {
-      sizeComparisonAll.value = { categories: [], totals: [], drilldown: [], overviewColors: [] }
-      return
-    }
-
-    const buckets = [
-      { label: '1-20 µm', min: 1, max: 20 },
-      { label: '20-100 µm', min: 20, max: 100 },
-      { label: '100-500 µm', min: 100, max: 500 },
-      { label: '500 µm-1 mm', min: 500, max: 1000 },
-      { label: '1-5 mm', min: 1000, max: 5000 }
-    ]
-
-    const totals = new Array(buckets.length).fill(0)
-    const drilldown = new Array(buckets.length).fill(0).map(() => [0, 0, 0, 0, 0])
-    let unknownTotal = 0
-    let unknownDrill = [0, 0, 0, 0, 0]
-
-    for (const it of items) {
-      const amount = Number(it.count || 1)
-      let val = toNumber(it[fieldKey])
-
-      if (Number.isNaN(val) && it.size) {
-        const s = it.size.toLowerCase()
-        const num = parseFloat(s)
-        if (!Number.isNaN(num)) {
-          if (s.includes('mm')) val = num * 1000
-          else val = num
-        }
-      }
-
-      if (fieldKey === 'area_um2' && Number.isFinite(val)) val = areaToDiameter(val)
-
-      let bIdx = -1
-      if (Number.isFinite(val)) {
-        for (let i = 0; i < buckets.length; i++) {
-          if (val >= buckets[i].min && val < buckets[i].max) { bIdx = i; break; }
-        }
-      }
-
-      const midx = morphologyIndex(it.shape)
-
-      if (bIdx >= 0) {
-        totals[bIdx] += amount
-        if (midx >= 0) drilldown[bIdx][midx] += amount
-      } else {
-        unknownTotal += amount
-        if (midx >= 0) unknownDrill[midx] += amount
-      }
-    }
-
-    const categories = buckets.map(b => b.label)
-    sizeComparisonAll.value = {
-      categories,
-      totals,
-      drilldown,
-      overviewColors: categories.map(() => CHART_COLORS[0])
-    }
-
-  } catch (e) {
-    console.error("Size fetch error", e)
-    sizeComparisonAll.value = null
-  }
-}
-
-watch(selectedSizeField, (newVal) => {
-  fetchSizeComparisonAllSites(newVal)
-})
-
-// --- CROPS ---
-const cropCounts = computed(() => {
-  const counts = {}
-  for (const s of sites.value) {
-    let raw = s.crops
-    if (!raw) continue
-    if (typeof raw === 'string') raw = raw.split(/[;,|\n]/).map(x => x.trim())
-    if (!Array.isArray(raw)) continue
-    for (const item of raw) {
-      const key = String(item).toLowerCase().trim()
-      if (key) counts[key] = (counts[key] || 0) + 1
-    }
-  }
-  return counts
-})
-const topCrops = computed(() => Object.entries(cropCounts.value).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([c, n]) => ({ crop: c.charAt(0).toUpperCase() + c.slice(1), count: n })))
-
-const farmSizeCounts = computed(() => ({
-  small: sites.value.filter(s => s.land_area_ha < 1).length,
-  medium: sites.value.filter(s => s.land_area_ha >= 1 && s.land_area_ha <= 3).length,
-  large: sites.value.filter(s => s.land_area_ha > 3).length,
-}))
-const farmSizeSeries = computed(() => ([{ name: 'Farms', data: [farmSizeCounts.value.small, farmSizeCounts.value.medium, farmSizeCounts.value.large] }]))
-const farmSizeOptions = computed(() => ({ chart: { type: 'bar', toolbar: { show: false } }, xaxis: { categories: ['Small (<1ha)', 'Medium (1-3ha)', 'Large (>3ha)'] }, plotOptions: { bar: { horizontal: false, columnWidth: '70%' } }, legend: { show: false }, colors: [CHART_COLORS[2]] }))
-
+function handleLegendClick(key) { app.toggleSelectedMorphology(key) }
 function printReport() { window.print() }
+
+watch(selectedSizeField, newVal => fetchSizeData(newVal))
 
 onMounted(async () => {
   try {
     app.startLoading()
-    await loadSites()
-    try { await fetchLatestSampleDate() } catch { }
-    try { await fetchColorComparisonAllSites() } catch { }
-    // THIS LINE WAS MISSING/BROKEN IN PREVIOUS SNIPPETS
-    try { await fetchSizeComparisonAllSites(selectedSizeField.value) } catch { }
+    await loadAll()
+    try { await fetchLatestSampleDate() } catch { /* non-critical */ }
   } finally {
-    try { app.finishLoading() } catch { }
+    try { app.finishLoading() } catch { /* ignore */ }
   }
 })
 </script>
