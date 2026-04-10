@@ -2,8 +2,8 @@
   import { computed, ref, watch } from 'vue'
   import { VIcon } from 'vuetify/components'
   import { ensurePlotOptionsBar, safeColorArray, updateApexChart } from '@/composables/useApexChart'
-  import { useSampleDateStore } from '@/stores/sampleDate.js'
   import { CHART_COLORS } from '@/config/chartPalette.js'
+  import { useSampleDateStore } from '@/stores/sampleDate.js'
   import ApexChartBase from './ApexChartBase.vue'
 
   const props = defineProps({

@@ -5,9 +5,9 @@
   import { useInsightData } from '@/composables/useInsightData.js'
   import { useInsightKPIs } from '@/composables/useInsightKPIs.js'
   import { MP_COLOR_MAP } from '@/config/chartPalette.js'
+  import { useAppStore } from '@/stores/app'
   import { useMicroplasticsStore } from '@/stores/microplastics.js'
   import { useSampleDateStore } from '@/stores/sampleDate.js'
-  import { useAppStore } from '@/stores/app'
 
   const router = useRouter()
   const app = useAppStore()

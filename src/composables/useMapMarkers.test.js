@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
-import { useMapMarkers } from './useMapMarkers.js'
 import { calculateTotalMP } from '@/utils/microplasticsHelper.js'
+import { useMapMarkers } from './useMapMarkers.js'
 
 vi.mock('@/utils/microplasticsHelper.js', () => ({
   calculateTotalMP: vi.fn(() => 10),

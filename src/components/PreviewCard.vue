@@ -12,10 +12,10 @@
   import MPSizeRangeAll from '@/components/graphs/MPSizeRangeAll.vue'
   import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
   import SampledFarms from '@/components/SampledFarms.vue'
-  import { useSampleDateStore } from '@/stores/sampleDate.js'
   import { MP_COLOR_MAP } from '@/config/chartPalette.js'
-
   import { useAppStore } from '@/stores/app'
+
+  import { useSampleDateStore } from '@/stores/sampleDate.js'
 
   const props = defineProps({
     title: { type: String, required: false, default: 'SoilSight Analysis' },

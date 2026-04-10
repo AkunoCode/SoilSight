@@ -1,6 +1,6 @@
 import { readItems } from '@directus/sdk'
-import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { computed, ref } from 'vue'
 import directus from '@/composables/useDirectus.js'
 
 export const useSampleDateStore = defineStore('sampleDate', () => {
@@ -9,7 +9,9 @@ export const useSampleDateStore = defineStore('sampleDate', () => {
   const fetched = ref(false)
 
   async function fetch () {
-    if (fetched.value) return
+    if (fetched.value) {
+      return
+    }
     loading.value = true
     try {
       const resp = await directus.request(readItems('soilsamples', { sort: ['-date_collected'], limit: 1 }))
@@ -27,10 +29,14 @@ export const useSampleDateStore = defineStore('sampleDate', () => {
   const displayLatestSampleDate = computed(() => {
     const d = latestSampleDate.value
     const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-    if (!d) return currentDate
+    if (!d) {
+      return currentDate
+    }
     try {
       const dt = new Date(d)
-      if (Number.isNaN(dt.getTime())) return currentDate
+      if (Number.isNaN(dt.getTime())) {
+        return currentDate
+      }
       return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     } catch {
       return currentDate

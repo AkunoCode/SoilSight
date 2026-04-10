@@ -22,7 +22,10 @@
       "Bash(pnpm remove:*)",
       "Bash(pnpm lint:*)",
       "Bash(grep -E \"branch|detach|$\\(pwd\\)\")",
-      "Bash(ls -1 /Users/kodecraft-carlo-rabe/SoilSight/src/composables/*.js)"
+      "Bash(ls -1 /Users/kodecraft-carlo-rabe/SoilSight/src/composables/*.js)",
+      "Bash(ls -la /Users/kodecraft-carlo-rabe/SoilSight/src/stores/microplastics*)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(node --input-type=module -e \"import './src/stores/microplastics.js'; console.log\\('✓ microplastics store loads'\\)\")"
     ]
   }
 }

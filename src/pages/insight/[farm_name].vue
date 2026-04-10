@@ -12,12 +12,12 @@
 
   // Directus helper
   import directus from '@/composables/useDirectus'
-  import { useSampleDateStore } from '@/stores/sampleDate.js'
-
   import { CHART_COLORS, MP_COLOR_MAP } from '@/config/chartPalette.js'
-  import { MP_SIZE_BUCKETS } from '@/config/constants.js'
 
+  import { MP_SIZE_BUCKETS } from '@/config/constants.js'
   import { useAppStore } from '@/stores/app'
+
+  import { useSampleDateStore } from '@/stores/sampleDate.js'
   import LeafletMap from '../../components/LeafletMap.vue'
 
   // Routing / params

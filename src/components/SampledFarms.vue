@@ -222,9 +222,9 @@
     </div>
 
     <v-virtual-scroll
-      :items="visibleSites"
-      :item-height="80"
       :height="showMap ? 250 : 480"
+      :item-height="80"
+      :items="visibleSites"
     >
       <template #default="{ item: site }">
         <div

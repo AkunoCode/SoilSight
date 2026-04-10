@@ -1,8 +1,8 @@
 <script setup>
   import { computed } from 'vue'
   import { CHART_COLORS } from '@/config/chartPalette.js'
-  import ApexChartBase from './ApexChartBase.vue'
   import { calculateTotalMP } from '@/utils/microplasticsHelper.js'
+  import ApexChartBase from './ApexChartBase.vue'
 
   const props = defineProps({
     // Array of site objects with soil_type and counts/mass

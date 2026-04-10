@@ -32,7 +32,9 @@ export function useInsightCharts (sites, sizeData) {
     const map = new Map(INPUT_TYPES.map(t => [t, []]))
     for (const s of sites.value) {
       for (const type of INPUT_TYPES) {
-        if (siteHasActivity(s, type)) map.get(type).push(s)
+        if (siteHasActivity(s, type)) {
+          map.get(type).push(s)
+        }
       }
     }
     return map
