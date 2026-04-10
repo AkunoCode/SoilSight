@@ -153,6 +153,10 @@ The app supports optional integration with Directus headless CMS:
    - `useMapMarkers.js` converts data into map visualizations
    - All composables are reactive; component re-renders when underlying data changes
 
+## Superpowers Conventions
+- Plans go in `docs/plans/` — do NOT create `docs/superpowers/plans/`
+- Specs go in `docs/specs/` — do NOT create `docs/superpowers/specs/`
+
 ## Development Workflow
 
 1. Run `pnpm install` to set up dependencies
