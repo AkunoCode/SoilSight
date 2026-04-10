@@ -12,7 +12,7 @@
   import MPSizeRangeAll from '@/components/graphs/MPSizeRangeAll.vue'
   import SiteDrilldownChart from '@/components/graphs/SiteDrilldownChart.vue'
   import SampledFarms from '@/components/SampledFarms.vue'
-  import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
+  import { useSampleDateStore } from '@/stores/sampleDate.js'
   import { MP_COLOR_MAP } from '@/config/chartPalette.js'
 
   import { useAppStore } from '@/stores/app'
@@ -27,7 +27,9 @@
 
   const router = useRouter()
   const app = useAppStore()
-  const { displayLatestSampleDate } = useLatestSampleDate()
+  const sampleDateStore = useSampleDateStore()
+  sampleDateStore.fetch()
+  const { displayLatestSampleDate } = storeToRefs(sampleDateStore)
 
   // AISummary component handles AI summary fetching/generation UI
   // it provides preview + full report dialog and generation controls

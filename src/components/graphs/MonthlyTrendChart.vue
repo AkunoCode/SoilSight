@@ -3,7 +3,7 @@
   import { computed, ref, toRef, watch } from 'vue'
   import { ensurePlotOptionsBar, safeColorArray, updateApexChart } from '@/composables/useApexChart'
   import directus from '@/composables/useDirectus'
-  import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
+  import { useSampleDateStore } from '@/stores/sampleDate.js'
   import { useAppStore } from '@/stores/app'
   import ApexChartBase from './ApexChartBase.vue'
   import { buildMonthlyChartData } from './monthlyTrend.js'
@@ -21,7 +21,9 @@
 
   const height = toRef(props, 'height')
   const app = useAppStore()
-  const { displayLatestSampleDate } = useLatestSampleDate()
+  const sampleDateStore = useSampleDateStore()
+  sampleDateStore.fetch()
+  const { displayLatestSampleDate } = storeToRefs(sampleDateStore)
 
   const defaultDate = displayLatestSampleDate
   const chartWrapper = ref(null)

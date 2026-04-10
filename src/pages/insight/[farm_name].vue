@@ -12,7 +12,7 @@
 
   // Directus helper
   import directus from '@/composables/useDirectus'
-  import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
+  import { useSampleDateStore } from '@/stores/sampleDate.js'
 
   import { CHART_COLORS, MP_COLOR_MAP } from '@/config/chartPalette.js'
   import { MP_SIZE_BUCKETS } from '@/config/constants.js'
@@ -37,7 +37,9 @@
   const sizeComparisonData = ref(null)
   const sizeComparisonLoading = ref(false)
   const app = useAppStore()
-  const { displayLatestSampleDate } = useLatestSampleDate()
+  const sampleDateStore = useSampleDateStore()
+  sampleDateStore.fetch()
+  const { displayLatestSampleDate } = storeToRefs(sampleDateStore)
 
   const formattedDate = computed(() => displayLatestSampleDate.value)
 

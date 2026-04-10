@@ -3,7 +3,7 @@
   import DOMPurify from 'dompurify'
   import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
   import directus from '@/composables/useDirectus.js'
-  import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
+  import { useSampleDateStore } from '@/stores/sampleDate.js'
 
   const props = defineProps({
     isOverview: { type: Boolean, default: true },
@@ -15,7 +15,9 @@
 
   const emit = defineEmits(['generated'])
 
-  const { displayLatestSampleDate } = useLatestSampleDate()
+  const sampleDateStore = useSampleDateStore()
+  sampleDateStore.fetch()
+  const { displayLatestSampleDate } = storeToRefs(sampleDateStore)
 
   const regionalReport = ref(null)
   const isGenerating = ref(false)
