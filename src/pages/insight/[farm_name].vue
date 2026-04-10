@@ -550,7 +550,9 @@ const farmAsArray = computed(() => farm.value ? [farm.value] : [])
           <VSkeletonLoader v-if="!farm" type="text" width="200" class="ml-8 mt-1" />
           <p v-else class="text-h5 ml-8">{{ farm.address }}</p>
         </div>
+        <VSkeletonLoader v-if="!farm" type="button" width="160" height="60" />
         <div
+          v-else
           class="d-flex align-center justify-center bg-blue pa-4 px-6 rounded-lg cursor-pointer"
           style="box-shadow: 0 1px 6px rgba(0, 0, 0, .06);"
           role="button"

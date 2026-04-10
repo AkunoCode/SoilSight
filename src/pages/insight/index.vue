@@ -98,7 +98,9 @@ onMounted(async () => {
       <VSkeletonLoader v-if="loading" type="card" />
       <KPI v-else title="Highest Risk Site" :value="`${highestRiskSite.name} Farm`"
         :subtitle="`${highestRiskSite.density} MP`" />
+      <VSkeletonLoader v-if="loading" type="button" width="160" height="60" />
       <div
+        v-else
         class="d-flex align-center justify-center bg-blue ga-2 rounded-lg cursor-pointer"
         style="box-shadow: 0 1px 6px rgba(0, 0, 0, .06);"
         role="button"
