@@ -7,7 +7,6 @@ import { useInsightData } from '@/composables/useInsightData.js'
 import { useInsightKPIs } from '@/composables/useInsightKPIs.js'
 import { useInsightCharts } from '@/composables/useInsightCharts.js'
 import { MP_COLOR_MAP } from '@/config/chartPalette.js'
-import Skeleton from 'boneyard-js/vue'
 
 const router = useRouter()
 const app    = useAppStore()
@@ -116,17 +115,15 @@ onMounted(async () => {
     <VRow class="mt-2">
       <VCol cols="6">
         <div class="card">
-          <Skeleton name="ai-summary" :loading="loading">
-            <AISummary />
-          </Skeleton>
+          <VSkeletonLoader v-if="loading" type="article" />
+          <AISummary v-else />
         </div>
       </VCol>
       <VCol cols="6">
         <div class="card list-card map-card">
           <h3 class="mb-2">Contamination Density by Farm Practice</h3>
-          <Skeleton name="sampled-farms" :loading="loading">
-            <SampledFarms :sampled-sites="sites" />
-          </Skeleton>
+          <VSkeletonLoader v-if="loading" type="list-item-two-line" />
+          <SampledFarms v-else :sampled-sites="sites" />
         </div>
       </VCol>
     </VRow>

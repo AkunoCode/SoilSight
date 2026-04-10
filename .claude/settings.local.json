@@ -15,7 +15,11 @@
       "Bash(timeout 15 pnpm preview)",
       "Bash(pnpm preview:*)",
       "Bash(curl -s http://localhost:4173/insight)",
-      "Bash(pkill -f \"pnpm preview\")"
+      "Bash(pkill -f \"pnpm preview\")",
+      "Bash(pnpm add:*)",
+      "Bash(node -e \"import\\('boneyard-js/vue'\\).then\\(\\(\\) => console.log\\('ok'\\)\\)\")",
+      "Bash(node --input-type=module -e \"import\\('./src/config/constants.js'\\).then\\(\\(\\) => console.log\\('ok'\\)\\)\")",
+      "Bash(pnpm remove:*)"
     ]
   }
 }

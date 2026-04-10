@@ -11,6 +11,7 @@ declare module 'vue' {
     AISummary: typeof import('./src/components/AISummary.vue')['default']
     ApexChartBase: typeof import('./src/components/graphs/ApexChartBase.vue')['default']
     BiologicalRiskChart: typeof import('./src/components/graphs/BiologicalRiskChart.vue')['default']
+    ErrorBanner: typeof import('./src/components/ErrorBanner.vue')['default']
     KPI: typeof import('./src/components/KPI.vue')['default']
     LeafletMap: typeof import('./src/components/LeafletMap.vue')['default']
     LoadingOverlay: typeof import('./src/components/LoadingOverlay.vue')['default']
