@@ -185,6 +185,7 @@ function handleDonutSelection(key) {
 }
 
 import { MP_COLOR_MAP, CHART_COLORS } from '@/config/chartPalette.js'
+import { MP_SIZE_BUCKETS } from '@/config/constants.js'
 const mpColors = { ...MP_COLOR_MAP }
 
 // Prefer comparing the current site to other sites with the same cultivation practice.
@@ -464,13 +465,7 @@ async function fetchSizeComparisonForFarm(farmId) {
     }))
     const items = Array.isArray(resp) ? resp : (resp?.data || [])
 
-    const sizeBuckets = [
-      { label: '1-20 µm', min: 1, max: 20 },
-      { label: '20-100 µm', min: 20, max: 100 },
-      { label: '100-500 µm', min: 100, max: 500 },
-      { label: '500 µm-1 mm', min: 500, max: 1000 },
-      { label: '1-5 mm', min: 1000, max: 5000 },
-    ]
+    const sizeBuckets = MP_SIZE_BUCKETS
 
     const counts = Array.from({ length: sizeBuckets.length }, () => 0)
     const drilldown = Array.from({ length: sizeBuckets.length }, () => [0, 0, 0, 0, 0])
