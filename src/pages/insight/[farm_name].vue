@@ -535,166 +535,191 @@ const farmAsArray = computed(() => farm.value ? [farm.value] : [])
     />
 
     <template v-if="!farmNotFound">
+      <!-- Header -->
       <div class="d-flex align-center justify-space-between mb-8">
-      <div class="d-flex flex-column">
-        <div class="d-flex align-center">
-          <VBtn
-            icon
-            variant="text"
-            color="grey"
-            aria-label="Go back"
-            @click="$router.back()"
-          >
-            <VIcon size="x-large">mdi-menu-left</VIcon>
-          </VBtn>
-          <h1 class="title mb-0">{{ farm?.site_name }}</h1>
+        <div class="d-flex flex-column">
+          <div class="d-flex align-center">
+            <VBtn icon variant="text" color="grey" aria-label="Go back" @click="$router.back()">
+              <VIcon size="x-large">mdi-menu-left</VIcon>
+            </VBtn>
+            <VSkeletonLoader v-if="!farm" type="heading" width="300" />
+            <h1 v-else class="title mb-0">{{ farm.site_name }}</h1>
+          </div>
+          <VSkeletonLoader v-if="!farm" type="text" width="200" class="ml-8 mt-1" />
+          <p v-else class="text-h5 ml-8">{{ farm.address }}</p>
         </div>
-        <p class="text-h5 ml-8">{{ farm?.address }}</p>
+        <div
+          class="d-flex align-center justify-center bg-blue pa-4 px-6 rounded-lg cursor-pointer"
+          style="box-shadow: 0 1px 6px rgba(0, 0, 0, .06);"
+          role="button"
+          tabindex="0"
+          aria-label="Print report"
+          @click="printReport"
+          @keydown.enter="printReport"
+          @keydown.space.prevent="printReport"
+        >
+          <VIcon color="white" size="x-large">mdi-note-text-outline</VIcon>
+          <p class="text-h4 text-white font-weight-bold">Print Report</p>
+        </div>
       </div>
-      <div
-        class="d-flex align-center justify-center bg-blue pa-4 px-6 rounded-lg cursor-pointer"
-        style="box-shadow: 0 1px 6px rgba(0, 0, 0, .06);"
-        role="button"
-        tabindex="0"
-        aria-label="Print report"
-        @click="printReport"
-        @keydown.enter="printReport"
-        @keydown.space.prevent="printReport"
-      >
-        <VIcon color="white" size="x-large">mdi-note-text-outline</VIcon>
-        <p class="text-h4 text-white font-weight-bold">Print Report</p>
-      </div>
-    </div>
-    <VRow>
-      <VCol cols="4">
-        <div class="card">
-          <h3 class="text-h5 font-weight-bold">Geographic Location</h3>
-          <p class="mb-2">{{ farm?.latitude }}, {{ farm?.longitude }}</p>
-          <div v-if="farm?.latitude != null && farm?.longitude != null" class="map-wrapper">
-            <LeafletMap :lat="farm?.latitude != null ? Number(farm.latitude) : null"
-              :lng="farm?.longitude != null ? Number(farm.longitude) : null" :zoom="13" />
-          </div>
-          <div v-else class="card">
-            <p>No coordinates available for this farm.</p>
-          </div>
-        </div>
-      </VCol>
-      <VCol cols="5">
-        <VRow>
-          <VCol cols="8">
-            <div class="card">
-              <h3 class="text-h5 font-weight-bold mb-4">{{ titleCase(farm?.cultivation_practice) }}
-                Farming</h3>
-              <p>{{ getCultivationDefinition(farm?.cultivation_practice) }}</p>
-              <div class="card-footer">
-                <a :href="`https://www.google.com/search?q=${encodeURIComponent((farm?.cultivation_practice) ? farm.cultivation_practice + ' cultivation practice' : 'cultivation practice')}`"
-                  target="_blank" rel="noopener noreferrer" class="learn-more">
-                  <VIcon size="small" class="mr-2">mdi-open-in-new</VIcon>
-                  Learn more
-                </a>
-              </div>
-            </div>
-          </VCol>
-          <VCol cols="4">
-            <div class="card">
-              <h3 class="text-h5 font-weight-bold mb-4">Crops Grown</h3>
-              <div class="crops-list">
-                <ul>
-                  <li v-for="(crop, index) in farm?.crops" :key="index">{{ titleCase(crop) }}</li>
-                </ul>
-              </div>
-            </div>
-          </VCol>
-        </VRow>
-        <VRow>
-          <VCol cols="4">
-            <div class="card">
-              <h3 class="text-h6 font-weight-bold text-center">Land Area </h3>
-              <p class="text-h3 font-weight-bold text-center">{{ farm?.land_area_ha }}</p>
-              <p class="text-h5 font-weight-bold text-center">hectares</p>
-            </div>
-          </VCol>
-          <VCol cols="4">
-            <div class="card">
-              <h3 class="text-h6 font-weight-bold text-center">Water Source</h3>
-              <div class="icon-container bg-blue">
-                <VIcon color="white" size="x-large">{{ waterIcon }}</VIcon>
-              </div>
-              <p class="text-h5 font-weight-bold text-center">{{ titleCase(farm?.water_source) }}
-              </p>
-            </div>
-          </VCol>
-          <VCol cols="4">
-            <div class="card">
-              <h3 class="text-h6 font-weight-bold text-center">Soil Texture</h3>
-              <div class="icon-container bg-brown">
-                <VIcon color="white" size="x-large">mdi-image-filter-hdr</VIcon>
-              </div>
-              <p class="text-h5 font-weight-bold text-center">{{ titleCase(farm?.soil_type) }}</p>
-            </div>
-          </VCol>
-        </VRow>
-      </VCol>
-      <VCol cols="3">
-        <div class="card">
-          <h3 class="text-h5 font-weight-bold mb-4">Plastic-Related Activities</h3>
-          <template v-for="activity in plasticActivityList" :key="activity">
-            <div class="d-flex align-center justify-space-between mb-2">
-              <p>{{ activity }}</p>
-              <VIcon :color="farmHasActivity(activity) ? 'green' : 'red'" size="large">
-                {{ farmHasActivity(activity) ? 'mdi-check-circle' :
-                  'mdi-close-circle' }}
-              </VIcon>
-            </div>
-            <div class="horizontal-bar" />
-          </template>
-        </div>
-      </VCol>
-    </VRow>
-    <VRow>
-      <VCol cols="4">
-        <div class="d-flex flex-column ga-4">
-          <div class="card">
-            <MPDonutChart :date="displaySampleDate" :microplastic-data="microplasticData"
-              :active-key="app.selectedMorphology" @selection="handleDonutSelection" />
-          </div>
-          <div class="card">
-            <SiteDrilldownChart :categories="anonymizedComparison.categories"
-              :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
-              :date="displaySampleDate" :drilldown="anonymizedComparison.drilldown" :height="250"
-              :title="farm?.cultivation_practice ? `Contamination Comparison to Other ${titleCase(farm?.cultivation_practice)} Farms` : 'Contamination Comparison to Other Farms'"
-              :totals="anonymizedComparison.totals" :filter-key="app.selectedMorphology" />
-          </div>
-        </div>
-      </VCol>
-      <VCol cols="8">
-        <div class="d-flex flex-column ga-4">
-          <MonthlyTrendChart :date="displaySampleDate" :height="320" :site-id="farm?.id"
-            :title="`Monthly Microplastic Trend for ${farm?.site_name}`" :filter-key="app.selectedMorphology" />
 
+      <!-- Row 1: location / farm info / activities -->
+      <VRow>
+        <VCol cols="4">
+          <div class="card">
+            <VSkeletonLoader v-if="!farm" type="heading, image" />
+            <template v-else>
+              <h3 class="text-h5 font-weight-bold">Geographic Location</h3>
+              <p class="mb-2">{{ farm.latitude }}, {{ farm.longitude }}</p>
+              <div v-if="farm.latitude != null && farm.longitude != null" class="map-wrapper">
+                <LeafletMap :lat="Number(farm.latitude)" :lng="Number(farm.longitude)" :zoom="13" />
+              </div>
+              <div v-else class="card">
+                <p>No coordinates available for this farm.</p>
+              </div>
+            </template>
+          </div>
+        </VCol>
+        <VCol cols="5">
           <VRow>
-            <VCol cols="5">
+            <VCol cols="8">
               <div class="card">
-                <SourceDegradationIndex :sites="farmAsArray" :height="260" />
+                <VSkeletonLoader v-if="!farm" type="article" />
+                <template v-else>
+                  <h3 class="text-h5 font-weight-bold mb-4">{{ titleCase(farm.cultivation_practice) }} Farming</h3>
+                  <p>{{ getCultivationDefinition(farm.cultivation_practice) }}</p>
+                  <div class="card-footer">
+                    <a :href="`https://www.google.com/search?q=${encodeURIComponent(farm.cultivation_practice ? farm.cultivation_practice + ' cultivation practice' : 'cultivation practice')}`"
+                      target="_blank" rel="noopener noreferrer" class="learn-more">
+                      <VIcon size="small" class="mr-2">mdi-open-in-new</VIcon>
+                      Learn more
+                    </a>
+                  </div>
+                </template>
               </div>
             </VCol>
-            <VCol cols="7">
+            <VCol cols="4">
               <div class="card">
-                <BiologicalRiskChart :height="260" :data="biologicalRiskData" :loading="sizeComparisonLoading" />
+                <VSkeletonLoader v-if="!farm" type="list-item-two-line@3" />
+                <template v-else>
+                  <h3 class="text-h5 font-weight-bold mb-4">Crops Grown</h3>
+                  <div class="crops-list">
+                    <ul>
+                      <li v-for="(crop, index) in farm.crops" :key="index">{{ titleCase(crop) }}</li>
+                    </ul>
+                  </div>
+                </template>
               </div>
             </VCol>
           </VRow>
+          <VRow>
+            <VCol cols="4">
+              <div class="card">
+                <VSkeletonLoader v-if="!farm" type="heading, subtitle" />
+                <template v-else>
+                  <h3 class="text-h6 font-weight-bold text-center">Land Area</h3>
+                  <p class="text-h3 font-weight-bold text-center">{{ farm.land_area_ha }}</p>
+                  <p class="text-h5 font-weight-bold text-center">hectares</p>
+                </template>
+              </div>
+            </VCol>
+            <VCol cols="4">
+              <div class="card">
+                <VSkeletonLoader v-if="!farm" type="heading, avatar, subtitle" />
+                <template v-else>
+                  <h3 class="text-h6 font-weight-bold text-center">Water Source</h3>
+                  <div class="icon-container bg-blue">
+                    <VIcon color="white" size="x-large">{{ waterIcon }}</VIcon>
+                  </div>
+                  <p class="text-h5 font-weight-bold text-center">{{ titleCase(farm.water_source) }}</p>
+                </template>
+              </div>
+            </VCol>
+            <VCol cols="4">
+              <div class="card">
+                <VSkeletonLoader v-if="!farm" type="heading, avatar, subtitle" />
+                <template v-else>
+                  <h3 class="text-h6 font-weight-bold text-center">Soil Texture</h3>
+                  <div class="icon-container bg-brown">
+                    <VIcon color="white" size="x-large">mdi-image-filter-hdr</VIcon>
+                  </div>
+                  <p class="text-h5 font-weight-bold text-center">{{ titleCase(farm.soil_type) }}</p>
+                </template>
+              </div>
+            </VCol>
+          </VRow>
+        </VCol>
+        <VCol cols="3">
+          <div class="card">
+            <VSkeletonLoader v-if="!farm" type="list-item-two-line@5" />
+            <template v-else>
+              <h3 class="text-h5 font-weight-bold mb-4">Plastic-Related Activities</h3>
+              <template v-for="activity in plasticActivityList" :key="activity">
+                <div class="d-flex align-center justify-space-between mb-2">
+                  <p>{{ activity }}</p>
+                  <VIcon :color="farmHasActivity(activity) ? 'green' : 'red'" size="large">
+                    {{ farmHasActivity(activity) ? 'mdi-check-circle' : 'mdi-close-circle' }}
+                  </VIcon>
+                </div>
+                <div class="horizontal-bar" />
+              </template>
+            </template>
+          </div>
+        </VCol>
+      </VRow>
 
-        </div>
-      </VCol>
-    </VRow>
-    <VRow>
-      <VCol cols="12">
-        <div class="card">
-          <AISummary :is-overview="false" :item="farm" :title="'AI Diagnosis'" :max-height="'200px'" />
-        </div>
-      </VCol>
-    </VRow>
+      <!-- Row 2: charts -->
+      <VRow>
+        <VCol cols="4">
+          <div class="d-flex flex-column ga-4">
+            <div class="card">
+              <VSkeletonLoader v-if="!farm" type="image" height="300" />
+              <MPDonutChart v-else :date="displaySampleDate" :microplastic-data="microplasticData"
+                :active-key="app.selectedMorphology" @selection="handleDonutSelection" />
+            </div>
+            <div class="card">
+              <VSkeletonLoader v-if="!farm || colorComparisonLoading" type="image" height="250" />
+              <SiteDrilldownChart v-else :categories="anonymizedComparison.categories"
+                :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
+                :date="displaySampleDate" :drilldown="anonymizedComparison.drilldown" :height="250"
+                :title="farm.cultivation_practice ? `Contamination Comparison to Other ${titleCase(farm.cultivation_practice)} Farms` : 'Contamination Comparison to Other Farms'"
+                :totals="anonymizedComparison.totals" :filter-key="app.selectedMorphology" />
+            </div>
+          </div>
+        </VCol>
+        <VCol cols="8">
+          <div class="d-flex flex-column ga-4">
+            <VSkeletonLoader v-if="!farm" type="image" height="320" />
+            <MonthlyTrendChart v-else :date="displaySampleDate" :height="320" :site-id="farm.id"
+              :title="`Monthly Microplastic Trend for ${farm.site_name}`" :filter-key="app.selectedMorphology" />
+
+            <VRow>
+              <VCol cols="5">
+                <div class="card">
+                  <VSkeletonLoader v-if="!farm" type="image" height="260" />
+                  <SourceDegradationIndex v-else :sites="farmAsArray" :height="260" />
+                </div>
+              </VCol>
+              <VCol cols="7">
+                <div class="card">
+                  <VSkeletonLoader v-if="!farm || sizeComparisonLoading" type="image" height="260" />
+                  <BiologicalRiskChart v-else :height="260" :data="biologicalRiskData" :loading="false" />
+                </div>
+              </VCol>
+            </VRow>
+          </div>
+        </VCol>
+      </VRow>
+
+      <!-- Row 3: AI summary -->
+      <VRow>
+        <VCol cols="12">
+          <div class="card">
+            <VSkeletonLoader v-if="!farm" type="article" />
+            <AISummary v-else :is-overview="false" :item="farm" :title="'AI Diagnosis'" :max-height="'200px'" />
+          </div>
+        </VCol>
+      </VRow>
     </template>
   </div>
 </template>
