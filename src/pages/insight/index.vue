@@ -118,7 +118,7 @@
       <div
         v-else
         aria-label="Print report"
-        class="d-flex align-center justify-center bg-blue ga-2 rounded-lg cursor-pointer"
+        class="d-flex align-center justify-center bg-blue ga-2 pa-4 px-6 rounded-lg cursor-pointer"
         role="button"
         style="box-shadow: 0 1px 6px rgba(0, 0, 0, .06);"
         tabindex="0"

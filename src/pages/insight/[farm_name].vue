@@ -681,7 +681,7 @@
       </VRow>
 
       <!-- Row 2: charts -->
-      <VRow>
+      <VRow class="mt-4">
         <VCol cols="4">
           <div class="d-flex flex-column ga-4">
             <div class="card">
@@ -742,7 +742,7 @@
       </VRow>
 
       <!-- Row 3: AI summary -->
-      <VRow>
+      <VRow class="mt-4">
         <VCol cols="12">
           <div class="card">
             <VSkeletonLoader v-if="!farm" type="article" />

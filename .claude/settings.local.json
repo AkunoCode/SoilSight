@@ -21,7 +21,8 @@
       "Bash(node --input-type=module -e \"import\\('./src/config/constants.js'\\).then\\(\\(\\) => console.log\\('ok'\\)\\)\")",
       "Bash(pnpm remove:*)",
       "Bash(pnpm lint:*)",
-      "Bash(grep -E \"branch|detach|$\\(pwd\\)\")"
+      "Bash(grep -E \"branch|detach|$\\(pwd\\)\")",
+      "Bash(ls -1 /Users/kodecraft-carlo-rabe/SoilSight/src/composables/*.js)"
     ]
   }
 }
