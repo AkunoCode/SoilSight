@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import directus from '@/composables/useDirectus.js'
 import { useMicroplasticsStore } from './microplastics.js'
 
@@ -89,6 +89,18 @@ describe('useMicroplasticsStore', () => {
       await store.fetch()
       const total = store.sizeData.totals.reduce((a, b) => a + b, 0)
       expect(total).toBe(5) // count: 3 + count: 2
+    })
+
+    it('falls back to size field when primary field is NaN', async () => {
+      const itemsWithSizeFallback = [
+        { color: 'Red', shape: 'Fragment', count: 1, equivalent_circular_diameter_um: null, size: '500' },
+      ]
+      directus.request.mockResolvedValue(itemsWithSizeFallback)
+      const store = useMicroplasticsStore()
+      await store.fetch()
+      // Item has NaN primary field but numeric size; should fall back and be bucketed
+      const total = store.sizeData.totals.reduce((a, b) => a + b, 0)
+      expect(total).toBeGreaterThan(0) // At least one item should be bucketed via fallback
     })
   })
 })
