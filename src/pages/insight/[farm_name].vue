@@ -24,6 +24,7 @@ const comparisonSites = ref(null)
 
 // Primary reactive state
 const farm = ref(null)
+const farmNotFound = ref(false)
 const latestSampleDate = ref(null)
 const colorComparisonFetched = ref(null)
 const colorComparisonLoading = ref(false)
@@ -387,6 +388,7 @@ const colorComparison = computed(() => {
 })
 
 watch(farmParam, async () => {
+  farmNotFound.value = false
   farm.value = await fetchFarmFromDirectus(farmParam.value)
 }, { immediate: true })
 
@@ -406,6 +408,7 @@ watch(farm, async newFarm => {
       app.finishLoading()
     }
   } else {
+    farmNotFound.value = true
     latestSampleDate.value = null
     colorComparisonFetched.value = null
     sizeComparisonData.value = null
@@ -530,7 +533,14 @@ const farmAsArray = computed(() => farm.value ? [farm.value] : [])
 
 <template>
   <div class="insight-page">
-    <div class="d-flex align-center justify-space-between mb-8">
+    <ErrorBanner
+      v-if="farmNotFound"
+      :message="`Farm '${farmParam}' could not be found. It may have been removed or the name is incorrect.`"
+      @retry="$router.back()"
+    />
+
+    <template v-if="!farmNotFound">
+      <div class="d-flex align-center justify-space-between mb-8">
       <div class="d-flex flex-column">
         <div class="d-flex align-center">
           <VIcon color="grey" size="x-large" style="cursor:pointer; vertical-align:middle;" @click="$router.back()">
@@ -675,6 +685,7 @@ const farmAsArray = computed(() => farm.value ? [farm.value] : [])
         </div>
       </VCol>
     </VRow>
+    </template>
   </div>
 </template>
 
