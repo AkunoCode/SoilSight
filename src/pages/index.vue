@@ -58,7 +58,11 @@
           :subtitle="selectedItem ? `Owner: ${selectedItem.owner} | ${selectedItem.cultivation_practice}` : 'Microplastic Analysis Overview'"
           :title="selectedItem ? selectedItem.site_name : 'Tayabas City'" />
       </div>
-      <div id="map" />
+      <div
+        id="map"
+        role="application"
+        aria-label="Interactive microplastic contamination map of Tayabas City, Quezon Province"
+      />
       <VSnackbar
         v-model="dataError"
         color="warning"

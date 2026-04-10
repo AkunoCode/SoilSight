@@ -156,7 +156,7 @@ onMounted(async () => {
 
     <VRow class="mt-2">
       <VCol cols="5">
-        <div class="card">
+        <div class="card" aria-label="Microplastic morphology distribution donut chart">
           <MPDonutChart :height="360" :active-key="app.selectedMorphology" :colors="donutColors"
             :labels-map="donutLabelsMap" :microplastic-data="microplasticData" @selection="handleLegendClick"
             :subtitle="`Data as of ${displayLatestSampleDate}`" />
@@ -174,7 +174,7 @@ onMounted(async () => {
 
     <VRow class="mt-2">
       <VCol cols="6">
-        <div class="card">
+        <div class="card" aria-label="Soil trap efficiency boxplot chart">
           <SoilTrapEfficiencyBoxplot :sites="sites" height="360" />
         </div>
       </VCol>
