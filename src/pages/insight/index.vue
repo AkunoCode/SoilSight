@@ -88,29 +88,38 @@ onMounted(async () => {
     />
 
     <div class="columns">
-      <!-- [Number] Farms-->
-      <KPI title="Number of Sites Sampled" :value="`${sites.length} Farms`" subtitle="Within Tayabas, Quezon" />
-      <!-- [Number] MP/kg -->
-      <KPI title="Avg. Contamination Density" :value="`${avgContaminationDensity} MP/kg`"
-        subtitle="Averaged across all sites" />
-      <!-- Highest shape and its most common color -->
-      <KPI title="Dominant Pollutant" :value="dominantPollutant" subtitle="Among 5 shapes detected" />
-      <!-- subtitle should be the density of the highest risk site -->
-      <KPI title="Highest Risk Site" :value="`${highestRiskSite.name} Farm`"
-        :subtitle="`${highestRiskSite.density} MP`" />
-      <div
-        class="d-flex align-center justify-center bg-blue ga-2 rounded-lg cursor-pointer"
-        style="box-shadow: 0 1px 6px rgba(0, 0, 0, .06);"
-        role="button"
-        tabindex="0"
-        aria-label="Print report"
-        @click="printReport"
-        @keydown.enter="printReport"
-        @keydown.space.prevent="printReport"
-      >
-        <VIcon color="white" size="x-large">mdi-note-text-outline</VIcon>
-        <p class="text-h4 text-white font-weight-bold">Print Report</p>
-      </div>
+      <template v-if="loading">
+        <VSkeletonLoader type="card-heading" />
+        <VSkeletonLoader type="card-heading" />
+        <VSkeletonLoader type="card-heading" />
+        <VSkeletonLoader type="card-heading" />
+        <VSkeletonLoader type="card-heading" />
+      </template>
+      <template v-else>
+        <!-- [Number] Farms-->
+        <KPI title="Number of Sites Sampled" :value="`${sites.length} Farms`" subtitle="Within Tayabas, Quezon" />
+        <!-- [Number] MP/kg -->
+        <KPI title="Avg. Contamination Density" :value="`${avgContaminationDensity} MP/kg`"
+          subtitle="Averaged across all sites" />
+        <!-- Highest shape and its most common color -->
+        <KPI title="Dominant Pollutant" :value="dominantPollutant" subtitle="Among 5 shapes detected" />
+        <!-- subtitle should be the density of the highest risk site -->
+        <KPI title="Highest Risk Site" :value="`${highestRiskSite.name} Farm`"
+          :subtitle="`${highestRiskSite.density} MP`" />
+        <div
+          class="d-flex align-center justify-center bg-blue ga-2 rounded-lg cursor-pointer"
+          style="box-shadow: 0 1px 6px rgba(0, 0, 0, .06);"
+          role="button"
+          tabindex="0"
+          aria-label="Print report"
+          @click="printReport"
+          @keydown.enter="printReport"
+          @keydown.space.prevent="printReport"
+        >
+          <VIcon color="white" size="x-large">mdi-note-text-outline</VIcon>
+          <p class="text-h4 text-white font-weight-bold">Print Report</p>
+        </div>
+      </template>
     </div>
     <VRow class="mt-2">
       <VCol cols="6">
@@ -130,7 +139,8 @@ onMounted(async () => {
     <VRow class="mt-2">
       <VCol cols="4">
         <div class="card">
-          <MPPracticeBar :height="400" :options="contaminationByPracticeOptions" :series="contaminationByPracticeSeries"
+          <VSkeletonLoader v-if="loading" type="image" />
+          <MPPracticeBar v-else :height="400" :options="contaminationByPracticeOptions" :series="contaminationByPracticeSeries"
             :subtitle="`Data as of ${displayLatestSampleDate}`" title="Contamination Comparison by Farm Practices"
             :filter-key="app.selectedMorphology" />
         </div>
@@ -138,15 +148,21 @@ onMounted(async () => {
       <VCol cols="4">
         <!-- Source Identification Heatmap -->
         <div class="card">
-          <h3>Source Identification Heatmap</h3>
-          <p class="subtitle mb-2">Microplastic Counts by Source and Plastic Type</p>
-          <SourceIdentificationHeatmap :sites="sites" height="400" />
+          <template v-if="loading">
+            <VSkeletonLoader type="image" />
+          </template>
+          <template v-else>
+            <h3>Source Identification Heatmap</h3>
+            <p class="subtitle mb-2">Microplastic Counts by Source and Plastic Type</p>
+            <SourceIdentificationHeatmap :sites="sites" height="400" />
+          </template>
         </div>
       </VCol>
       <VCol cols="4">
         <!-- Source Degradation Index Gauge Chart -->
         <div class="card">
-          <SourceDegradationIndex :sites="sites" height="400" />
+          <VSkeletonLoader v-if="loading" type="image" />
+          <SourceDegradationIndex v-else :sites="sites" height="400" />
         </div>
       </VCol>
     </VRow>
@@ -154,7 +170,8 @@ onMounted(async () => {
     <VRow class="mt-2">
       <VCol cols="5">
         <div class="card" aria-label="Microplastic morphology distribution donut chart">
-          <MPDonutChart :height="360" :active-key="app.selectedMorphology" :colors="donutColors"
+          <VSkeletonLoader v-if="loading" type="image" />
+          <MPDonutChart v-else :height="360" :active-key="app.selectedMorphology" :colors="donutColors"
             :labels-map="donutLabelsMap" :microplastic-data="microplasticData" @selection="handleLegendClick"
             :subtitle="`Data as of ${displayLatestSampleDate}`" />
         </div>
@@ -162,7 +179,8 @@ onMounted(async () => {
 
       <VCol cols="7">
         <div class="card">
-          <BiologicalRiskChart :height="360" :data="biologicalRiskData"
+          <VSkeletonLoader v-if="loading" type="image" />
+          <BiologicalRiskChart v-else :height="360" :data="biologicalRiskData"
             :loading="!sizeComparisonAll || !sizeComparisonAll.categories?.length"
             :subtitle="`Data as of ${displayLatestSampleDate}`" />
         </div>
@@ -172,12 +190,16 @@ onMounted(async () => {
     <VRow class="mt-2">
       <VCol cols="6">
         <div class="card" aria-label="Soil trap efficiency boxplot chart">
-          <SoilTrapEfficiencyBoxplot :sites="sites" height="360" />
+          <VSkeletonLoader v-if="loading" type="image" />
+          <SoilTrapEfficiencyBoxplot v-else :sites="sites" height="360" />
         </div>
       </VCol>
       <VCol cols="6">
         <div class="card">
-          <template v-if="colorComparisonLoading">
+          <template v-if="loading">
+            <VSkeletonLoader type="image" />
+          </template>
+          <template v-else-if="colorComparisonLoading">
             <div :style="{ minHeight: '250px', display: 'flex', justifyContent: 'center', alignItems: 'center' }">
               <VProgressCircular color="primary" indeterminate size="28" />
             </div>
@@ -200,8 +222,11 @@ onMounted(async () => {
 
     <VRow class="mt-2">
       <VCol cols="12">
-        <MonthlyTrendChart :height="340" :colors="mpColors" :microplastic-data="microplasticData"
-          :subtitle="`Data as of ${displayLatestSampleDate}`" :filter-key="app.selectedMorphology" />
+        <div class="card">
+          <VSkeletonLoader v-if="loading" type="image" />
+          <MonthlyTrendChart v-else :height="340" :colors="mpColors" :microplastic-data="microplasticData"
+            :subtitle="`Data as of ${displayLatestSampleDate}`" :filter-key="app.selectedMorphology" />
+        </div>
       </VCol>
     </VRow>
   </div>
