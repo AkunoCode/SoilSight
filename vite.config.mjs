@@ -85,6 +85,7 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: 'happy-dom',
       globals: true,
+      setupFiles: ['./vitest.setup.js'],
     },
     server: {
       port: 3000,
