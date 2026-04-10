@@ -1,195 +1,197 @@
 <script setup>
-import { computed, defineProps, onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
-import { CHART_COLORS } from '@/config/chartPalette'
+  import L from 'leaflet'
+  import { computed, defineProps, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+  import { useRouter } from 'vue-router'
+  import { CHART_COLORS } from '@/config/chartPalette'
+  import { calculateTotalMP } from '@/utils/microplasticsHelper.js'
+  import 'leaflet/dist/leaflet.css'
 
-const props = defineProps({
-  sampledSites: { type: Array, default: () => [] },
-  showMap: { type: Boolean, default: true },
-})
-
-const router = useRouter()
-const MP_TYPES = ['fragment', 'fiber', 'foam', 'film', 'sheets']
-
-// --- State ---
-const query = ref('')
-const sortDir = ref('asc')
-const sortBy = ref('name') // 'name' | 'density'
-const mapRef = ref(null)
-
-// Leaflet Instances (Non-reactive)
-let mapInstance = null
-let markersLayer = null
-let polygonLayer = null
-const markersMap = {}
-
-// --- 1. Helper Functions ---
-
-const getPracticeColor = (p) => {
-  const practice = (p || '').toString().toLowerCase()
-  if (practice.includes('organic')) return '#43a047'
-  if (practice.includes('integrated')) return '#fb8c00'
-  if (practice.includes('conventional')) return '#19568E'
-  return '#9e9e9e'
-}
-
-const calculateDensity = (site) => {
-  const totalMP = MP_TYPES.reduce((acc, key) => acc + (Number(site[`${key}_count`]) || 0), 0)
-  const totalMass = (site.soilsamples || []).reduce((acc, s) => acc + (Number(s.mass_kg) || 0), 0)
-  return totalMass > 0 ? totalMP / totalMass : 0
-}
-
-const toTitleCase = (str) => {
-  return (str || '').toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-}
-
-// --- 2. Data Processing ---
-
-const processedSites = computed(() => {
-  if (!props.sampledSites.length) return []
-
-  // Pre-calculate metrics
-  const sites = props.sampledSites.map(site => {
-    const density = calculateDensity(site)
-    return {
-      ...site,
-      _rawDensity: density,
-      _practiceName: site.cultivation_practice || site.cultivation || 'Unknown',
-      uiDensityLabel: density.toFixed(2)
-    }
+  const props = defineProps({
+    sampledSites: { type: Array, default: () => [] },
+    showMap: { type: Boolean, default: true },
   })
 
-  // Calculate UI Scaling
-  const maxDensity = Math.max(...sites.map(s => s._rawDensity)) || 1
-  const minRad = 6, maxRad = 22 // Slightly larger dots for better visibility
+  const router = useRouter()
 
-  return sites.map(site => ({
-    ...site,
-    uiColor: getPracticeColor(site._practiceName),
-    uiRadius: site._rawDensity === 0 ? minRad : minRad + (site._rawDensity / maxDensity) * (maxRad - minRad)
-  }))
-})
+  // --- State ---
+  const query = ref('')
+  const sortDir = ref('asc')
+  const sortBy = ref('name') // 'name' | 'density'
+  const mapRef = ref(null)
 
-const visibleSites = computed(() => {
-  let list = [...processedSites.value]
-  const q = query.value.trim().toLowerCase()
+  // Leaflet Instances (Non-reactive)
+  let mapInstance = null
+  let markersLayer = null
+  let polygonLayer = null
+  const markersMap = {}
 
-  if (q) {
-    list = list.filter(s =>
-      (s.site_name || '').toLowerCase().includes(q) ||
-      (s.address || '').toLowerCase().includes(q)
-    )
+  // --- 1. Helper Functions ---
+
+  function getPracticeColor (p) {
+    const practice = (p || '').toString().toLowerCase()
+    if (practice.includes('organic')) return '#43a047'
+    if (practice.includes('integrated')) return '#fb8c00'
+    if (practice.includes('conventional')) return '#19568E'
+    return '#9e9e9e'
   }
 
-  return list.sort((a, b) => {
-    const valA = sortBy.value === 'density' ? a._rawDensity : (a.site_name || '').toLowerCase()
-    const valB = sortBy.value === 'density' ? b._rawDensity : (b.site_name || '').toLowerCase()
+  function calculateDensity (site) {
+    const totalMP = calculateTotalMP(site)
+    const totalMass = (site.soilsamples || []).reduce((acc, s) => acc + (Number(s.mass_kg) || 0), 0)
+    return totalMass > 0 ? totalMP / totalMass : 0
+  }
 
-    if (valA < valB) return sortDir.value === 'asc' ? -1 : 1
-    if (valA > valB) return sortDir.value === 'asc' ? 1 : -1
-    return 0
-  })
-})
+  function toTitleCase (str) {
+    return (str || '').toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+  }
 
-// --- 3. Map Logic ---
+  // --- 2. Data Processing ---
 
-const initMap = async () => {
-  if (!mapRef.value || mapInstance) return
+  const processedSites = computed(() => {
+    if (props.sampledSites.length === 0) return []
 
-  // 1. Set tighter default zoom (13 instead of 11)
-  mapInstance = L.map(mapRef.value, { scrollWheelZoom: false }).setView([14.03, 121.58], 13)
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19, attribution: '&copy; OpenStreetMap'
-  }).addTo(mapInstance)
-
-  markersLayer = L.layerGroup().addTo(mapInstance)
-
-  // Load Tayabas Boundary
-  try {
-    const geoUrl = new URL('../assets/geojson/Tayabas.geojson', import.meta.url).href
-    const data = await fetch(geoUrl).then(res => res.json())
-
-    polygonLayer = L.geoJSON(data, {
-      style: { color: CHART_COLORS[0], weight: 2, fillColor: CHART_COLORS[0], fillOpacity: 0.06 }
-    }).addTo(mapInstance)
-  } catch (e) { /* silent fail */ }
-
-  updateMapMarkers()
-}
-
-const updateMapMarkers = () => {
-  if (!mapInstance || !markersLayer) return
-
-  markersLayer.clearLayers()
-  // Clean dictionary
-  Object.keys(markersMap).forEach(key => delete markersMap[key])
-
-  const bounds = []
-
-  processedSites.value.forEach(site => {
-    if (!site.latitude || !site.longitude) return
-
-    const marker = L.circleMarker([site.latitude, site.longitude], {
-      radius: site.uiRadius,
-      fillColor: site.uiColor,
-      color: '#fff',
-      weight: 1.5,
-      fillOpacity: 0.95
+    // Pre-calculate metrics
+    const sites = props.sampledSites.map(site => {
+      const density = calculateDensity(site)
+      return {
+        ...site,
+        _rawDensity: density,
+        _practiceName: site.cultivation_practice || site.cultivation || 'Unknown',
+        uiDensityLabel: density.toFixed(2),
+      }
     })
 
-    const tooltip = `<strong>${site.site_name}</strong><br/>${toTitleCase(site._practiceName)}<br/>${site.uiDensityLabel} MP/kg`
-    marker.bindPopup(tooltip).bindTooltip(tooltip, { sticky: true })
-    marker.on('dblclick', () => navigateToSite(site))
-    marker.addTo(markersLayer)
+    // Calculate UI Scaling
+    const maxDensity = Math.max(...sites.map(s => s._rawDensity)) || 1
+    const minRad = 6, maxRad = 22 // Slightly larger dots for better visibility
 
-    markersMap[site.id] = marker
-    bounds.push([site.latitude, site.longitude])
+    return sites.map(site => ({
+      ...site,
+      uiColor: getPracticeColor(site._practiceName),
+      uiRadius: site._rawDensity === 0 ? minRad : minRad + (site._rawDensity / maxDensity) * (maxRad - minRad),
+    }))
   })
 
-  // Smart Zoom Strategy:
-  // If we have markers, zoom to them (but max zoom 16 to avoid being too close).
-  // If no markers, fall back to the polygon (Tayabas boundary).
-  if (bounds.length > 0) {
-    mapInstance.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 })
-  } else if (polygonLayer && polygonLayer.getBounds) {
-    mapInstance.fitBounds(polygonLayer.getBounds(), { padding: [20, 20] })
+  const visibleSites = computed(() => {
+    let list = [...processedSites.value]
+    const q = query.value.trim().toLowerCase()
+
+    if (q) {
+      list = list.filter(s =>
+        (s.site_name || '').toLowerCase().includes(q)
+        || (s.address || '').toLowerCase().includes(q),
+      )
+    }
+
+    return list.sort((a, b) => {
+      const valA = sortBy.value === 'density' ? a._rawDensity : (a.site_name || '').toLowerCase()
+      const valB = sortBy.value === 'density' ? b._rawDensity : (b.site_name || '').toLowerCase()
+
+      if (valA < valB) return sortDir.value === 'asc' ? -1 : 1
+      if (valA > valB) return sortDir.value === 'asc' ? 1 : -1
+      return 0
+    })
+  })
+
+  // --- 3. Map Logic ---
+
+  async function initMap () {
+    if (!mapRef.value || mapInstance) return
+
+    // 1. Set tighter default zoom (13 instead of 11)
+    mapInstance = L.map(mapRef.value, { scrollWheelZoom: false }).setView([14.03, 121.58], 13)
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; OpenStreetMap',
+    }).addTo(mapInstance)
+
+    markersLayer = L.layerGroup().addTo(mapInstance)
+
+    // Load Tayabas Boundary
+    try {
+      const geoUrl = new URL('../assets/geojson/Tayabas.geojson', import.meta.url).href
+      const data = await fetch(geoUrl).then(res => res.json())
+
+      polygonLayer = L.geoJSON(data, {
+        style: { color: CHART_COLORS[0], weight: 2, fillColor: CHART_COLORS[0], fillOpacity: 0.06 },
+      }).addTo(mapInstance)
+    } catch { /* silent fail */ }
+
+    updateMapMarkers()
   }
-}
 
-const destroyMap = () => {
-  if (mapInstance) {
-    mapInstance.remove()
-    mapInstance = null
-    markersLayer = null
-    polygonLayer = null
+  function updateMapMarkers () {
+    if (!mapInstance || !markersLayer) return
+
+    markersLayer.clearLayers()
+    // Clean dictionary
+    for (const key of Object.keys(markersMap)) delete markersMap[key]
+
+    const bounds = []
+
+    for (const site of processedSites.value) {
+      if (!site.latitude || !site.longitude) continue
+
+      const marker = L.circleMarker([site.latitude, site.longitude], {
+        radius: site.uiRadius,
+        fillColor: site.uiColor,
+        color: '#fff',
+        weight: 1.5,
+        fillOpacity: 0.95,
+      })
+
+      const tooltip = `<strong>${site.site_name}</strong><br/>${toTitleCase(site._practiceName)}<br/>${site.uiDensityLabel} MP/kg`
+      marker.bindPopup(tooltip).bindTooltip(tooltip, { sticky: true })
+      marker.on('dblclick', () => navigateToSite(site))
+      marker.addTo(markersLayer)
+
+      markersMap[site.id] = marker
+      bounds.push([site.latitude, site.longitude])
+    }
+
+    // Smart Zoom Strategy:
+    // If we have markers, zoom to them (but max zoom 16 to avoid being too close).
+    // If no markers, fall back to the polygon (Tayabas boundary).
+    if (bounds.length > 0) {
+      mapInstance.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 })
+    } else if (polygonLayer && polygonLayer.getBounds) {
+      mapInstance.fitBounds(polygonLayer.getBounds(), { padding: [20, 20] })
+    }
   }
-}
 
-// --- 4. Actions ---
-
-const focusSite = (site) => {
-  const marker = markersMap[site.id]
-  if (mapInstance && marker) {
-    // Zoom in close when clicking a list item
-    mapInstance.setView(marker.getLatLng(), 16, { animate: true })
-    marker.openPopup()
+  function destroyMap () {
+    if (mapInstance) {
+      mapInstance.remove()
+      mapInstance = null
+      markersLayer = null
+      polygonLayer = null
+    }
   }
-}
 
-const navigateToSite = (site) => {
-  if (site?.site_name) router.push(`/insight/${encodeURIComponent(site.site_name)}`)
-}
+  // --- 4. Actions ---
 
-// --- 5. Watchers ---
+  function focusSite (site) {
+    const marker = markersMap[site.id]
+    if (mapInstance && marker) {
+      // Zoom in close when clicking a list item
+      mapInstance.setView(marker.getLatLng(), 16, { animate: true })
+      marker.openPopup()
+    }
+  }
 
-onMounted(() => { if (props.showMap) initMap() })
-onBeforeUnmount(() => destroyMap())
+  function navigateToSite (site) {
+    if (site?.site_name) router.push(`/insight/${encodeURIComponent(site.site_name)}`)
+  }
 
-watch(() => props.showMap, (val) => val ? initMap() : destroyMap())
-watch(processedSites, updateMapMarkers, { deep: true })
+  // --- 5. Watchers ---
+
+  onMounted(() => {
+    if (props.showMap) initMap()
+  })
+  onBeforeUnmount(() => destroyMap())
+
+  watch(() => props.showMap, val => val ? initMap() : destroyMap())
+  watch(processedSites, updateMapMarkers, { deep: true })
 </script>
 
 <template>
@@ -202,22 +204,31 @@ watch(processedSites, updateMapMarkers, { deep: true })
       <input v-model="query" class="search-input" placeholder="Search farms or address">
 
       <div class="sort-buttons">
-        <button class="sort-btn" :class="{ active: sortBy === 'name' }" @click="sortBy = 'name'" title="Sort by Name">
+        <button class="sort-btn" :class="{ active: sortBy === 'name' }" title="Sort by Name" @click="sortBy = 'name'">
           <VIcon small>mdi-sort-alphabetical-ascending</VIcon>
         </button>
-        <button class="sort-btn" :class="{ active: sortBy === 'density' }" @click="sortBy = 'density'"
-          title="Sort by Contamination">
+        <button
+          class="sort-btn"
+          :class="{ active: sortBy === 'density' }"
+          title="Sort by Contamination"
+          @click="sortBy = 'density'"
+        >
           <VIcon small>mdi-sort-numeric-descending</VIcon>
         </button>
-        <button class="sort-btn" @click="sortDir = sortDir === 'asc' ? 'desc' : 'asc'" title="Toggle Direction">
+        <button class="sort-btn" title="Toggle Direction" @click="sortDir = sortDir === 'asc' ? 'desc' : 'asc'">
           <VIcon small>{{ sortDir === 'asc' ? 'mdi-arrow-up' : 'mdi-arrow-down' }}</VIcon>
         </button>
       </div>
     </div>
 
     <ul :class="['sampled-farms', { 'no-max-height': !showMap }]">
-      <li v-for="site in visibleSites" :key="site.id" class="farm-row" @click="focusSite(site)"
-        @dblclick.prevent="navigateToSite(site)">
+      <li
+        v-for="site in visibleSites"
+        :key="site.id"
+        class="farm-row"
+        @click="focusSite(site)"
+        @dblclick.prevent="navigateToSite(site)"
+      >
 
         <div class="farm-left">
           <div class="farm-name">{{ site.site_name }}</div>
