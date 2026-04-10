@@ -7,17 +7,20 @@ import Components from 'unplugin-vue-components/vite'
 import { VueRouterAutoImports } from 'unplugin-vue-router'
 import VueRouter from 'unplugin-vue-router/vite'
 // Utilities
-import { defineConfig } from 'vite'
-
-// Allow overriding the base path at build time using VITE_BASE_PATH
-// Example: set VITE_BASE_PATH=/SoilSight/ for GitHub Pages, otherwise default to '/'
-const basePath = process.env.VITE_BASE_PATH || '/'
+import { defineConfig, loadEnv } from 'vite'
 
 import Layouts from 'vite-plugin-vue-layouts-next'
 import Vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // Load all env vars (including non-VITE_ prefixed) so the proxy can use them
+  const env = loadEnv(mode, process.cwd(), '')
+
+  // Allow overriding the base path at build time using VITE_BASE_PATH
+  const basePath = env.VITE_BASE_PATH || '/'
+
+  return {
   base: basePath,
   plugins: [
     VueRouter(),
@@ -87,15 +90,14 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api/directus': {
-        target: 'http://ec2-13-239-184-136.ap-southeast-2.compute.amazonaws.com',
+        target: env.DIRECTUS_URL,
         changeOrigin: true,
         secure: false,
-        // Add Authorization header for dev proxy so protected Directus endpoints work locally.
         headers: {
-          authorization: `Bearer ${process.env.DIRECTUS_INTERNAL_TOKEN || process.env.VITE_DIRECTUS_BEARER_TOKEN || ''}`,
+          authorization: `Bearer ${env.DIRECTUS_TOKEN || ''}`,
         },
         rewrite: (path) => path.replace(/^\/api\/directus/, ''),
       },
     },
   },
-})
+}})

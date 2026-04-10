@@ -24,14 +24,12 @@ pnpm install
 
 2. Add environment variables (optional)
 
-Create a `.env` file in the project root to point the app to a Directus instance (if you have one):
+Create a `.env` file in the project root (see `.env.example`) to point the app to a Directus instance:
 
 ```
-VITE_DIRECTUS_API_URL=https://your-directus.example.com
-VITE_DIRECTUS_BEARER_TOKEN=your_static_token_or_blank
+DIRECTUS_URL=http://your-directus-instance.example.com
+DIRECTUS_TOKEN=your_static_token
 ```
-
-- If these variables are not provided the app ships with demo data in `src/assets/dummyData.json` and will run locally without a Directus backend.
 
 3. Run the dev server
 
@@ -55,7 +53,7 @@ pnpm run lint
 ## Data & Backend
 - Demo/sample data: `src/assets/dummyData.json` (used by the app when Directus is not configured).
 - GeoJSON boundary example: `src/assets/geojson/Tayabas.geojson`.
-- Backend (optional): The project uses `@directus/sdk` in `src/composables/useDirectus.js`. Provide `VITE_DIRECTUS_API_URL` and `VITE_DIRECTUS_BEARER_TOKEN` to connect to a Directus API.
+- Backend (optional): The project uses `@directus/sdk` in `src/composables/useDirectus.js`. Set `DIRECTUS_URL` and `DIRECTUS_TOKEN` to connect to a Directus API via the server-side proxy.
 
 ## Project Layout (high-level)
 - `src/` — application source code

@@ -53,23 +53,22 @@ This means components typically don't need explicit imports for these functions.
 ## Environment Setup
 
 ### Required Environment Variables
-Create a `.env` file in the project root (optional; the app runs without it using demo data):
+Create a `.env` file in the project root (see `.env.example`):
 
 ```
-VITE_DIRECTUS_API_URL=https://your-directus-instance.example.com
-VITE_DIRECTUS_BEARER_TOKEN=your_static_token_or_blank
+DIRECTUS_URL=http://your-directus-instance.example.com
+DIRECTUS_TOKEN=your_static_token
 VITE_BASE_PATH=/SoilSight/         # For GitHub Pages deployment (default: /)
 ```
 
-- If `VITE_DIRECTUS_API_URL` is not provided, the app falls back to demo data in `src/assets/dummyData.json`
+- `DIRECTUS_URL` and `DIRECTUS_TOKEN` are server-side only (used by the proxy, never exposed to the browser)
 - `VITE_BASE_PATH` is used in `vite.config.mjs` to set the build base path for GitHub Pages
-- Access variables in code via `import.meta.env.VITE_*`
 
-### Dev Proxy Configuration
-In dev mode, requests to `/api/directus/*` are proxied to a hardcoded AWS EC2 instance. The proxy:
-- Adds an `Authorization` header with the bearer token from environment variables
-- Rewrites paths by removing the `/api/directus` prefix
-- Set in `vite.config.mjs` server.proxy section
+### Proxy Architecture
+All Directus requests go through a server-side proxy at `/api/directus`:
+- **Local dev:** Vite dev server proxy (configured in `vite.config.mjs`) forwards to `DIRECTUS_URL` with `DIRECTUS_TOKEN`
+- **Vercel prod:** Serverless function `api/directus-proxy.js` does the same
+- The proxy adds the Authorization header, so tokens are never in the client bundle
 
 ## Key Files
 
@@ -86,11 +85,8 @@ In dev mode, requests to `/api/directus/*` are proxied to a hardcoded AWS EC2 in
 The app supports optional integration with Directus headless CMS:
 
 1. **API Calls:** Use `useDirectus()` composable in `src/composables/useDirectus.js` to fetch data
-2. **Fallback:** If `VITE_DIRECTUS_API_URL` is not set, components use demo data from `src/assets/dummyData.json`
-3. **Authorization:** Bearer token passed via `VITE_DIRECTUS_BEARER_TOKEN` environment variable
-4. **Dev Proxy:** Dev server proxies `/api/directus/*` requests with authorization header added automatically
-
-Pages that may fetch from Directus check the environment variable and conditionally load live or demo data.
+2. **Proxy:** All requests route through `/api/directus` — the proxy adds auth via `DIRECTUS_TOKEN`
+3. **Dev Proxy:** Vite dev server proxies `/api/directus/*` to `DIRECTUS_URL` with token added automatically
 
 ## Gotchas & Patterns
 
@@ -111,8 +107,7 @@ Pages that may fetch from Directus check the environment variable and conditiona
 
 4. **Dev Proxy Authorization**
    - The proxy in `vite.config.mjs` adds the bearer token header automatically
-   - If token is blank or missing, Directus API calls in dev may fail with 401/403
-   - Check `process.env.VITE_DIRECTUS_BEARER_TOKEN` or fallback logic in `useDirectus.js`
+   - If `DIRECTUS_TOKEN` is blank or missing, Directus API calls will fail with 401/403
 
 5. **GitHub Pages Deployment**
    - `pnpm deploy` uses `gh-pages` package to push `dist/` to the `gh-pages` branch

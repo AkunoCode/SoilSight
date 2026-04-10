@@ -5,10 +5,10 @@
 
 export default async function handler(req, res) {
     try {
-        const directusBase = process.env.DIRECTUS_INTERNAL_URL || process.env.VITE_DIRECTUS_API_URL
+        const directusBase = process.env.DIRECTUS_URL
         if (!directusBase) {
             res.statusCode = 500
-            res.end(JSON.stringify({ error: 'DIRECTUS_INTERNAL_URL not configured' }))
+            res.end(JSON.stringify({ error: 'DIRECTUS_URL not configured' }))
             return
         }
 
@@ -34,7 +34,7 @@ export default async function handler(req, res) {
         }
 
         // Add Auth Token
-        const internalToken = process.env.DIRECTUS_INTERNAL_TOKEN || process.env.VITE_DIRECTUS_BEARER_TOKEN
+        const internalToken = process.env.DIRECTUS_TOKEN
         if (internalToken) headers['authorization'] = `Bearer ${internalToken}`
 
         // 3. Handle Body (The Fix)
