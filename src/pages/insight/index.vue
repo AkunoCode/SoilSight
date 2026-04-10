@@ -69,8 +69,15 @@ onMounted(async () => {
   <div class="insight-page">
     <header class="page-header">
       <div class="d-flex align-center">
-        <VIcon color="grey" size="x-large" style="cursor:pointer; vertical-align:middle;" @click="$router.back()">
-          mdi-menu-left</VIcon>
+        <VBtn
+          icon
+          variant="text"
+          color="grey"
+          aria-label="Go back"
+          @click="$router.back()"
+        >
+          <VIcon size="x-large">mdi-menu-left</VIcon>
+        </VBtn>
         <h1>Tayabas City, Quezon Province, Philippines</h1>
       </div>
     </header>
@@ -92,8 +99,16 @@ onMounted(async () => {
       <!-- subtitle should be the density of the highest risk site -->
       <KPI title="Highest Risk Site" :value="`${highestRiskSite.name} Farm`"
         :subtitle="`${highestRiskSite.density} MP`" />
-      <div class="d-flex align-center justify-center bg-blue ga-2 rounded-lg cursor-pointer"
-        style="box-shadow: 0 1px 6px rgba(0, 0, 0, .06);" @click="printReport">
+      <div
+        class="d-flex align-center justify-center bg-blue ga-2 rounded-lg cursor-pointer"
+        style="box-shadow: 0 1px 6px rgba(0, 0, 0, .06);"
+        role="button"
+        tabindex="0"
+        aria-label="Print report"
+        @click="printReport"
+        @keydown.enter="printReport"
+        @keydown.space.prevent="printReport"
+      >
         <VIcon color="white" size="x-large">mdi-note-text-outline</VIcon>
         <p class="text-h4 text-white font-weight-bold">Print Report</p>
       </div>

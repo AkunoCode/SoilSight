@@ -538,14 +538,29 @@ const farmAsArray = computed(() => farm.value ? [farm.value] : [])
       <div class="d-flex align-center justify-space-between mb-8">
       <div class="d-flex flex-column">
         <div class="d-flex align-center">
-          <VIcon color="grey" size="x-large" style="cursor:pointer; vertical-align:middle;" @click="$router.back()">
-            mdi-menu-left</VIcon>
+          <VBtn
+            icon
+            variant="text"
+            color="grey"
+            aria-label="Go back"
+            @click="$router.back()"
+          >
+            <VIcon size="x-large">mdi-menu-left</VIcon>
+          </VBtn>
           <h1 class="title mb-0">{{ farm?.site_name }}</h1>
         </div>
         <p class="text-h5 ml-8">{{ farm?.address }}</p>
       </div>
-      <div class="d-flex align-center justify-center bg-blue pa-4 px-6 rounded-lg cursor-pointer"
-        style=" box-shadow: 0 1px 6px rgba(0, 0, 0, .06);" @click="printReport">
+      <div
+        class="d-flex align-center justify-center bg-blue pa-4 px-6 rounded-lg cursor-pointer"
+        style="box-shadow: 0 1px 6px rgba(0, 0, 0, .06);"
+        role="button"
+        tabindex="0"
+        aria-label="Print report"
+        @click="printReport"
+        @keydown.enter="printReport"
+        @keydown.space.prevent="printReport"
+      >
         <VIcon color="white" size="x-large">mdi-note-text-outline</VIcon>
         <p class="text-h4 text-white font-weight-bold">Print Report</p>
       </div>
