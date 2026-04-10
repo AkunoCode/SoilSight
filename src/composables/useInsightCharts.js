@@ -48,19 +48,29 @@ export function useInsightCharts (sites, sizeData) {
     ),
   )
 
-  const textures = computed(() =>
-    Array.from(new Set(sites.value.map(s => s.soil_type || 'Unknown'))),
-  )
+  // Groups sites by soil_type in a single O(N) pass.
+  // textureTotals and textureDrilldown read from this map instead of re-filtering.
+  const sitesByTexture = computed(() => {
+    const map = new Map()
+    for (const s of sites.value) {
+      const t = s.soil_type || 'Unknown'
+      if (!map.has(t)) map.set(t, [])
+      map.get(t).push(s)
+    }
+    return map
+  })
+
+  const textures = computed(() => Array.from(sitesByTexture.value.keys()))
 
   const textureTotals = computed(() =>
     textures.value.map(t =>
-      sites.value.filter(s => (s.soil_type || '') === t).reduce((acc, s) => acc + calculateTotalMP(s), 0),
+      sitesByTexture.value.get(t).reduce((acc, s) => acc + calculateTotalMP(s), 0),
     ),
   )
 
   const textureDrilldown = computed(() =>
     textures.value.map(t =>
-      sites.value.filter(s => (s.soil_type || '') === t).reduce((acc, s) => {
+      sitesByTexture.value.get(t).reduce((acc, s) => {
         acc[0] += Number(s.fragment_count) || 0
         acc[1] += Number(s.fiber_count) || 0
         acc[2] += Number(s.foam_count) || 0
@@ -71,10 +81,23 @@ export function useInsightCharts (sites, sizeData) {
     ),
   )
 
+  // Groups sites by cultivation practice in a single O(N) pass.
+  // A site that does not match any known practice key is excluded.
+  const sitesByPractice = computed(() => {
+    const map = new Map(PRACTICE_KEYS.map(k => [k, []]))
+    for (const s of sites.value) {
+      const p = (s.cultivation_practice || '').toLowerCase()
+      for (const key of PRACTICE_KEYS) {
+        if (p.includes(key)) { map.get(key).push(s); break }
+      }
+    }
+    return map
+  })
+
   const contaminationByPracticeSeries = computed(() =>
     PRACTICE_NAMES.map((name, i) => {
       const key = PRACTICE_KEYS[i]
-      const filtered = sites.value.filter(s => (s.cultivation_practice || '').toLowerCase().includes(key))
+      const filtered = sitesByPractice.value.get(key)
       return {
         name,
         data: [

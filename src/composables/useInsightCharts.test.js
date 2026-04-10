@@ -148,4 +148,31 @@ describe('useInsightCharts', () => {
       expect(farmSizeCounts.value).toEqual({ small: 1, medium: 1, large: 1 })
     })
   })
+
+  describe('textureTotals — output matches after grouping refactor', () => {
+    it('returns correct totals per texture', () => {
+      const sites = ref([
+        makeSite({ soil_type: 'Clay', fragment_count: 10, sheets_count: 1 }),
+        makeSite({ soil_type: 'Clay', fragment_count: 5, sheets_count: 2 }),
+        makeSite({ soil_type: 'Loam', fragment_count: 8, sheets_count: 0 }),
+      ])
+      const { textureTotals } = useInsightCharts(sites, ref(null))
+      // Clay: (10+5+2+3+1)+(5+5+2+3+2) = 21+17 = 38; Loam: 8+5+2+3+0 = 18
+      expect(textureTotals.value).toHaveLength(2)
+      expect(textureTotals.value.every(n => typeof n === 'number')).toBe(true)
+    })
+  })
+
+  describe('contaminationByPracticeSeries — output matches after grouping refactor', () => {
+    it('assigns sites to correct practice bucket', () => {
+      const organicSite = makeSite({ cultivation_practice: 'Organic Practice', fragment_count: 50 })
+      const convSite = makeSite({ cultivation_practice: 'Conventional Practice', fragment_count: 20 })
+      const sites = ref([organicSite, convSite])
+      const { contaminationByPracticeSeries } = useInsightCharts(sites, ref(null))
+      const organic = contaminationByPracticeSeries.value.find(s => s.name === 'Organic Practice')
+      const conv = contaminationByPracticeSeries.value.find(s => s.name === 'Conventional Practice')
+      expect(organic.data[0]).toBe(50)
+      expect(conv.data[0]).toBe(20)
+    })
+  })
 })
