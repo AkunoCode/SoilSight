@@ -9,28 +9,30 @@ export const useAppStore = defineStore('app', {
     selectedMorphology: null,
   }),
   getters: {
-    loading: (state) => (state.loadingCount || 0) > 0,
-    hasSelection: (state) => !!state.selectedMorphology,
+    loading: state => (state.loadingCount || 0) > 0,
+    hasSelection: state => !!state.selectedMorphology,
   },
   actions: {
-    startLoading() {
+    startLoading () {
       this.loadingCount = (this.loadingCount || 0) + 1
     },
-    finishLoading() {
+    finishLoading () {
       this.loadingCount = Math.max(0, (this.loadingCount || 0) - 1)
     },
-    resetLoading() {
+    resetLoading () {
       this.loadingCount = 0
     },
     // selection helpers
-    setSelectedMorphology(key) {
+    setSelectedMorphology (key) {
       this.selectedMorphology = key || null
     },
-    clearSelectedMorphology() {
+    clearSelectedMorphology () {
       this.selectedMorphology = null
     },
-    toggleSelectedMorphology(key) {
-      if (!key) return this.clearSelectedMorphology()
+    toggleSelectedMorphology (key) {
+      if (!key) {
+        return this.clearSelectedMorphology()
+      }
       this.selectedMorphology = this.selectedMorphology === key ? null : key
     },
   },

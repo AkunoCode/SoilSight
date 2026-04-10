@@ -1,179 +1,179 @@
 <script setup>
-import { readItems } from '@directus/sdk'
-import { computed, ref, toRef, watch } from 'vue'
-import { useAppStore } from '@/stores/app'
-import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
-import { ensurePlotOptionsBar, safeColorArray, updateApexChart } from '@/composables/useApexChart'
-import directus from '@/composables/useDirectus'
-import ApexChartBase from './ApexChartBase.vue'
-import { buildMonthlyChartData } from './monthlyTrend.js'
+  import { readItems } from '@directus/sdk'
+  import { computed, ref, toRef, watch } from 'vue'
+  import { ensurePlotOptionsBar, safeColorArray, updateApexChart } from '@/composables/useApexChart'
+  import directus from '@/composables/useDirectus'
+  import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
+  import { useAppStore } from '@/stores/app'
+  import ApexChartBase from './ApexChartBase.vue'
+  import { buildMonthlyChartData } from './monthlyTrend.js'
 
-const props = defineProps({
-  microplasticData: { type: Object, required: false, default: () => ({}) },
-  siteId: { type: [String, Number], required: false },
-  date: { type: String, default: '' },
-  subtitle: { type: String, default: '' },
-  // Default to 100% so it fills container if not specified
-  height: { type: [Number, String], default: '100%' },
-  colors: { type: Object, default: () => ({}) },
-  filterKey: { type: [String, null], default: null },
-})
+  const props = defineProps({
+    microplasticData: { type: Object, required: false, default: () => ({}) },
+    siteId: { type: [String, Number], required: false },
+    date: { type: String, default: '' },
+    subtitle: { type: String, default: '' },
+    // Default to 100% so it fills container if not specified
+    height: { type: [Number, String], default: '100%' },
+    colors: { type: Object, default: () => ({}) },
+    filterKey: { type: [String, null], default: null },
+  })
 
-const height = toRef(props, 'height')
-const app = useAppStore()
-const { displayLatestSampleDate } = useLatestSampleDate()
+  const height = toRef(props, 'height')
+  const app = useAppStore()
+  const { displayLatestSampleDate } = useLatestSampleDate()
 
-const defaultDate = displayLatestSampleDate
-const chartWrapper = ref(null)
-const soilsampleMonthly = ref(null)
-const soilsampleLoading = ref(false)
+  const defaultDate = displayLatestSampleDate
+  const chartWrapper = ref(null)
+  const soilsampleMonthly = ref(null)
+  const soilsampleLoading = ref(false)
 
-// Base Configuration
-const { series: baseSeries, options: baseOptions } = buildMonthlyChartData({})
-const monthlySeries = ref(baseSeries)
-const monthlyOptions = ref({
-  ...baseOptions,
-  chart: { ...(baseOptions.chart || {}), height: props.height }
-})
+  // Base Configuration
+  const { series: baseSeries, options: baseOptions } = buildMonthlyChartData({})
+  const monthlySeries = ref(baseSeries)
+  const monthlyOptions = ref({
+    ...baseOptions,
+    chart: { ...baseOptions.chart, height: props.height },
+  })
 
-// Keep a deterministic order for morphology colors so charts align with labels
-const ORDERED_KEYS = ['fragments', 'fibers', 'foams', 'films', 'sheets']
-
-if (props.colors && Object.keys(props.colors).length > 0) {
-  monthlyOptions.value.colors = ORDERED_KEYS.map(k => (props.colors && props.colors[k]) || '#9e9e9e')
-}
-
-// Computed Totals from Props
-const totals = computed(() => ({
-  fragments: props.microplasticData?.fragments || 0,
-  fibers: props.microplasticData?.fibers || 0,
-  foams: props.microplasticData?.foams || 0,
-  films: props.microplasticData?.films || 0,
-}))
-
-const hasData = computed(() => {
-  if (soilsampleLoading.value) return true
-  if (!monthlySeries.value || monthlySeries.value.length === 0) return false
-  return monthlySeries.value.some(s => Array.isArray(s.data) && s.data.some(val => val > 0))
-})
-
-// Watchers to update chart configuration and data
-watch([totals, soilsampleMonthly, () => props.filterKey, () => app.selectedMorphology], () => {
-  const soil = soilsampleMonthly.value
-  let currentSeries = []
-  let currentCategories = []
-
-  if (soil && soil.months && soil.series) {
-    currentSeries = soil.series
-    currentCategories = soil.months
-  } else {
-    const fallback = buildMonthlyChartData(totals.value)
-    currentSeries = fallback.series
-    currentCategories = fallback.options.xaxis?.categories || []
-  }
-
-  monthlySeries.value = currentSeries
-  monthlyOptions.value = {
-    ...monthlyOptions.value,
-    xaxis: { ...monthlyOptions.value.xaxis, categories: currentCategories },
-    chart: { ...monthlyOptions.value.chart, height: props.height }
-  }
+  // Keep a deterministic order for morphology colors so charts align with labels
+  const ORDERED_KEYS = ['fragments', 'fibers', 'foams', 'films', 'sheets']
 
   if (props.colors && Object.keys(props.colors).length > 0) {
     monthlyOptions.value.colors = ORDERED_KEYS.map(k => (props.colors && props.colors[k]) || '#9e9e9e')
   }
 
-  monthlyOptions.value = ensurePlotOptionsBar(monthlyOptions.value)
+  // Computed Totals from Props
+  const totals = computed(() => ({
+    fragments: props.microplasticData?.fragments || 0,
+    fibers: props.microplasticData?.fibers || 0,
+    foams: props.microplasticData?.foams || 0,
+    films: props.microplasticData?.films || 0,
+  }))
 
-  try {
-    const inner = chartWrapper.value?.chartRef
-    const filterKey = (props.filterKey || '').toString().toLowerCase()
+  const hasData = computed(() => {
+    if (soilsampleLoading.value) return true
+    if (!monthlySeries.value || monthlySeries.value.length === 0) return false
+    return monthlySeries.value.some(s => Array.isArray(s.data) && s.data.some(val => val > 0))
+  })
 
-    if (filterKey) {
-      const found = (monthlySeries.value || []).find(s => (s.name || '').toLowerCase().includes(filterKey))
-      updateApexChart(inner, monthlyOptions.value, found ? [found] : monthlySeries.value, true)
+  // Watchers to update chart configuration and data
+  watch([totals, soilsampleMonthly, () => props.filterKey, () => app.selectedMorphology], () => {
+    const soil = soilsampleMonthly.value
+    let currentSeries = []
+    let currentCategories = []
+
+    if (soil && soil.months && soil.series) {
+      currentSeries = soil.series
+      currentCategories = soil.months
     } else {
-      updateApexChart(inner, monthlyOptions.value, monthlySeries.value, true)
-    }
-  } catch (error) {
-    console.warn('Chart update failed', error)
-  }
-}, { immediate: true })
-
-// Data Fetching
-async function fetchSoilsamplesMonthly(siteId) {
-  soilsampleMonthly.value = null
-  soilsampleLoading.value = true
-
-  try {
-    const now = new Date()
-    const cutoffMonth = new Date(now.getFullYear(), now.getMonth() - 11, 1)
-    const cutoffIso = cutoffMonth.toISOString()
-
-    const baseFilter = { date_collected: { _gte: cutoffIso } }
-    const query = {
-      filter: siteId ? { _and: [{ site: { _eq: siteId } }, baseFilter] } : baseFilter,
-      limit: -1
+      const fallback = buildMonthlyChartData(totals.value)
+      currentSeries = fallback.series
+      currentCategories = fallback.options.xaxis?.categories || []
     }
 
-    const resp = await directus.request(readItems('soilsamples', query))
-    const items = Array.isArray(resp) ? resp : (resp?.data || [])
-
-    if (!items || items.length === 0) return
-
-    const monthMap = new Map()
-    const getCount = (item, keys) => {
-      for (const k of keys) if (item[k] != null) return Number(item[k])
-      return 0
+    monthlySeries.value = currentSeries
+    monthlyOptions.value = {
+      ...monthlyOptions.value,
+      xaxis: { ...monthlyOptions.value.xaxis, categories: currentCategories },
+      chart: { ...monthlyOptions.value.chart, height: props.height },
     }
 
-    for (const s of items) {
-      const d = s.date_collected ? new Date(s.date_collected) : null
-      if (!d || isNaN(d.getTime()) || d < cutoffMonth) continue
+    if (props.colors && Object.keys(props.colors).length > 0) {
+      monthlyOptions.value.colors = ORDERED_KEYS.map(k => (props.colors && props.colors[k]) || '#9e9e9e')
+    }
 
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    monthlyOptions.value = ensurePlotOptionsBar(monthlyOptions.value)
 
-      if (!monthMap.has(key)) {
-        monthMap.set(key, { fragments: 0, fibers: 0, foams: 0, films: 0, sheets: 0 })
+    try {
+      const inner = chartWrapper.value?.chartRef
+      const filterKey = (props.filterKey || '').toString().toLowerCase()
+
+      if (filterKey) {
+        const found = (monthlySeries.value || []).find(s => (s.name || '').toLowerCase().includes(filterKey))
+        updateApexChart(inner, monthlyOptions.value, found ? [found] : monthlySeries.value, true)
+      } else {
+        updateApexChart(inner, monthlyOptions.value, monthlySeries.value, true)
+      }
+    } catch (error) {
+      console.warn('Chart update failed', error)
+    }
+  }, { immediate: true })
+
+  // Data Fetching
+  async function fetchSoilsamplesMonthly (siteId) {
+    soilsampleMonthly.value = null
+    soilsampleLoading.value = true
+
+    try {
+      const now = new Date()
+      const cutoffMonth = new Date(now.getFullYear(), now.getMonth() - 11, 1)
+      const cutoffIso = cutoffMonth.toISOString()
+
+      const baseFilter = { date_collected: { _gte: cutoffIso } }
+      const query = {
+        filter: siteId ? { _and: [{ site: { _eq: siteId } }, baseFilter] } : baseFilter,
+        limit: -1,
       }
 
-      const agg = monthMap.get(key)
-      agg.fragments += getCount(s, ['fragment_count', 'fragments'])
-      agg.fibers += getCount(s, ['fiber_count', 'fibers'])
-      agg.foams += getCount(s, ['foam_count', 'foams'])
-      agg.films += getCount(s, ['film_count', 'films'])
-      agg.sheets += getCount(s, ['sheets_count', 'sheet_count', 'sheets'])
+      const resp = await directus.request(readItems('soilsamples', query))
+      const items = Array.isArray(resp) ? resp : (resp?.data || [])
+
+      if (!items || items.length === 0) return
+
+      const monthMap = new Map()
+      const getCount = (item, keys) => {
+        for (const k of keys) if (item[k] != null) return Number(item[k])
+        return 0
+      }
+
+      for (const s of items) {
+        const d = s.date_collected ? new Date(s.date_collected) : null
+        if (!d || isNaN(d.getTime()) || d < cutoffMonth) continue
+
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+
+        if (!monthMap.has(key)) {
+          monthMap.set(key, { fragments: 0, fibers: 0, foams: 0, films: 0, sheets: 0 })
+        }
+
+        const agg = monthMap.get(key)
+        agg.fragments += getCount(s, ['fragment_count', 'fragments'])
+        agg.fibers += getCount(s, ['fiber_count', 'fibers'])
+        agg.foams += getCount(s, ['foam_count', 'foams'])
+        agg.films += getCount(s, ['film_count', 'films'])
+        agg.sheets += getCount(s, ['sheets_count', 'sheet_count', 'sheets'])
       // beads/pellets intentionally omitted from monthly trend aggregation
+      }
+
+      const keys = Array.from(monthMap.keys()).sort()
+      if (keys.length === 0) return
+
+      const months = keys.map(k => {
+        const [y, m] = k.split('-')
+        return new Date(y, m - 1).toLocaleString(undefined, { month: 'short', year: 'numeric' })
+      })
+
+      const series = [
+        { name: 'Fragments', data: keys.map(k => monthMap.get(k).fragments) },
+        { name: 'Fibers', data: keys.map(k => monthMap.get(k).fibers) },
+        { name: 'Foam', data: keys.map(k => monthMap.get(k).foams) },
+        { name: 'Films', data: keys.map(k => monthMap.get(k).films) },
+        { name: 'Sheets', data: keys.map(k => monthMap.get(k).sheets) },
+      ]
+
+      soilsampleMonthly.value = { months, series }
+    } catch (error) {
+      console.error('Error fetching monthly samples', error)
+      soilsampleMonthly.value = null
+    } finally {
+      soilsampleLoading.value = false
     }
-
-    const keys = Array.from(monthMap.keys()).sort()
-    if (keys.length === 0) return
-
-    const months = keys.map(k => {
-      const [y, m] = k.split('-')
-      return new Date(y, m - 1).toLocaleString(undefined, { month: 'short', year: 'numeric' })
-    })
-
-    const series = [
-      { name: 'Fragments', data: keys.map(k => monthMap.get(k).fragments) },
-      { name: 'Fibers', data: keys.map(k => monthMap.get(k).fibers) },
-      { name: 'Foam', data: keys.map(k => monthMap.get(k).foams) },
-      { name: 'Films', data: keys.map(k => monthMap.get(k).films) },
-      { name: 'Sheets', data: keys.map(k => monthMap.get(k).sheets) },
-    ]
-
-    soilsampleMonthly.value = { months, series }
-  } catch (error) {
-    console.error('Error fetching monthly samples', error)
-    soilsampleMonthly.value = null
-  } finally {
-    soilsampleLoading.value = false
   }
-}
 
-watch(() => props.siteId, (newId) => {
-  fetchSoilsamplesMonthly(newId)
-}, { immediate: true })
+  watch(() => props.siteId, newId => {
+    fetchSoilsamplesMonthly(newId)
+  }, { immediate: true })
 </script>
 
 <template>
@@ -190,8 +190,15 @@ watch(() => props.siteId, (newId) => {
         No data available
       </div>
 
-      <ApexChartBase v-else ref="chartWrapper" :height="height" :options="monthlyOptions" :series="monthlySeries"
-        type="line" class="chart-component" />
+      <ApexChartBase
+        v-else
+        ref="chartWrapper"
+        class="chart-component"
+        :height="height"
+        :options="monthlyOptions"
+        :series="monthlySeries"
+        type="line"
+      />
     </div>
   </div>
 </template>

@@ -1,14 +1,14 @@
 <script setup>
-import { computed, defineProps } from 'vue'
-import VueApexCharts from 'vue3-apexcharts'
-import { CHART_COLORS } from '@/config/chartPalette.js'
+  import { computed, defineProps } from 'vue'
+  import VueApexCharts from 'vue3-apexcharts'
+  import { CHART_COLORS } from '@/config/chartPalette.js'
 
-const props = defineProps({
+  const props = defineProps({
     sites: { type: Array, default: () => [] },
     height: { type: [Number, String], default: 350 },
-})
+  })
 
-const stats = computed(() => {
+  const stats = computed(() => {
     let fragments = 0
     let fibers = 0
     let foams = 0
@@ -16,14 +16,14 @@ const stats = computed(() => {
     let sheets = 0
 
     // Loop through all sites and sum up the morphological categories
-    props.sites.forEach(s => {
-        fragments += Number(s.fragment_count) || 0
-        fibers += Number(s.fiber_count) || 0
-        foams += Number(s.foam_count) || 0
+    for (const s of props.sites) {
+      fragments += Number(s.fragment_count) || 0
+      fibers += Number(s.fiber_count) || 0
+      foams += Number(s.foam_count) || 0
 
-        films += Number(s.film_count) || 0
-        sheets += (Number(s.sheets_count) || Number(s.sheet_count) || 0)
-    })
+      films += Number(s.film_count) || 0
+      sheets += (Number(s.sheets_count) || Number(s.sheet_count) || 0)
+    }
 
     const secondary = fragments + fibers + foams
 
@@ -34,136 +34,138 @@ const stats = computed(() => {
     const index = totalRelevant === 0 ? 0 : Math.round((secondary / totalRelevant) * 100)
 
     return {
-        secondary,
-        source,
-        total: totalRelevant,
-        index
+      secondary,
+      source,
+      total: totalRelevant,
+      index,
     }
-})
+  })
 
-const severityInfo = computed(() => {
+  const severityInfo = computed(() => {
     const val = stats.value.index
 
     if (val < 25) return {
-        label: 'Low Degradation',
-        desc: 'Fresh Inputs',
-        color: CHART_COLORS[0]
+      label: 'Low Degradation',
+      desc: 'Fresh Inputs',
+      color: CHART_COLORS[0],
     }
     if (val < 50) return {
-        label: 'Moderate Degradation',
-        desc: 'Weathering Started',
-        color: CHART_COLORS[1]
+      label: 'Moderate Degradation',
+      desc: 'Weathering Started',
+      color: CHART_COLORS[1],
     }
     if (val < 75) return {
-        label: 'High Degradation',
-        desc: 'Old Accumulation',
-        color: CHART_COLORS[2]
+      label: 'High Degradation',
+      desc: 'Old Accumulation',
+      color: CHART_COLORS[2],
     }
     return {
-        label: 'Critical Degradation',
-        desc: 'Highly Fragmented',
-        color: CHART_COLORS[3]
+      label: 'Critical Degradation',
+      desc: 'Highly Fragmented',
+      color: CHART_COLORS[3],
     }
-})
+  })
 
-const chartSeries = computed(() => [stats.value.index])
+  const chartSeries = computed(() => [stats.value.index])
 
-const chartOptions = computed(() => ({
+  const chartOptions = computed(() => ({
     chart: {
-        type: 'radialBar',
-        height: props.height,
-        fontFamily: 'inherit',
-        sparkline: { enabled: false }
+      type: 'radialBar',
+      height: props.height,
+      fontFamily: 'inherit',
+      sparkline: { enabled: false },
     },
     plotOptions: {
-        radialBar: {
-            startAngle: -100,
-            endAngle: 100,
-            hollow: { size: '60%', margin: 15 },
-            track: {
-                background: '#F1F5F9',
-                strokeWidth: '100%',
-                margin: 5
-            },
-            dataLabels: {
-                name: {
-                    show: true,
-                    fontSize: '13px',
-                    color: '#64748B',
-                    offsetY: -40,
-                    fontWeight: 600
-                },
-                value: {
-                    show: true,
-                    fontSize: '32px',
-                    fontWeight: 800,
-                    color: severityInfo.value.color,
-                    offsetY: -20,
-                    formatter: (val) => val + '%'
-                }
-            }
-        }
+      radialBar: {
+        startAngle: -100,
+        endAngle: 100,
+        hollow: { size: '60%', margin: 15 },
+        track: {
+          background: '#F1F5F9',
+          strokeWidth: '100%',
+          margin: 5,
+        },
+        dataLabels: {
+          name: {
+            show: true,
+            fontSize: '13px',
+            color: '#64748B',
+            offsetY: -40,
+            fontWeight: 600,
+          },
+          value: {
+            show: true,
+            fontSize: '32px',
+            fontWeight: 800,
+            color: severityInfo.value.color,
+            offsetY: -20,
+            formatter: val => val + '%',
+          },
+        },
+      },
     },
     fill: {
-        colors: [severityInfo.value.color]
+      colors: [severityInfo.value.color],
     },
     stroke: { lineCap: 'round' },
     labels: ['Fragmentation'], // The label inside the circle
-}))
+  }))
 </script>
 
 <template>
-    <div class="gauge-container">
+  <div class="gauge-container">
 
-        <div class="gauge-header">
-            <div>
-                <h3 class="title">Source Degradation Index</h3>
-                <p class="subtitle">Weathering & Circularity Assessment</p>
-            </div>
-            <div class="badge"
-                :style="{ borderColor: severityInfo.color, color: severityInfo.color, backgroundColor: severityInfo.color + '15' }">
-                {{ severityInfo.label }}
-            </div>
-        </div>
-
-        <div class="chart-wrapper">
-            <VueApexCharts :options="chartOptions" :series="chartSeries" type="radialBar" :height="height" />
-        </div>
-
-        <div class="stats-row">
-            <div class="stat-item">
-                <div class="stat-header">
-                    <span class="dot" :style="{ background: severityInfo.color }"></span>
-                    <span class="stat-label">Secondary</span>
-                </div>
-                <span class="stat-sublabel">(Fragments, Fibers, Foams)</span>
-                <span class="stat-value" :style="{ color: severityInfo.color }">
-                    {{ stats.secondary.toLocaleString() }}
-                </span>
-            </div>
-
-            <div class="stat-divider"></div>
-
-            <div class="stat-item">
-                <div class="stat-header">
-                    <span class="dot" style="background: #cbd5e1"></span>
-                    <span class="stat-label">Source</span>
-                </div>
-                <span class="stat-sublabel">(Films, Sheets)</span>
-                <span class="stat-value" style="color: #64748b">
-                    {{ stats.source.toLocaleString() }}
-                </span>
-            </div>
-        </div>
-
-        <div class="legend">
-            <div v-for="(color, i) in CHART_COLORS" :key="i" class="legend-item">
-                <span class="legend-bar" :style="{ background: color }"></span>
-                <span>{{ ['Fresh', 'Low', 'Mod', 'High', 'Crit'][i] }}</span>
-            </div>
-        </div>
-
+    <div class="gauge-header">
+      <div>
+        <h3 class="title">Source Degradation Index</h3>
+        <p class="subtitle">Weathering & Circularity Assessment</p>
+      </div>
+      <div
+        class="badge"
+        :style="{ borderColor: severityInfo.color, color: severityInfo.color, backgroundColor: severityInfo.color + '15' }"
+      >
+        {{ severityInfo.label }}
+      </div>
     </div>
+
+    <div class="chart-wrapper">
+      <VueApexCharts :height="height" :options="chartOptions" :series="chartSeries" type="radialBar" />
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-item">
+        <div class="stat-header">
+          <span class="dot" :style="{ background: severityInfo.color }" />
+          <span class="stat-label">Secondary</span>
+        </div>
+        <span class="stat-sublabel">(Fragments, Fibers, Foams)</span>
+        <span class="stat-value" :style="{ color: severityInfo.color }">
+          {{ stats.secondary.toLocaleString() }}
+        </span>
+      </div>
+
+      <div class="stat-divider" />
+
+      <div class="stat-item">
+        <div class="stat-header">
+          <span class="dot" style="background: #cbd5e1" />
+          <span class="stat-label">Source</span>
+        </div>
+        <span class="stat-sublabel">(Films, Sheets)</span>
+        <span class="stat-value" style="color: #64748b">
+          {{ stats.source.toLocaleString() }}
+        </span>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div v-for="(color, i) in CHART_COLORS" :key="i" class="legend-item">
+        <span class="legend-bar" :style="{ background: color }" />
+        <span>{{ ['Fresh', 'Low', 'Mod', 'High', 'Crit'][i] }}</span>
+      </div>
+    </div>
+
+  </div>
 </template>
 
 <style scoped>

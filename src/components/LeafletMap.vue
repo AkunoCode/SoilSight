@@ -6,56 +6,56 @@
   rules rather than globally turning off lint.
 */
 /* eslint-disable unicorn/no-array-callback-reference, unicorn/no-array-method-this-argument */
-import L from 'leaflet'
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { CHART_COLORS } from '@/config/chartPalette'
-import { MARKER_CIRCLE_RADIUS, MARKER_CIRCLE_WEIGHT } from '@/config/constants.js'
-import 'leaflet/dist/leaflet.css'
+  import L from 'leaflet'
+  import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+  import { CHART_COLORS } from '@/config/chartPalette'
+  import { MARKER_CIRCLE_RADIUS, MARKER_CIRCLE_WEIGHT } from '@/config/constants.js'
+  import 'leaflet/dist/leaflet.css'
 
-const props = defineProps({
-  lat: { type: Number, required: false },
-  lng: { type: Number, required: false },
-  zoom: { type: Number, default: 13 },
-  marker: { type: Boolean, default: true },
-})
+  const props = defineProps({
+    lat: { type: Number, required: false },
+    lng: { type: Number, required: false },
+    zoom: { type: Number, default: 13 },
+    marker: { type: Boolean, default: true },
+  })
 
-const mapRef = ref(null)
-let map = null
-let markerLayer = null
+  const mapRef = ref(null)
+  let map = null
+  let markerLayer = null
 
-onMounted(() => {
-  // Create map only if element exists
-  if (!mapRef.value) return
-  map = L.map(mapRef.value, { scrollWheelZoom: false }).setView([props.lat || 14.03, props.lng || 121.58], props.zoom)
+  onMounted(() => {
+    // Create map only if element exists
+    if (!mapRef.value) return
+    map = L.map(mapRef.value, { scrollWheelZoom: false }).setView([props.lat || 14.03, props.lng || 121.58], props.zoom)
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors',
-  }).addTo(map)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+    }).addTo(map)
 
-  if (props.marker && props.lat != null && props.lng != null) {
-    markerLayer = L.circleMarker([props.lat, props.lng], { radius: MARKER_CIRCLE_RADIUS, color: CHART_COLORS[0], weight: MARKER_CIRCLE_WEIGHT }).addTo(map)
-  }
-})
-
-onBeforeUnmount(() => {
-  if (map) {
-    map.remove()
-    map = null
-  }
-})
-
-// update view when props change
-watch(() => [props.lat, props.lng, props.zoom], ([lat, lng, zoom]) => {
-  if (!map) return
-  if (lat != null && lng != null) {
-    map.setView([lat, lng], zoom || map.getZoom())
-    if (markerLayer) {
-      markerLayer.setLatLng([lat, lng])
-    } else if (props.marker) {
-      markerLayer = L.circleMarker([lat, lng], { radius: MARKER_CIRCLE_RADIUS, color: CHART_COLORS[0], weight: MARKER_CIRCLE_WEIGHT }).addTo(map)
+    if (props.marker && props.lat != null && props.lng != null) {
+      markerLayer = L.circleMarker([props.lat, props.lng], { radius: MARKER_CIRCLE_RADIUS, color: CHART_COLORS[0], weight: MARKER_CIRCLE_WEIGHT }).addTo(map)
     }
-  }
-})
+  })
+
+  onBeforeUnmount(() => {
+    if (map) {
+      map.remove()
+      map = null
+    }
+  })
+
+  // update view when props change
+  watch(() => [props.lat, props.lng, props.zoom], ([lat, lng, zoom]) => {
+    if (!map) return
+    if (lat != null && lng != null) {
+      map.setView([lat, lng], zoom || map.getZoom())
+      if (markerLayer) {
+        markerLayer.setLatLng([lat, lng])
+      } else if (props.marker) {
+        markerLayer = L.circleMarker([lat, lng], { radius: MARKER_CIRCLE_RADIUS, color: CHART_COLORS[0], weight: MARKER_CIRCLE_WEIGHT }).addTo(map)
+      }
+    }
+  })
 </script>
 
 <template>

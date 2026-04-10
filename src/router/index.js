@@ -11,8 +11,10 @@ import { routes } from 'vue-router/auto-routes'
 import { MOBILE_BREAKPOINT_PX } from '@/config/constants.js'
 
 // Add a guard to force small-screen users to the mobile-warning page (non-dismissible)
-function isSmallScreen() {
-  if (typeof window === 'undefined') return false
+function isSmallScreen () {
+  if (typeof window === 'undefined') {
+    return false
+  }
   try {
     return window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`).matches
   } catch {
@@ -28,12 +30,12 @@ const router = createRouter({
 // Global guard: on small screens redirect everything to the mobile warning page.
 router.beforeEach((to, from, next) => {
   try {
-    if (isSmallScreen()) {
-      if (to.fullPath !== '/mobile-warning') return next({ path: '/mobile-warning' })
+    if (isSmallScreen() && to.fullPath !== '/mobile-warning') {
+      return next({ path: '/mobile-warning' })
     }
-  } catch (e) {
+  } catch (error) {
     // if anything goes wrong, don't block navigation
-    console.error('mobile-warning guard error', e)
+    console.error('mobile-warning guard error', error)
   }
   return next()
 })

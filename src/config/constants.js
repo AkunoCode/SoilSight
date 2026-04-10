@@ -26,10 +26,10 @@ export const MAP_INITIAL_PAN_X = -160
 export const SEARCH_DEBOUNCE_MS = 180
 
 // ── Markers ──────────────────────────────────────────────────────────
-export const MARKER_COLOR_INTEGRATED  = '#FF9800'
-export const MARKER_COLOR_ORGANIC     = '#4CAF50'
+export const MARKER_COLOR_INTEGRATED = '#FF9800'
+export const MARKER_COLOR_ORGANIC = '#4CAF50'
 export const MARKER_COLOR_CONVENTIONAL = '#19568E'
-export const MARKER_COLOR_OTHER       = '#757575'
+export const MARKER_COLOR_OTHER = '#757575'
 
 /** Minimum marker diameter in pixels (used for sites with lowest MP count) */
 export const MARKER_SIZE_MIN = 15
@@ -46,11 +46,11 @@ export const MARKER_CIRCLE_WEIGHT = 2
 // ── Microplastic size buckets ─────────────────────────────────────────
 /** Ordered size range definitions shared by useInsightData and [farm_name].vue */
 export const MP_SIZE_BUCKETS = [
-  { label: '1-20 µm',     min: 1,    max: 20   },
-  { label: '20-100 µm',   min: 20,   max: 100  },
-  { label: '100-500 µm',  min: 100,  max: 500  },
-  { label: '500 µm-1 mm', min: 500,  max: 1000 },
-  { label: '1-5 mm',      min: 1000, max: 5000 },
+  { label: '1-20 µm', min: 1, max: 20 },
+  { label: '20-100 µm', min: 20, max: 100 },
+  { label: '100-500 µm', min: 100, max: 500 },
+  { label: '500 µm-1 mm', min: 500, max: 1000 },
+  { label: '1-5 mm', min: 1000, max: 5000 },
 ]
 
 // ── Responsive ───────────────────────────────────────────────────────

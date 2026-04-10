@@ -21,83 +21,84 @@ export default defineConfig(({ mode }) => {
   const basePath = env.VITE_BASE_PATH || '/'
 
   return {
-  base: basePath,
-  plugins: [
-    VueRouter(),
-    Layouts(),
-    Vue({
-      template: { transformAssetUrls },
-    }),
-    // https://github.com/vuetifyjs/vuetify-loader/tree/master/packages/vite-plugin#readme
-    Vuetify({
-      autoImport: true,
-      styles: {
-        configFile: 'src/styles/settings.scss',
-      },
-    }),
-    Components(),
-    Fonts({
-      google: {
-        families: [{
-          name: 'Roboto',
-          styles: 'wght@100;300;400;500;700;900',
-        }],
-      },
-    }),
-    AutoImport({
-      imports: [
-        'vue',
-        VueRouterAutoImports,
-        {
-          pinia: ['defineStore', 'storeToRefs'],
+    base: basePath,
+    plugins: [
+      VueRouter(),
+      Layouts(),
+      Vue({
+        template: { transformAssetUrls },
+      }),
+      // https://github.com/vuetifyjs/vuetify-loader/tree/master/packages/vite-plugin#readme
+      Vuetify({
+        autoImport: true,
+        styles: {
+          configFile: 'src/styles/settings.scss',
         },
+      }),
+      Components(),
+      Fonts({
+        google: {
+          families: [{
+            name: 'Roboto',
+            styles: 'wght@100;300;400;500;700;900',
+          }],
+        },
+      }),
+      AutoImport({
+        imports: [
+          'vue',
+          VueRouterAutoImports,
+          {
+            pinia: ['defineStore', 'storeToRefs'],
+          },
+        ],
+        eslintrc: {
+          enabled: true,
+        },
+        vueTemplate: true,
+      }),
+    ],
+    optimizeDeps: {
+      exclude: [
+        'vuetify',
+        'vue-router',
+        'unplugin-vue-router/runtime',
+        'unplugin-vue-router/data-loaders',
+        'unplugin-vue-router/data-loaders/basic',
       ],
-      eslintrc: {
-        enabled: true,
-      },
-      vueTemplate: true,
-    }),
-  ],
-  optimizeDeps: {
-    exclude: [
-      'vuetify',
-      'vue-router',
-      'unplugin-vue-router/runtime',
-      'unplugin-vue-router/data-loaders',
-      'unplugin-vue-router/data-loaders/basic',
-    ],
-  },
-  define: { 'process.env': {} },
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('src', import.meta.url)),
     },
-    extensions: [
-      '.js',
-      '.json',
-      '.jsx',
-      '.mjs',
-      '.ts',
-      '.tsx',
-      '.vue',
-    ],
-  },
-  test: {
-    environment: 'happy-dom',
-    globals: true,
-  },
-  server: {
-    port: 3000,
-    proxy: {
-      '/api/directus': {
-        target: env.DIRECTUS_URL,
-        changeOrigin: true,
-        secure: false,
-        headers: {
-          authorization: `Bearer ${env.DIRECTUS_TOKEN || ''}`,
+    define: { 'process.env': {} },
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('src', import.meta.url)),
+      },
+      extensions: [
+        '.js',
+        '.json',
+        '.jsx',
+        '.mjs',
+        '.ts',
+        '.tsx',
+        '.vue',
+      ],
+    },
+    test: {
+      environment: 'happy-dom',
+      globals: true,
+    },
+    server: {
+      port: 3000,
+      proxy: {
+        '/api/directus': {
+          target: env.DIRECTUS_URL,
+          changeOrigin: true,
+          secure: false,
+          headers: {
+            authorization: `Bearer ${env.DIRECTUS_TOKEN || ''}`,
+          },
+          rewrite: path => path.replace(/^\/api\/directus/, ''),
         },
-        rewrite: (path) => path.replace(/^\/api\/directus/, ''),
       },
     },
-  },
-}})
+  }
+})

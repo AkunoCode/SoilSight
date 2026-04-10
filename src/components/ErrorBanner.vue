@@ -1,6 +1,6 @@
 <template>
   <div class="error-banner" role="alert">
-    <span class="error-banner__icon" aria-hidden="true">⚠</span>
+    <span aria-hidden="true" class="error-banner__icon">⚠</span>
     <span class="error-banner__message">{{ message }}</span>
     <button class="error-banner__retry" data-testid="retry-btn" @click="$emit('retry')">
       Retry
@@ -9,8 +9,8 @@
 </template>
 
 <script setup>
-defineProps({ message: { type: String, required: true } })
-defineEmits(['retry'])
+  defineProps({ message: { type: String, required: true } })
+  defineEmits(['retry'])
 </script>
 
 <style scoped>

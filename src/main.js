@@ -4,11 +4,11 @@
  * Bootstraps Vuetify and other plugins then mounts the App`
  */
 
+import { SpeedInsights } from '@vercel/speed-insights/vue'
+
 // Composables
 import { createApp } from 'vue'
-
 import VueApexCharts from 'vue3-apexcharts'
-import { SpeedInsights } from '@vercel/speed-insights/vue'
 
 // Plugins
 import { registerPlugins } from '@/plugins'

@@ -1,4 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import directus from '@/composables/useDirectus.js'
+
 import { useInsightData } from './useInsightData.js'
 
 // Mock the directus client
@@ -8,11 +10,9 @@ vi.mock('@/composables/useDirectus.js', () => ({
   },
 }))
 
-import directus from '@/composables/useDirectus.js'
-
 const MOCK_SITES = [
   { id: 1, site_name: 'Alpha Farm', fragment_count: 10, soilsamples: [] },
-  { id: 2, site_name: 'Beta Farm',  fragment_count: 5,  soilsamples: [] },
+  { id: 2, site_name: 'Beta Farm', fragment_count: 5, soilsamples: [] },
 ]
 
 beforeEach(() => {

@@ -1,19 +1,21 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { ref } from 'vue'
 import { useInsightKPIs } from './useInsightKPIs.js'
 
 // Factory for a minimal site object
-const makeSite = (overrides = {}) => ({
-  fragment_count: 10,
-  fiber_count: 5,
-  foam_count: 2,
-  film_count: 3,
-  sheets_count: 1,
-  soilsamples: [{ mass_kg: 1 }],
-  site_name: 'Test Farm',
-  cultivation_practice: 'conventional',
-  ...overrides,
-})
+function makeSite (overrides = {}) {
+  return {
+    fragment_count: 10,
+    fiber_count: 5,
+    foam_count: 2,
+    film_count: 3,
+    sheets_count: 1,
+    soilsamples: [{ mass_kg: 1 }],
+    site_name: 'Test Farm',
+    cultivation_practice: 'conventional',
+    ...overrides,
+  }
+}
 
 describe('useInsightKPIs', () => {
   describe('microplasticTotals', () => {

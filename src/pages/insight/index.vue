@@ -1,67 +1,75 @@
 <script setup>
-import { onMounted, watch } from 'vue'
-import { useAppStore } from '@/stores/app'
-import { useRouter } from 'vue-router'
-import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
-import { useInsightData } from '@/composables/useInsightData.js'
-import { useInsightKPIs } from '@/composables/useInsightKPIs.js'
-import { useInsightCharts } from '@/composables/useInsightCharts.js'
-import { MP_COLOR_MAP } from '@/config/chartPalette.js'
+  import { onMounted, watch } from 'vue'
+  import { useRouter } from 'vue-router'
+  import { useInsightCharts } from '@/composables/useInsightCharts.js'
+  import { useInsightData } from '@/composables/useInsightData.js'
+  import { useInsightKPIs } from '@/composables/useInsightKPIs.js'
+  import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
+  import { MP_COLOR_MAP } from '@/config/chartPalette.js'
+  import { useAppStore } from '@/stores/app'
 
-const router = useRouter()
-const app    = useAppStore()
-const { displayLatestSampleDate, fetchLatestSampleDate } = useLatestSampleDate()
+  const router = useRouter()
+  const app = useAppStore()
+  const { displayLatestSampleDate, fetchLatestSampleDate } = useLatestSampleDate()
 
-const {
-  sites, loading, error,
-  colorData, colorLoading,
-  sizeData, selectedSizeField,
-  loadAll, fetchSizeData,
-} = useInsightData()
+  const {
+    sites, loading, error,
+    colorData, colorLoading,
+    sizeData, selectedSizeField,
+    loadAll, fetchSizeData,
+  } = useInsightData()
 
-const {
-  microplasticTotals,
-  avgContaminationDensity,
-  dominantPollutant,
-  highestRiskSite,
-} = useInsightKPIs(sites, colorData)
+  const {
+    microplasticTotals,
+    avgContaminationDensity,
+    dominantPollutant,
+    highestRiskSite,
+  } = useInsightKPIs(sites, colorData)
 
-const {
-  siteCategories, siteTotals, siteDrilldown,
-  inputTotals, inputDrilldown,
-  textures, textureTotals, textureDrilldown,
-  contaminationByPracticeSeries, contaminationByPracticeOptions,
-  biologicalRiskData,
-  farmSizeSeries, farmSizeOptions,
-  topCrops,
-} = useInsightCharts(sites, sizeData)
+  const {
+    siteCategories, siteTotals, siteDrilldown,
+    inputTotals, inputDrilldown,
+    textures, textureTotals, textureDrilldown,
+    contaminationByPracticeSeries, contaminationByPracticeOptions,
+    biologicalRiskData,
+    farmSizeSeries, farmSizeOptions,
+    topCrops,
+  } = useInsightCharts(sites, sizeData)
 
-const mpColors       = { ...MP_COLOR_MAP }
-const donutColors    = { ...MP_COLOR_MAP }
-const donutLabelsMap = { fragments: 'Fragments', fibers: 'Fibers', foams: 'Foam', films: 'Films', sheets: 'Sheets' }
+  const mpColors = { ...MP_COLOR_MAP }
+  const donutColors = { ...MP_COLOR_MAP }
+  const donutLabelsMap = { fragments: 'Fragments', fibers: 'Fibers', foams: 'Foam', films: 'Films', sheets: 'Sheets' }
 
-// microplasticData shape expected by MPDonutChart
-const microplasticData = microplasticTotals
+  // microplasticData shape expected by MPDonutChart
+  const microplasticData = microplasticTotals
 
-// Aliases — template uses these original variable names; renaming would require template changes
-const colorComparisonLoading = colorLoading
-const colorComparisonAll     = colorData
-const sizeComparisonAll      = sizeData
+  // Aliases — template uses these original variable names; renaming would require template changes
+  const colorComparisonLoading = colorLoading
+  const colorComparisonAll = colorData
+  const sizeComparisonAll = sizeData
 
-function handleLegendClick(key) { app.toggleSelectedMorphology(key) }
-function printReport() { window.print() }
-
-watch(selectedSizeField, newVal => fetchSizeData(newVal))
-
-onMounted(async () => {
-  try {
-    app.startLoading()
-    await loadAll()
-    try { await fetchLatestSampleDate() } catch { /* non-critical */ }
-  } finally {
-    try { app.finishLoading() } catch { /* ignore */ }
+  function handleLegendClick (key) {
+    app.toggleSelectedMorphology(key)
   }
-})
+  function printReport () {
+    window.print()
+  }
+
+  watch(selectedSizeField, newVal => fetchSizeData(newVal))
+
+  onMounted(async () => {
+    try {
+      app.startLoading()
+      await loadAll()
+      try {
+        await fetchLatestSampleDate()
+      } catch { /* non-critical */ }
+    } finally {
+      try {
+        app.finishLoading()
+      } catch { /* ignore */ }
+    }
+  })
 </script>
 
 <template>
@@ -69,10 +77,10 @@ onMounted(async () => {
     <header class="page-header">
       <div class="d-flex align-center">
         <VBtn
+          aria-label="Go back"
+          color="grey"
           icon
           variant="text"
-          color="grey"
-          aria-label="Go back"
           @click="$router.back()"
         >
           <VIcon size="x-large">mdi-menu-left</VIcon>
@@ -89,23 +97,31 @@ onMounted(async () => {
 
     <div class="columns">
       <VSkeletonLoader v-if="loading" type="card" />
-      <KPI v-else title="Number of Sites Sampled" :value="`${sites.length} Farms`" subtitle="Within Tayabas, Quezon" />
+      <KPI v-else subtitle="Within Tayabas, Quezon" title="Number of Sites Sampled" :value="`${sites.length} Farms`" />
       <VSkeletonLoader v-if="loading" type="card" />
-      <KPI v-else title="Avg. Contamination Density" :value="`${avgContaminationDensity} MP/kg`"
-        subtitle="Averaged across all sites" />
+      <KPI
+        v-else
+        subtitle="Averaged across all sites"
+        title="Avg. Contamination Density"
+        :value="`${avgContaminationDensity} MP/kg`"
+      />
       <VSkeletonLoader v-if="loading" type="card" />
-      <KPI v-else title="Dominant Pollutant" :value="dominantPollutant" subtitle="Among 5 shapes detected" />
+      <KPI v-else subtitle="Among 5 shapes detected" title="Dominant Pollutant" :value="dominantPollutant" />
       <VSkeletonLoader v-if="loading" type="card" />
-      <KPI v-else title="Highest Risk Site" :value="`${highestRiskSite.name} Farm`"
-        :subtitle="`${highestRiskSite.density} MP`" />
-      <VSkeletonLoader v-if="loading" type="button" width="160" height="60" />
+      <KPI
+        v-else
+        :subtitle="`${highestRiskSite.density} MP`"
+        title="Highest Risk Site"
+        :value="`${highestRiskSite.name} Farm`"
+      />
+      <VSkeletonLoader v-if="loading" height="60" type="button" width="160" />
       <div
         v-else
-        class="d-flex align-center justify-center bg-blue ga-2 rounded-lg cursor-pointer"
-        style="box-shadow: 0 1px 6px rgba(0, 0, 0, .06);"
-        role="button"
-        tabindex="0"
         aria-label="Print report"
+        class="d-flex align-center justify-center bg-blue ga-2 rounded-lg cursor-pointer"
+        role="button"
+        style="box-shadow: 0 1px 6px rgba(0, 0, 0, .06);"
+        tabindex="0"
         @click="printReport"
         @keydown.enter="printReport"
         @keydown.space.prevent="printReport"
@@ -134,68 +150,91 @@ onMounted(async () => {
     <VRow class="mt-2">
       <VCol cols="4">
         <div class="card">
-          <VSkeletonLoader v-if="loading" type="image" height="400" />
-          <MPPracticeBar v-else :height="400" :options="contaminationByPracticeOptions" :series="contaminationByPracticeSeries"
-            :subtitle="`Data as of ${displayLatestSampleDate}`" title="Contamination Comparison by Farm Practices"
-            :filter-key="app.selectedMorphology" />
+          <VSkeletonLoader v-if="loading" height="400" type="image" />
+          <MPPracticeBar
+            v-else
+            :filter-key="app.selectedMorphology"
+            :height="400"
+            :options="contaminationByPracticeOptions"
+            :series="contaminationByPracticeSeries"
+            :subtitle="`Data as of ${displayLatestSampleDate}`"
+            title="Contamination Comparison by Farm Practices"
+          />
         </div>
       </VCol>
       <VCol cols="4">
         <div class="card">
           <template v-if="loading">
             <VSkeletonLoader type="heading" />
-            <VSkeletonLoader type="image" height="400" class="mt-2" />
+            <VSkeletonLoader class="mt-2" height="400" type="image" />
           </template>
           <template v-else>
             <h3>Source Identification Heatmap</h3>
             <p class="subtitle mb-2">Microplastic Counts by Source and Plastic Type</p>
-            <SourceIdentificationHeatmap :sites="sites" height="400" />
+            <SourceIdentificationHeatmap height="400" :sites="sites" />
           </template>
         </div>
       </VCol>
       <VCol cols="4">
         <div class="card">
-          <VSkeletonLoader v-if="loading" type="image" height="400" />
-          <SourceDegradationIndex v-else :sites="sites" height="400" />
+          <VSkeletonLoader v-if="loading" height="400" type="image" />
+          <SourceDegradationIndex v-else height="400" :sites="sites" />
         </div>
       </VCol>
     </VRow>
 
     <VRow class="mt-2">
       <VCol cols="5">
-        <div class="card" aria-label="Microplastic morphology distribution donut chart">
-          <VSkeletonLoader v-if="loading" type="image" height="360" />
-          <MPDonutChart v-else :height="360" :active-key="app.selectedMorphology" :colors="donutColors"
-            :labels-map="donutLabelsMap" :microplastic-data="microplasticData" @selection="handleLegendClick"
-            :subtitle="`Data as of ${displayLatestSampleDate}`" />
+        <div aria-label="Microplastic morphology distribution donut chart" class="card">
+          <VSkeletonLoader v-if="loading" height="360" type="image" />
+          <MPDonutChart
+            v-else
+            :active-key="app.selectedMorphology"
+            :colors="donutColors"
+            :height="360"
+            :labels-map="donutLabelsMap"
+            :microplastic-data="microplasticData"
+            :subtitle="`Data as of ${displayLatestSampleDate}`"
+            @selection="handleLegendClick"
+          />
         </div>
       </VCol>
 
       <VCol cols="7">
         <div class="card">
-          <VSkeletonLoader v-if="loading" type="image" height="360" />
-          <BiologicalRiskChart v-else :height="360" :data="biologicalRiskData"
+          <VSkeletonLoader v-if="loading" height="360" type="image" />
+          <BiologicalRiskChart
+            v-else
+            :data="biologicalRiskData"
+            :height="360"
             :loading="!sizeComparisonAll || !sizeComparisonAll.categories?.length"
-            :subtitle="`Data as of ${displayLatestSampleDate}`" />
+            :subtitle="`Data as of ${displayLatestSampleDate}`"
+          />
         </div>
       </VCol>
     </VRow>
 
     <VRow class="mt-2">
       <VCol cols="6">
-        <div class="card" aria-label="Soil trap efficiency boxplot chart">
-          <VSkeletonLoader v-if="loading" type="image" height="360" />
-          <SoilTrapEfficiencyBoxplot v-else :sites="sites" height="360" />
+        <div aria-label="Soil trap efficiency boxplot chart" class="card">
+          <VSkeletonLoader v-if="loading" height="360" type="image" />
+          <SoilTrapEfficiencyBoxplot v-else height="360" :sites="sites" />
         </div>
       </VCol>
       <VCol cols="6">
         <div class="card">
-          <VSkeletonLoader v-if="loading || colorComparisonLoading" type="image" height="360" />
+          <VSkeletonLoader v-if="loading || colorComparisonLoading" height="360" type="image" />
           <template v-else-if="colorComparisonAll && colorComparisonAll.totals && colorComparisonAll.totals.length > 0">
-            <SiteDrilldownChart :categories="colorComparisonAll.categories"
-              :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']" :colors="mpColors"
-              :drilldown="colorComparisonAll.drilldown" :height="360" title="Microplastic Count by Color"
-              :totals="colorComparisonAll.totals" :filter-key="app.selectedMorphology" />
+            <SiteDrilldownChart
+              :categories="colorComparisonAll.categories"
+              :category-labels="['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets']"
+              :colors="mpColors"
+              :drilldown="colorComparisonAll.drilldown"
+              :filter-key="app.selectedMorphology"
+              :height="360"
+              title="Microplastic Count by Color"
+              :totals="colorComparisonAll.totals"
+            />
           </template>
           <template v-else>
             <div style="padding: 20px; text-align:center; color: #666;">
@@ -209,9 +248,15 @@ onMounted(async () => {
 
     <VRow class="mt-2">
       <VCol cols="12">
-        <VSkeletonLoader v-if="loading" type="image" height="340" />
-        <MonthlyTrendChart v-else :height="340" :colors="mpColors" :microplastic-data="microplasticData"
-          :subtitle="`Data as of ${displayLatestSampleDate}`" :filter-key="app.selectedMorphology" />
+        <VSkeletonLoader v-if="loading" height="340" type="image" />
+        <MonthlyTrendChart
+          v-else
+          :colors="mpColors"
+          :filter-key="app.selectedMorphology"
+          :height="340"
+          :microplastic-data="microplasticData"
+          :subtitle="`Data as of ${displayLatestSampleDate}`"
+        />
       </VCol>
     </VRow>
   </div>

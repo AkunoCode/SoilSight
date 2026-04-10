@@ -1,6 +1,6 @@
 import { CHART_COLORS } from '@/config/chartPalette.js'
 
-export function getDefaultBarOptions(categories = [], overrides = {}) {
+export function getDefaultBarOptions (categories = [], overrides = {}) {
   const base = {
     chart: { type: 'bar', height: 300, toolbar: { show: false } },
     colors: CHART_COLORS,
@@ -20,7 +20,7 @@ export function getDefaultBarOptions(categories = [], overrides = {}) {
     fill: { opacity: 1 },
     tooltip: {
       y: {
-        formatter(val) {
+        formatter (val) {
           return val + ' thousands'
         },
       },

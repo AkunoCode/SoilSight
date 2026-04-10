@@ -3,7 +3,7 @@
     <div v-if="store.loading" class="loading-overlay">
       <div class="loading-card">
         <div class="loading-icon">
-          <VIcon size="32" color="primary">mdi-sprout</VIcon>
+          <VIcon color="primary" size="32">mdi-sprout</VIcon>
         </div>
         <div class="loading-dots">
           <span class="dot" />
@@ -17,18 +17,17 @@
 </template>
 
 <script setup>
-import { useAppStore } from '@/stores/app'
-import { watch } from 'vue'
-const store = useAppStore()
+  import { watch } from 'vue'
+  import { useAppStore } from '@/stores/app'
+  const store = useAppStore()
 
-watch(() => store.loading, (val) => {
-  try {
-    if (val) document.body.classList.add('loading-active')
-    else document.body.classList.remove('loading-active')
-  } catch {
+  watch(() => store.loading, val => {
+    try {
+      document.body.classList.toggle('loading-active', val)
+    } catch {
     // ignore in SSR
-  }
-}, { immediate: true })
+    }
+  }, { immediate: true })
 </script>
 
 <style scoped>

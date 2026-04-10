@@ -19,7 +19,9 @@
       "Bash(pnpm add:*)",
       "Bash(node -e \"import\\('boneyard-js/vue'\\).then\\(\\(\\) => console.log\\('ok'\\)\\)\")",
       "Bash(node --input-type=module -e \"import\\('./src/config/constants.js'\\).then\\(\\(\\) => console.log\\('ok'\\)\\)\")",
-      "Bash(pnpm remove:*)"
+      "Bash(pnpm remove:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(grep -E \"branch|detach|$\\(pwd\\)\")"
     ]
   }
 }

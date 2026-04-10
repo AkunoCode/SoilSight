@@ -8,5 +8,5 @@
 </template>
 
 <script setup>
-import LoadingOverlay from '@/components/LoadingOverlay.vue'
+  import LoadingOverlay from '@/components/LoadingOverlay.vue'
 </script>

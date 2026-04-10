@@ -7,11 +7,11 @@
 </template>
 
 <script setup>
-const props = defineProps({
-  title: { type: String, default: '' },
-  value: { type: [String, Number], default: '' },
-  subtitle: { type: String, default: '' }
-})
+  const props = defineProps({
+    title: { type: String, default: '' },
+    value: { type: [String, Number], default: '' },
+    subtitle: { type: String, default: '' },
+  })
 </script>
 
 <style scoped>

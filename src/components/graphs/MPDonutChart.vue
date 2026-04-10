@@ -1,113 +1,113 @@
 <script setup>
-import { computed } from 'vue'
-import ApexChartBase from './ApexChartBase.vue'
-import { MP_COLOR_MAP } from '@/config/chartPalette.js'
+  import { computed } from 'vue'
+  import { MP_COLOR_MAP } from '@/config/chartPalette.js'
+  import ApexChartBase from './ApexChartBase.vue'
 
-const props = defineProps({
-  microplasticData: { type: Object, required: true },
-  activeKey: { type: String, default: null },
-  title: { type: String, default: 'Total Microplastic Waste per Morphological Category' },
-  subtitle: { type: String, default: '' },
-  // CHANGE: Default height to '100%' to fill container
-  height: { type: [Number, String], default: '100%' },
+  const props = defineProps({
+    microplasticData: { type: Object, required: true },
+    activeKey: { type: String, default: null },
+    title: { type: String, default: 'Total Microplastic Waste per Morphological Category' },
+    subtitle: { type: String, default: '' },
+    // CHANGE: Default height to '100%' to fill container
+    height: { type: [Number, String], default: '100%' },
 
-  labelsMap: {
-    type: Object,
-    default: () => ({
-      fragments: 'Fragments', fibers: 'Fibers', foams: 'Foam', films: 'Films', sheets: 'Sheets'
-    })
-  },
-  colors: {
-    type: Object,
-    default: () => ({ ...MP_COLOR_MAP })
-  }
-})
-
-const emit = defineEmits(['selection'])
-const ORDERED_KEYS = ['fragments', 'fibers', 'foams', 'films', 'sheets']
-
-// --- Data Logic ---
-const rawValues = computed(() => ORDERED_KEYS.map(k => props.microplasticData[k] || 0))
-const total = computed(() => rawValues.value.reduce((a, b) => a + b, 0))
-const hasData = computed(() => total.value > 0)
-
-const percentages = computed(() => {
-  const res = {}
-  ORDERED_KEYS.forEach(k => {
-    const val = props.microplasticData[k] || 0
-    res[k] = total.value ? Math.round((val / total.value) * 100) : 0
+    labelsMap: {
+      type: Object,
+      default: () => ({
+        fragments: 'Fragments', fibers: 'Fibers', foams: 'Foam', films: 'Films', sheets: 'Sheets',
+      }),
+    },
+    colors: {
+      type: Object,
+      default: () => ({ ...MP_COLOR_MAP }),
+    },
   })
-  return res
-})
 
-// --- Chart Logic ---
-const chartSeries = computed(() => {
-  if (props.activeKey) {
-    return [props.microplasticData[props.activeKey] || 0]
-  }
-  return rawValues.value
-})
+  const emit = defineEmits(['selection'])
+  const ORDERED_KEYS = ['fragments', 'fibers', 'foams', 'films', 'sheets']
 
-const chartOptions = computed(() => {
-  const currentKeys = props.activeKey ? [props.activeKey] : ORDERED_KEYS
+  // --- Data Logic ---
+  const rawValues = computed(() => ORDERED_KEYS.map(k => props.microplasticData[k] || 0))
+  const total = computed(() => rawValues.value.reduce((a, b) => a + b, 0))
+  const hasData = computed(() => total.value > 0)
 
-  return {
-    chart: {
-      type: 'donut',
-      // CHANGE: Use prop height (likely '100%')
-      height: props.height,
-      fontFamily: 'inherit',
-      toolbar: { show: false },
-      // CHANGE: Remove strict parentHeightOffset to allow better flex filling
-      parentHeightOffset: 0,
-      events: {
-        dataPointSelection: (e, chart, config) => {
-          if (!props.activeKey) {
-            const key = ORDERED_KEYS[config.dataPointIndex]
-            emit('selection', key)
-          } else {
-            emit('selection', null)
-          }
-        }
-      }
-    },
-    labels: currentKeys.map(k => props.labelsMap[k]),
-    colors: currentKeys.map(k => props.colors[k] || '#ccc'),
-    dataLabels: { enabled: false },
-    legend: { show: false },
-    plotOptions: {
-      pie: {
-        donut: {
-          size: '70%',
-          labels: {
-            show: true,
-            name: { show: true, fontSize: '14px', color: '#6b7280' },
-            value: { show: true, fontSize: '24px', fontWeight: 700 },
-            total: {
-              show: true,
-              showAlways: true,
-              label: props.activeKey ? props.labelsMap[props.activeKey] : 'Total MP',
-              formatter: () => {
-                const val = props.activeKey
-                  ? (props.microplasticData[props.activeKey] || 0)
-                  : total.value
+  const percentages = computed(() => {
+    const res = {}
+    for (const k of ORDERED_KEYS) {
+      const val = props.microplasticData[k] || 0
+      res[k] = total.value ? Math.round((val / total.value) * 100) : 0
+    }
+    return res
+  })
 
-                if (val >= 1e6) return (val / 1e6).toFixed(1) + 'M'
-                if (val >= 1e3) return (val / 1e3).toFixed(1) + 'K'
-                return val.toLocaleString()
-              }
+  // --- Chart Logic ---
+  const chartSeries = computed(() => {
+    if (props.activeKey) {
+      return [props.microplasticData[props.activeKey] || 0]
+    }
+    return rawValues.value
+  })
+
+  const chartOptions = computed(() => {
+    const currentKeys = props.activeKey ? [props.activeKey] : ORDERED_KEYS
+
+    return {
+      chart: {
+        type: 'donut',
+        // CHANGE: Use prop height (likely '100%')
+        height: props.height,
+        fontFamily: 'inherit',
+        toolbar: { show: false },
+        // CHANGE: Remove strict parentHeightOffset to allow better flex filling
+        parentHeightOffset: 0,
+        events: {
+          dataPointSelection: (e, chart, config) => {
+            if (props.activeKey) {
+              emit('selection', null)
+            } else {
+              const key = ORDERED_KEYS[config.dataPointIndex]
+              emit('selection', key)
             }
-          }
-        }
-      }
-    },
-    stroke: { show: false }
-  }
-})
+          },
+        },
+      },
+      labels: currentKeys.map(k => props.labelsMap[k]),
+      colors: currentKeys.map(k => props.colors[k] || '#ccc'),
+      dataLabels: { enabled: false },
+      legend: { show: false },
+      plotOptions: {
+        pie: {
+          donut: {
+            size: '70%',
+            labels: {
+              show: true,
+              name: { show: true, fontSize: '14px', color: '#6b7280' },
+              value: { show: true, fontSize: '24px', fontWeight: 700 },
+              total: {
+                show: true,
+                showAlways: true,
+                label: props.activeKey ? props.labelsMap[props.activeKey] : 'Total MP',
+                formatter: () => {
+                  const val = props.activeKey
+                    ? (props.microplasticData[props.activeKey] || 0)
+                    : total.value
 
-const handleLegendClick = (key) => {
-  emit('selection', props.activeKey === key ? null : key)
-}
+                  if (val >= 1e6) return (val / 1e6).toFixed(1) + 'M'
+                  if (val >= 1e3) return (val / 1e3).toFixed(1) + 'K'
+                  return val.toLocaleString()
+                },
+              },
+            },
+          },
+        },
+      },
+      stroke: { show: false },
+    }
+  })
+
+  function handleLegendClick (key) {
+    emit('selection', props.activeKey === key ? null : key)
+  }
 </script>
 
 <template>
@@ -127,11 +127,16 @@ const handleLegendClick = (key) => {
       </div>
 
       <div class="legend-col">
-        <div v-for="key in ORDERED_KEYS" :key="key" class="legend-item"
-          :class="{ 'inactive': activeKey && activeKey !== key }" :style="{ backgroundColor: colors[key] }"
-          @click="handleLegendClick(key)">
+        <div
+          v-for="key in ORDERED_KEYS"
+          :key="key"
+          class="legend-item"
+          :class="{ 'inactive': activeKey && activeKey !== key }"
+          :style="{ backgroundColor: colors[key] }"
+          @click="handleLegendClick(key)"
+        >
           <div class="percent">{{ percentages[key] }}%</div>
-          <div class="divider"></div>
+          <div class="divider" />
           <div class="info">
             <span class="label">{{ labelsMap[key] }}</span>
             <span class="count">{{ (microplasticData[key] || 0).toLocaleString() }}</span>

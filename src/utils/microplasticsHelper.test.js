@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
+  areaToDiameter,
   calculateTotalMP,
   morphologyIndex,
   sanitizeSiteName,
   siteHasActivity,
   toNumber,
-  areaToDiameter,
 } from './microplasticsHelper.js'
 
 describe('calculateTotalMP', () => {

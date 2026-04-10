@@ -1,12 +1,12 @@
 <template>
-    <div class="mobile-warning-page">
-        <div class="content">
-            <h1>Unsupported Screen Size</h1>
-            <p>This application is not available on small screens. Please open SoilSight on a tablet or desktop for the
-                full experience.</p>
-            <p class="muted">Layout and interactive charts require a larger viewport.</p>
-        </div>
+  <div class="mobile-warning-page">
+    <div class="content">
+      <h1>Unsupported Screen Size</h1>
+      <p>This application is not available on small screens. Please open SoilSight on a tablet or desktop for the
+        full experience.</p>
+      <p class="muted">Layout and interactive charts require a larger viewport.</p>
     </div>
+  </div>
 </template>
 
 <script setup>
