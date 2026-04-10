@@ -61,6 +61,16 @@ import { useAppStore } from '@/stores/app'
 import PreviewCard from '@/components/PreviewCard.vue'
 import directus from '@/composables/useDirectus'
 import { useMapMarkers } from '@/composables/useMapMarkers.js'
+import {
+  MAP_CENTER,
+  MAP_ZOOM_CITY,
+  MAP_ZOOM_REGION,
+  MAP_ZOOM_FARM,
+  MAP_ZOOM_MAX,
+  MAP_BOUNDS_PADDING,
+  MAP_INITIAL_PAN_X,
+  SEARCH_DEBOUNCE_MS,
+} from '@/config/constants.js'
 import 'leaflet/dist/leaflet.css'
 
 const selectedItem  = ref(null)
@@ -71,7 +81,7 @@ const searchText     = ref('')
 const selectedCategory = ref(null)
 const regionName    = ref('Quezon Province')
 const cityName      = ref('Tayabas City')
-const TAYABAS       = [13.9649, 121.5923]
+const TAYABAS       = MAP_CENTER
 const mapRef        = ref(null)
 let debounceTimer   = null
 const dataError     = ref(false)
@@ -106,12 +116,12 @@ function resetToOverview() {
 
 function gotoRegion() {
   resetToOverview()
-  if (mapRef.value) mapRef.value.setView(TAYABAS, 11)
+  if (mapRef.value) mapRef.value.setView(TAYABAS, MAP_ZOOM_REGION)
 }
 
 function gotoCity() {
   resetToOverview()
-  if (mapRef.value) mapRef.value.setView(TAYABAS, 13)
+  if (mapRef.value) mapRef.value.setView(TAYABAS, MAP_ZOOM_CITY)
 }
 
 function gotoFarm() {
@@ -119,7 +129,7 @@ function gotoFarm() {
   const item = selectedItem.value
   if (item.latitude && item.longitude) {
     mapRef.value.panTo([item.latitude, item.longitude])
-    mapRef.value.setZoom(16)
+    mapRef.value.setZoom(MAP_ZOOM_FARM)
   }
   if (previewCardRef.value?.raiseCard) previewCardRef.value.raiseCard()
 }
@@ -146,20 +156,20 @@ function applyFilters() {
 
 watch([searchText, selectedCategory], () => {
   if (debounceTimer) clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => applyFilters(), 180)
+  debounceTimer = setTimeout(() => applyFilters(), SEARCH_DEBOUNCE_MS)
 })
 
 onMounted(async () => {
   const app = useAppStore()
   await new Promise(resolve => setTimeout(resolve, 100))
   try {
-    const map = L.map('map', { zoomControl: false }).setView(TAYABAS, 13)
+    const map = L.map('map', { zoomControl: false }).setView(TAYABAS, MAP_ZOOM_CITY)
     mapRef.value = map
-    setTimeout(() => map.panBy([-160, 0]), 100)
+    setTimeout(() => map.panBy([MAP_INITIAL_PAN_X, 0]), 100)
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/">OSM</a> contributors',
-      maxZoom: 19,
+      maxZoom: MAP_ZOOM_MAX,
     }).addTo(map)
 
     map.on('click', resetToOverview)
@@ -189,7 +199,7 @@ onMounted(async () => {
         style: { color: CHART_COLORS[0], weight: 3, dashArray: '5, 5', fillColor: CHART_COLORS[0], fillOpacity: 0.1 },
         interactive: false,
       }).addTo(map)
-      map.fitBounds(geoLayer.getBounds(), { paddingTopLeft: [350, 50], paddingBottomRight: [50, 50] })
+      map.fitBounds(geoLayer.getBounds(), { paddingTopLeft: MAP_BOUNDS_PADDING.topLeft, paddingBottomRight: MAP_BOUNDS_PADDING.bottomRight })
       setTimeout(() => map.panBy([-100, 0]), 200)
     } catch (geoError) {
       console.error('Error adding GeoJSON:', geoError)
