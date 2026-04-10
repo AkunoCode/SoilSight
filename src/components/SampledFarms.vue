@@ -221,28 +221,32 @@
       </div>
     </div>
 
-    <ul :class="['sampled-farms', { 'no-max-height': !showMap }]">
-      <li
-        v-for="site in visibleSites"
-        :key="site.id"
-        class="farm-row"
-        @click="focusSite(site)"
-        @dblclick.prevent="navigateToSite(site)"
-      >
+    <v-virtual-scroll
+      :items="visibleSites"
+      :item-height="80"
+      :height="showMap ? 250 : 480"
+    >
+      <template #default="{ item: site }">
+        <div
+          :key="site.id"
+          class="farm-row"
+          @click="focusSite(site)"
+          @dblclick.prevent="navigateToSite(site)"
+        >
+          <div class="farm-left">
+            <div class="farm-name">{{ site.site_name }}</div>
+            <div class="farm-addr">{{ site.address }}</div>
+          </div>
 
-        <div class="farm-left">
-          <div class="farm-name">{{ site.site_name }}</div>
-          <div class="farm-addr">{{ site.address }}</div>
+          <div class="farm-right">
+            <div class="farm-density">{{ site.uiDensityLabel }} MP/kg</div>
+            <span class="practice-badge" :style="{ background: site.uiColor }">
+              {{ toTitleCase(site._practiceName) }}
+            </span>
+          </div>
         </div>
-
-        <div class="farm-right">
-          <div class="farm-density">{{ site.uiDensityLabel }} MP/kg</div>
-          <span class="practice-badge" :style="{ background: site.uiColor }">
-            {{ toTitleCase(site._practiceName) }}
-          </span>
-        </div>
-      </li>
-    </ul>
+      </template>
+    </v-virtual-scroll>
   </div>
 </template>
 
@@ -288,22 +292,6 @@
   border-color: #1976d2;
 }
 
-.sampled-farms {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 12px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-height: 250px;
-  overflow: auto;
-}
-
-.sampled-farms.no-max-height {
-  max-height: none;
-  overflow: visible;
-}
-
 .farm-row {
   display: flex;
   align-items: center;
@@ -313,6 +301,7 @@
   border-radius: 12px;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02) inset;
   cursor: pointer;
+  margin-bottom: 8px;
 }
 
 .farm-row:hover {
