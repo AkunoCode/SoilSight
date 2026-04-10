@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import directus from '@/composables/useDirectus.js'
 import { readItems } from '@directus/sdk'
 import { morphologyIndex, toNumber, areaToDiameter } from '@/utils/microplasticsHelper.js'
+import { MP_SIZE_BUCKETS } from '@/config/constants.js'
 
 export function useInsightData() {
   const sites        = ref([])
@@ -71,13 +72,7 @@ export function useInsightData() {
         sizeData.value = { categories: [], totals: [], drilldown: [], overviewColors: [] }
         return
       }
-      const buckets = [
-        { label: '1-20 µm',      min: 1,    max: 20   },
-        { label: '20-100 µm',    min: 20,   max: 100  },
-        { label: '100-500 µm',   min: 100,  max: 500  },
-        { label: '500 µm-1 mm',  min: 500,  max: 1000 },
-        { label: '1-5 mm',       min: 1000, max: 5000 },
-      ]
+      const buckets = MP_SIZE_BUCKETS
       const totals   = new Array(buckets.length).fill(0)
       const drilldown = new Array(buckets.length).fill(0).map(() => [0, 0, 0, 0, 0])
       for (const it of items) {
