@@ -9,6 +9,7 @@
 import L from 'leaflet'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { CHART_COLORS } from '@/config/chartPalette'
+import { MARKER_CIRCLE_RADIUS, MARKER_CIRCLE_WEIGHT } from '@/config/constants.js'
 import 'leaflet/dist/leaflet.css'
 
 const props = defineProps({
@@ -32,7 +33,7 @@ onMounted(() => {
   }).addTo(map)
 
   if (props.marker && props.lat != null && props.lng != null) {
-    markerLayer = L.circleMarker([props.lat, props.lng], { radius: 8, color: CHART_COLORS[0], weight: 2 }).addTo(map)
+    markerLayer = L.circleMarker([props.lat, props.lng], { radius: MARKER_CIRCLE_RADIUS, color: CHART_COLORS[0], weight: MARKER_CIRCLE_WEIGHT }).addTo(map)
   }
 })
 
@@ -51,7 +52,7 @@ watch(() => [props.lat, props.lng, props.zoom], ([lat, lng, zoom]) => {
     if (markerLayer) {
       markerLayer.setLatLng([lat, lng])
     } else if (props.marker) {
-      markerLayer = L.circleMarker([lat, lng], { radius: 8, color: CHART_COLORS[0], weight: 2 }).addTo(map)
+      markerLayer = L.circleMarker([lat, lng], { radius: MARKER_CIRCLE_RADIUS, color: CHART_COLORS[0], weight: MARKER_CIRCLE_WEIGHT }).addTo(map)
     }
   }
 })
