@@ -1,16 +1,24 @@
 import { ref } from 'vue'
 import L from 'leaflet'
 import { calculateTotalMP } from '@/utils/microplasticsHelper.js'
+import {
+  MARKER_COLOR_INTEGRATED,
+  MARKER_COLOR_ORGANIC,
+  MARKER_COLOR_CONVENTIONAL,
+  MARKER_COLOR_OTHER,
+  MARKER_SIZE_MIN,
+  MARKER_SIZE_MAX,
+} from '@/config/constants.js'
 
 export function useMapMarkers(allFarmsData, mapRef) {
   const markersRef = ref([])
 
   function getMarkerColor(practice) {
     const p = (practice || '').toLowerCase()
-    if (p.includes('integrated'))   return '#FF9800'
-    if (p.includes('organic'))      return '#4CAF50'
-    if (p.includes('conventional')) return '#19568E'
-    return '#757575'
+    if (p.includes('integrated'))   return MARKER_COLOR_INTEGRATED
+    if (p.includes('organic'))      return MARKER_COLOR_ORGANIC
+    if (p.includes('conventional')) return MARKER_COLOR_CONVENTIONAL
+    return MARKER_COLOR_OTHER
   }
 
   function createMarker(item) {
@@ -21,8 +29,8 @@ export function useMapMarkers(allFarmsData, mapRef) {
     const allMPs   = allFarmsData.value.map(f => calculateTotalMP(f)).filter(n => n > 0)
     const minMP    = Math.min(...allMPs, 1)
     const maxMP    = Math.max(...allMPs, 1)
-    const minSize  = 15
-    const maxSize  = 35
+    const minSize  = MARKER_SIZE_MIN
+    const maxSize  = MARKER_SIZE_MAX
     const markerSize = totalMP > 0
       ? minSize + ((totalMP - minMP) / (maxMP - minMP)) * (maxSize - minSize)
       : minSize
