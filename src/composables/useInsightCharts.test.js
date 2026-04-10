@@ -41,6 +41,14 @@ describe('useInsightCharts', () => {
       // index 0 = Fertilizer Sacks — site does not have this
       expect(inputTotals.value[0]).toBe(0)
     })
+
+    it('accumulates MP across multiple sites sharing the same input type', () => {
+      const siteA = makeSite({ plastic_activity: ['Plastic Mulching'], fragment_count: 10 })
+      const siteB = makeSite({ plastic_activity: ['Plastic Mulching'], fragment_count: 5 })
+      const { inputTotals } = useInsightCharts(ref([siteA, siteB]), ref(null))
+      // index 1 = Plastic Mulching; both sites contribute
+      expect(inputTotals.value[1]).toBe(37) // (10+5+2+3+1) + (5+5+2+3+1) = 21 + 16
+    })
   })
 
   describe('biologicalRiskData', () => {

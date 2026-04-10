@@ -26,18 +26,27 @@ export function useInsightCharts (sites, sizeData) {
     Number(s.sheets_count) || Number(s.sheet_count) || Number(s.sheets) || 0,
   ]))
 
+  // Groups sites by input type in a single O(N) pass.
+  // inputTotals and inputDrilldown read from this map instead of re-filtering.
+  const sitesByInput = computed(() => {
+    const map = new Map(INPUT_TYPES.map(t => [t, []]))
+    for (const s of sites.value) {
+      for (const type of INPUT_TYPES) {
+        if (siteHasActivity(s, type)) map.get(type).push(s)
+      }
+    }
+    return map
+  })
+
   const inputTotals = computed(() =>
     INPUT_TYPES.map(type =>
-      sites.value.reduce((acc, s) => siteHasActivity(s, type) ? acc + calculateTotalMP(s) : acc, 0),
+      sitesByInput.value.get(type).reduce((acc, s) => acc + calculateTotalMP(s), 0),
     ),
   )
 
   const inputDrilldown = computed(() =>
     INPUT_TYPES.map(type =>
-      sites.value.reduce((acc, s) => {
-        if (!siteHasActivity(s, type)) {
-          return acc
-        }
+      sitesByInput.value.get(type).reduce((acc, s) => {
         acc[0] += Number(s.fragment_count) || 0
         acc[1] += Number(s.fiber_count) || 0
         acc[2] += Number(s.foam_count) || 0
@@ -54,7 +63,9 @@ export function useInsightCharts (sites, sizeData) {
     const map = new Map()
     for (const s of sites.value) {
       const t = s.soil_type || 'Unknown'
-      if (!map.has(t)) map.set(t, [])
+      if (!map.has(t)) {
+        map.set(t, [])
+      }
       map.get(t).push(s)
     }
     return map
@@ -88,7 +99,9 @@ export function useInsightCharts (sites, sizeData) {
     for (const s of sites.value) {
       const p = (s.cultivation_practice || '').toLowerCase()
       for (const key of PRACTICE_KEYS) {
-        if (p.includes(key)) { map.get(key).push(s); break }
+        if (p.includes(key)) {
+          map.get(key).push(s); break
+        }
       }
     }
     return map
@@ -140,9 +153,9 @@ export function useInsightCharts (sites, sizeData) {
   const farmSizeCounts = computed(() => {
     const valid = sites.value.filter(s => s.land_area_ha != null && Number.isFinite(Number(s.land_area_ha)))
     return {
-      small:  valid.filter(s => s.land_area_ha < 1).length,
+      small: valid.filter(s => s.land_area_ha < 1).length,
       medium: valid.filter(s => s.land_area_ha >= 1 && s.land_area_ha <= 3).length,
-      large:  valid.filter(s => s.land_area_ha > 3).length,
+      large: valid.filter(s => s.land_area_ha > 3).length,
     }
   })
 
@@ -187,7 +200,7 @@ export function useInsightCharts (sites, sizeData) {
 
   return {
     siteCategories, siteTotals, siteDrilldown,
-    inputTotals, inputDrilldown,
+    sitesByInput, inputTotals, inputDrilldown,
     textures, textureTotals, textureDrilldown,
     contaminationByPracticeSeries, contaminationByPracticeOptions,
     biologicalRiskData,
