@@ -8,12 +8,13 @@ import { setupLayouts } from 'virtual:generated-layouts'
 // Composables
 import { createRouter, createWebHistory } from 'vue-router'
 import { routes } from 'vue-router/auto-routes'
+import { MOBILE_BREAKPOINT_PX } from '@/config/constants.js'
 
 // Add a guard to force small-screen users to the mobile-warning page (non-dismissible)
 function isSmallScreen() {
   if (typeof window === 'undefined') return false
   try {
-    return window.matchMedia('(max-width: 900px)').matches
+    return window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`).matches
   } catch {
     return false
   }
