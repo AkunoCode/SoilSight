@@ -1,0 +1,41 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | grep -E 'src/.*\\.(vue|js)$' | grep -v '\\.test\\.js$' | { read -r f; [ -n \"$f\" ] && cd /Users/kodecraft-carlo-rabe/SoilSight && pnpm lint --quiet 2>/dev/null || true; } || true",
+            "timeout": 30,
+            "statusMessage": "Linting...",
+            "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | grep -E 'src/composables/.*\\.js$' | grep -v '\\.test\\.js$' | { read -r f; [ -n \"$f\" ] && testfile=\"${f%.js}.test.js\" && [ -f \"$testfile\" ] && cd /Users/kodecraft-carlo-rabe/SoilSight && pnpm test \"$testfile\" --reporter=verbose 2>/dev/null || true; } || true",
+            "timeout": 60,
+            "statusMessage": "Running composable tests...",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"Reminder: press # to update CLAUDE.md with any new patterns or gotchas from this session.\"}'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

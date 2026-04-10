@@ -35,6 +35,9 @@ src/
 ├── assets/          Demo data (dummyData.json) and GeoJSON files
 ├── config/          Configuration files
 └── main.js          App entry point
+docs/
+├── plans/           Implementation plans (Superpowers workflow)
+└── specs/           Feature specs and requirements
 ```
 
 ### Key Technologies
@@ -153,9 +156,31 @@ The app supports optional integration with Directus headless CMS:
    - `useMapMarkers.js` converts data into map visualizations
    - All composables are reactive; component re-renders when underlying data changes
 
+10. **No Prettier**
+    - Code formatting is ESLint-only (`pnpm lint`); do not add or configure Prettier
+    - ESLint auto-fixes style issues on `pnpm lint`
+
+## Project Skills
+
+Skills live in `.claude/skills/soilsight/` and are available to all team members.
+
+| Skill | When to use |
+|-------|-------------|
+| `soilsight:add-chart` | Adding a new chart component to `src/components/graphs/` |
+| `soilsight:add-composable` | Adding a new composable + co-located test |
+| `soilsight:deploy-checklist` | Before running `pnpm deploy` to GitHub Pages |
+| `soilsight:chart-audit` | Auditing all chart components for consistency |
+| `soilsight:test-coverage-audit` | Finding untested composables/components |
+| `soilsight:directus-schema-sync` | Verifying composable field names match Directus schema |
+
+> **Setup:** Skills in `.claude/skills/` are picked up automatically — no symlink needed.
+
 ## Superpowers Conventions
 - Plans go in `docs/plans/` — do NOT create `docs/superpowers/plans/`
 - Specs go in `docs/specs/` — do NOT create `docs/superpowers/specs/`
+- Before implementing multi-step features, write a plan first (`superpowers:writing-plans` skill)
+- Execute plans with `superpowers:executing-plans` or `superpowers:subagent-driven-development`
+- Use `superpowers:brainstorming` before any new feature work
 
 ## Development Workflow
 
