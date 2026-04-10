@@ -1,17 +1,19 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { ref } from 'vue'
 import { useInsightCharts } from './useInsightCharts.js'
 
-const makeSite = (overrides = {}) => ({
-  fragment_count: 10, fiber_count: 5, foam_count: 2, film_count: 3, sheets_count: 1,
-  site_name: 'Alpha Farm',
-  soil_type: 'Clay',
-  land_area_ha: 0.5,
-  cultivation_practice: 'organic',
-  plastic_activity: ['Plastic Mulching'],
-  crops: ['rice', 'corn'],
-  ...overrides,
-})
+function makeSite (overrides = {}) {
+  return {
+    fragment_count: 10, fiber_count: 5, foam_count: 2, film_count: 3, sheets_count: 1,
+    site_name: 'Alpha Farm',
+    soil_type: 'Clay',
+    land_area_ha: 0.5,
+    cultivation_practice: 'organic',
+    plastic_activity: ['Plastic Mulching'],
+    crops: ['rice', 'corn'],
+    ...overrides,
+  }
+}
 
 describe('useInsightCharts', () => {
   describe('siteCategories', () => {
@@ -53,7 +55,7 @@ describe('useInsightCharts', () => {
       })
       const { biologicalRiskData } = useInsightCharts(ref([]), sizeData)
       expect(biologicalRiskData.value).toEqual([
-        { category: '< 100 µm', count: 30 },   // 10 + 20
+        { category: '< 100 µm', count: 30 }, // 10 + 20
         { category: '100-500 µm', count: 15 },
         { category: '> 1 mm', count: 8 },
       ])
@@ -121,6 +123,29 @@ describe('useInsightCharts', () => {
       const { contaminationByPracticeSeries } = useInsightCharts(sites, ref(null))
       const organicSeries = contaminationByPracticeSeries.value.find(s => s.name === 'Organic Practice')
       expect(organicSeries.data[4]).toBe(5)
+    })
+  })
+
+  describe('farmSizeCounts', () => {
+    it('excludes sites with null land_area_ha from all buckets', () => {
+      const sites = ref([
+        makeSite({ land_area_ha: null }),
+        makeSite({ land_area_ha: undefined }),
+        makeSite({ land_area_ha: 0.5 }),
+      ])
+      const { farmSizeCounts } = useInsightCharts(sites, ref(null))
+      const { small, medium, large } = farmSizeCounts.value
+      expect(small + medium + large).toBe(1) // only the 0.5ha site
+      expect(small).toBe(1)
+    })
+    it('counts small/medium/large correctly for valid areas', () => {
+      const sites = ref([
+        makeSite({ land_area_ha: 0.5 }),
+        makeSite({ land_area_ha: 2 }),
+        makeSite({ land_area_ha: 5 }),
+      ])
+      const { farmSizeCounts } = useInsightCharts(sites, ref(null))
+      expect(farmSizeCounts.value).toEqual({ small: 1, medium: 1, large: 1 })
     })
   })
 })

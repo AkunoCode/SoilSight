@@ -1,7 +1,7 @@
 import { computed } from 'vue'
-import { calculateTotalMP, sanitizeSiteName, siteHasActivity } from '@/utils/microplasticsHelper.js'
 import { getDefaultBarOptions } from '@/components/graphs/defaultBarOptions.js'
 import { CHART_COLORS } from '@/config/chartPalette.js'
+import { calculateTotalMP, sanitizeSiteName, siteHasActivity } from '@/utils/microplasticsHelper.js'
 
 const INPUT_TYPES = [
   'Fertilizer Sacks',
@@ -11,62 +11,64 @@ const INPUT_TYPES = [
   'Greenhouse Plastic Sheet',
 ]
 const PRACTICE_NAMES = ['Conventional Practice', 'Organic Practice', 'Integrated Practice']
-const PRACTICE_KEYS  = ['conventional', 'organic', 'integrated']
+const PRACTICE_KEYS = ['conventional', 'organic', 'integrated']
 
-export function useInsightCharts(sites, sizeData) {
+export function useInsightCharts (sites, sizeData) {
   const siteCategories = computed(() => sites.value.map(s => sanitizeSiteName(s.site_name)))
 
   const siteTotals = computed(() => sites.value.map(s => calculateTotalMP(s)))
 
   const siteDrilldown = computed(() => sites.value.map(s => [
     Number(s.fragment_count) || 0,
-    Number(s.fiber_count)    || 0,
-    Number(s.foam_count)     || 0,
-    Number(s.film_count)     || 0,
+    Number(s.fiber_count) || 0,
+    Number(s.foam_count) || 0,
+    Number(s.film_count) || 0,
     Number(s.sheets_count) || Number(s.sheet_count) || Number(s.sheets) || 0,
   ]))
 
   const inputTotals = computed(() =>
     INPUT_TYPES.map(type =>
-      sites.value.reduce((acc, s) => siteHasActivity(s, type) ? acc + calculateTotalMP(s) : acc, 0)
-    )
+      sites.value.reduce((acc, s) => siteHasActivity(s, type) ? acc + calculateTotalMP(s) : acc, 0),
+    ),
   )
 
   const inputDrilldown = computed(() =>
     INPUT_TYPES.map(type =>
       sites.value.reduce((acc, s) => {
-        if (!siteHasActivity(s, type)) return acc
+        if (!siteHasActivity(s, type)) {
+          return acc
+        }
         acc[0] += Number(s.fragment_count) || 0
-        acc[1] += Number(s.fiber_count)    || 0
-        acc[2] += Number(s.foam_count)     || 0
-        acc[3] += Number(s.film_count)     || 0
+        acc[1] += Number(s.fiber_count) || 0
+        acc[2] += Number(s.foam_count) || 0
+        acc[3] += Number(s.film_count) || 0
         acc[4] += (Number(s.sheets_count) || Number(s.sheet_count) || Number(s.sheets) || 0)
         return acc
-      }, [0, 0, 0, 0, 0])
-    )
+      }, [0, 0, 0, 0, 0]),
+    ),
   )
 
   const textures = computed(() =>
-    Array.from(new Set(sites.value.map(s => s.soil_type || 'Unknown')))
+    Array.from(new Set(sites.value.map(s => s.soil_type || 'Unknown'))),
   )
 
   const textureTotals = computed(() =>
     textures.value.map(t =>
-      sites.value.filter(s => (s.soil_type || '') === t).reduce((acc, s) => acc + calculateTotalMP(s), 0)
-    )
+      sites.value.filter(s => (s.soil_type || '') === t).reduce((acc, s) => acc + calculateTotalMP(s), 0),
+    ),
   )
 
   const textureDrilldown = computed(() =>
     textures.value.map(t =>
       sites.value.filter(s => (s.soil_type || '') === t).reduce((acc, s) => {
         acc[0] += Number(s.fragment_count) || 0
-        acc[1] += Number(s.fiber_count)    || 0
-        acc[2] += Number(s.foam_count)     || 0
-        acc[3] += Number(s.film_count)     || 0
+        acc[1] += Number(s.fiber_count) || 0
+        acc[2] += Number(s.foam_count) || 0
+        acc[3] += Number(s.film_count) || 0
         acc[4] += (Number(s.sheets_count) || Number(s.sheet_count) || Number(s.sheets) || 0)
         return acc
-      }, [0, 0, 0, 0, 0])
-    )
+      }, [0, 0, 0, 0, 0]),
+    ),
   )
 
   const contaminationByPracticeSeries = computed(() =>
@@ -77,18 +79,18 @@ export function useInsightCharts(sites, sizeData) {
         name,
         data: [
           filtered.reduce((a, b) => a + (Number(b.fragment_count) || 0), 0),
-          filtered.reduce((a, b) => a + (Number(b.fiber_count)    || 0), 0),
-          filtered.reduce((a, b) => a + (Number(b.foam_count)     || 0), 0),
-          filtered.reduce((a, b) => a + (Number(b.film_count)     || 0), 0),
+          filtered.reduce((a, b) => a + (Number(b.fiber_count) || 0), 0),
+          filtered.reduce((a, b) => a + (Number(b.foam_count) || 0), 0),
+          filtered.reduce((a, b) => a + (Number(b.film_count) || 0), 0),
           filtered.reduce((a, b) => a + (Number(b.sheets_count) || Number(b.sheet_count) || Number(b.sheets) || 0), 0),
         ],
       }
-    })
+    }),
   )
 
   const contaminationByPracticeOptions = computed(() => {
     const allVals = contaminationByPracticeSeries.value.flatMap(s => s.data)
-    const maxVal = allVals.length ? Math.max(...allVals) : 700
+    const maxVal = allVals.length > 0 ? Math.max(...allVals) : 700
     return getDefaultBarOptions(['Fragments', 'Fibers', 'Foam', 'Films', 'Sheets'], {
       chart: { type: 'bar' },
       legend: { position: 'bottom' },
@@ -98,23 +100,28 @@ export function useInsightCharts(sites, sizeData) {
 
   const biologicalRiskData = computed(() => {
     const sizes = sizeData?.value
-    if (!sizes?.categories?.length) return []
+    if (!sizes?.categories?.length) {
+      return []
+    }
     const findTotal = label => {
       const idx = sizes.categories.findIndex(c => (c || '').toLowerCase() === label.toLowerCase())
-      return idx >= 0 ? (sizes.totals[idx] || 0) : 0
+      return idx === -1 ? 0 : (sizes.totals[idx] || 0)
     }
     return [
-      { category: '< 100 µm',   count: findTotal('1-20 µm') + findTotal('20-100 µm') },
+      { category: '< 100 µm', count: findTotal('1-20 µm') + findTotal('20-100 µm') },
       { category: '100-500 µm', count: findTotal('100-500 µm') },
-      { category: '> 1 mm',     count: findTotal('1-5 mm') },
+      { category: '> 1 mm', count: findTotal('1-5 mm') },
     ]
   })
 
-  const farmSizeCounts = computed(() => ({
-    small:  sites.value.filter(s => s.land_area_ha < 1).length,
-    medium: sites.value.filter(s => s.land_area_ha >= 1 && s.land_area_ha <= 3).length,
-    large:  sites.value.filter(s => s.land_area_ha > 3).length,
-  }))
+  const farmSizeCounts = computed(() => {
+    const valid = sites.value.filter(s => s.land_area_ha != null && Number.isFinite(Number(s.land_area_ha)))
+    return {
+      small:  valid.filter(s => s.land_area_ha < 1).length,
+      medium: valid.filter(s => s.land_area_ha >= 1 && s.land_area_ha <= 3).length,
+      large:  valid.filter(s => s.land_area_ha > 3).length,
+    }
+  })
 
   const farmSizeSeries = computed(() => [{
     name: 'Farms',
@@ -133,12 +140,20 @@ export function useInsightCharts(sites, sizeData) {
     const counts = {}
     for (const s of sites.value) {
       let raw = s.crops
-      if (!raw) continue
-      if (typeof raw === 'string') raw = raw.split(/[;,|\n]/).map(x => x.trim())
-      if (!Array.isArray(raw)) continue
+      if (!raw) {
+        continue
+      }
+      if (typeof raw === 'string') {
+        raw = raw.split(/[;,|\n]/).map(x => x.trim())
+      }
+      if (!Array.isArray(raw)) {
+        continue
+      }
       for (const item of raw) {
         const key = String(item).toLowerCase().trim()
-        if (key) counts[key] = (counts[key] || 0) + 1
+        if (key) {
+          counts[key] = (counts[key] || 0) + 1
+        }
       }
     }
     return Object.entries(counts)
@@ -153,7 +168,7 @@ export function useInsightCharts(sites, sizeData) {
     textures, textureTotals, textureDrilldown,
     contaminationByPracticeSeries, contaminationByPracticeOptions,
     biologicalRiskData,
-    farmSizeSeries, farmSizeOptions,
+    farmSizeCounts, farmSizeSeries, farmSizeOptions,
     topCrops,
   }
 }
