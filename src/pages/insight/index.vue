@@ -1,23 +1,25 @@
 <script setup>
-  import { onMounted, watch } from 'vue'
+  import { onMounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { useInsightCharts } from '@/composables/useInsightCharts.js'
   import { useInsightData } from '@/composables/useInsightData.js'
   import { useInsightKPIs } from '@/composables/useInsightKPIs.js'
-  import useLatestSampleDate from '@/composables/useLatestSampleDate.js'
   import { MP_COLOR_MAP } from '@/config/chartPalette.js'
+  import { useMicroplasticsStore } from '@/stores/microplastics.js'
+  import { useSampleDateStore } from '@/stores/sampleDate.js'
   import { useAppStore } from '@/stores/app'
 
   const router = useRouter()
   const app = useAppStore()
-  const { displayLatestSampleDate, fetchLatestSampleDate } = useLatestSampleDate()
 
-  const {
-    sites, loading, error,
-    colorData, colorLoading,
-    sizeData, selectedSizeField,
-    loadAll, fetchSizeData,
-  } = useInsightData()
+  const sampleDateStore = useSampleDateStore()
+  const { displayLatestSampleDate } = storeToRefs(sampleDateStore)
+
+  const mpStore = useMicroplasticsStore()
+  const { colorData, sizeData, selectedSizeField } = storeToRefs(mpStore)
+  const colorLoading = computed(() => mpStore.loading)
+
+  const { sites, loading, error, loadAll } = useInsightData()
 
   const {
     microplasticTotals,
@@ -40,10 +42,9 @@
   const donutColors = { ...MP_COLOR_MAP }
   const donutLabelsMap = { fragments: 'Fragments', fibers: 'Fibers', foams: 'Foam', films: 'Films', sheets: 'Sheets' }
 
-  // microplasticData shape expected by MPDonutChart
   const microplasticData = microplasticTotals
 
-  // Aliases — template uses these original variable names; renaming would require template changes
+  // Aliases — template uses these original variable names
   const colorComparisonLoading = colorLoading
   const colorComparisonAll = colorData
   const sizeComparisonAll = sizeData
@@ -55,15 +56,11 @@
     window.print()
   }
 
-  watch(selectedSizeField, newVal => fetchSizeData(newVal))
-
   onMounted(async () => {
     try {
       app.startLoading()
       await loadAll()
-      try {
-        await fetchLatestSampleDate()
-      } catch { /* non-critical */ }
+      sampleDateStore.fetch() // fire-and-forget — non-critical, store guards duplicates
     } finally {
       try {
         app.finishLoading()
