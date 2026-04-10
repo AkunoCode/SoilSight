@@ -50,12 +50,11 @@
               hide-details
               :items="categories"
               placeholder="Select farming practice category"
-              style="min-width: 300px;"
               variant="outlined"
             />
           </div>
 
-          <div class="control-surface" style="margin-left: 12px;">
+          <div class="control-surface">
             <v-text-field
               v-model="searchText"
               append-inner-icon="mdi-magnify"
@@ -63,7 +62,6 @@
               dense
               hide-details
               placeholder="Search here"
-              style="min-width: 360px;"
               variant="outlined"
             />
           </div>
@@ -311,21 +309,24 @@
   z-index: 1100;
   display: flex;
   align-items: center;
+  gap: 10px;
   pointer-events: auto;
-  /* allow interaction */
-  /* background: rgba(255, 255, 255, 0.85); */
-  /* padding: 6px 10px; */
-  /* border-radius: 8px; */
-  /* box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); */
 }
 
 .control-surface {
   background: white;
   border-radius: 8px;
-  /* padding: 4px 6px; */
-  display: inline-flex;
+  display: flex;
   align-items: center;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.193);
+}
+
+.control-surface:first-child {
+  min-width: 210px;
+}
+
+.control-surface:last-child {
+  min-width: 230px;
 }
 
 .top-controls .v-text-field .v-input__slot,
