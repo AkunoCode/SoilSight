@@ -71,4 +71,42 @@ describe('useInsightCharts', () => {
       expect(topCrops.value[0].count).toBe(2)
     })
   })
+
+  describe('siteDrilldown', () => {
+    it('picks up sheets_count', () => {
+      const sites = ref([makeSite({ sheets_count: 7, sheet_count: undefined, sheets: undefined })])
+      const { siteDrilldown } = useInsightCharts(sites, ref(null))
+      expect(siteDrilldown.value[0][4]).toBe(7)
+    })
+    it('falls back to sheet_count when sheets_count is absent', () => {
+      const sites = ref([makeSite({ sheets_count: undefined, sheet_count: 4, sheets: undefined })])
+      const { siteDrilldown } = useInsightCharts(sites, ref(null))
+      expect(siteDrilldown.value[0][4]).toBe(4)
+    })
+    it('falls back to sheets when both count fields are absent', () => {
+      const sites = ref([makeSite({ sheets_count: undefined, sheet_count: undefined, sheets: 3 })])
+      const { siteDrilldown } = useInsightCharts(sites, ref(null))
+      expect(siteDrilldown.value[0][4]).toBe(3)
+    })
+  })
+
+  describe('textureDrilldown', () => {
+    it('handles sheet_count variant for sheets column', () => {
+      const sites = ref([makeSite({ soil_type: 'Clay', sheets_count: undefined, sheet_count: 9 })])
+      const { textureDrilldown } = useInsightCharts(sites, ref(null))
+      expect(textureDrilldown.value[0][4]).toBe(9)
+    })
+  })
+
+  describe('contaminationByPracticeSeries', () => {
+    it('handles sheets variant in sheets column', () => {
+      const sites = ref([makeSite({
+        cultivation_practice: 'organic',
+        sheets_count: undefined, sheet_count: undefined, sheets: 5,
+      })])
+      const { contaminationByPracticeSeries } = useInsightCharts(sites, ref(null))
+      const organicSeries = contaminationByPracticeSeries.value.find(s => s.name === 'Organic Practice')
+      expect(organicSeries.data[4]).toBe(5)
+    })
+  })
 })

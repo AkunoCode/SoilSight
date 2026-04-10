@@ -23,7 +23,7 @@ export function useInsightCharts(sites, sizeData) {
     Number(s.fiber_count)    || 0,
     Number(s.foam_count)     || 0,
     Number(s.film_count)     || 0,
-    Number(s.sheets_count)   || 0,
+    Number(s.sheets_count) || Number(s.sheet_count) || Number(s.sheets) || 0,
   ]))
 
   const inputTotals = computed(() =>
@@ -63,7 +63,7 @@ export function useInsightCharts(sites, sizeData) {
         acc[1] += Number(s.fiber_count)    || 0
         acc[2] += Number(s.foam_count)     || 0
         acc[3] += Number(s.film_count)     || 0
-        acc[4] += Number(s.sheets_count)   || 0
+        acc[4] += (Number(s.sheets_count) || Number(s.sheet_count) || Number(s.sheets) || 0)
         return acc
       }, [0, 0, 0, 0, 0])
     )
@@ -80,7 +80,7 @@ export function useInsightCharts(sites, sizeData) {
           filtered.reduce((a, b) => a + (Number(b.fiber_count)    || 0), 0),
           filtered.reduce((a, b) => a + (Number(b.foam_count)     || 0), 0),
           filtered.reduce((a, b) => a + (Number(b.film_count)     || 0), 0),
-          filtered.reduce((a, b) => a + (Number(b.sheets_count)   || 0), 0),
+          filtered.reduce((a, b) => a + (Number(b.sheets_count) || Number(b.sheet_count) || Number(b.sheets) || 0), 0),
         ],
       }
     })
