@@ -123,9 +123,11 @@ onMounted(async () => {
       </VCol>
       <VCol cols="6">
         <div class="card list-card map-card">
-          <h3 class="mb-2">Contamination Density by Farm Practice</h3>
-          <VSkeletonLoader v-if="loading" type="list-item-two-line" />
-          <SampledFarms v-else :sampled-sites="sites" />
+          <VSkeletonLoader v-if="loading" type="heading, list-item-two-line" />
+          <template v-else>
+            <h3 class="mb-2">Contamination Density by Farm Practice</h3>
+            <SampledFarms :sampled-sites="sites" />
+          </template>
         </div>
       </VCol>
     </VRow>
