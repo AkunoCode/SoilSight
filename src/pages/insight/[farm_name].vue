@@ -391,6 +391,9 @@ const colorComparison = computed(() => {
 watch(farmParam, async () => {
   farmNotFound.value = false
   farm.value = await fetchFarmFromDirectus(farmParam.value)
+  if (!farm.value) {
+    farmNotFound.value = true
+  }
 }, { immediate: true })
 
 watch(farm, async newFarm => {
@@ -409,7 +412,6 @@ watch(farm, async newFarm => {
       app.finishLoading()
     }
   } else {
-    farmNotFound.value = true
     latestSampleDate.value = null
     colorComparisonFetched.value = null
     sizeComparisonData.value = null
